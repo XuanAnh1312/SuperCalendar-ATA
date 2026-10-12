@@ -1,38 +1,61 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:flutter_application/app/theme/app_colors.dart';
 import 'package:flutter_application/app/theme/app_text.dart';
+import 'package:flutter_application/core/data/repository.dart';
 import 'package:flutter_application/core/services/app_state.dart';
-import 'package:flutter_application/features/calendar/domain/event.dart';
-import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
+import 'package:flutter_application/core/widgets/app_widgets.dart';
+import 'package:flutter_application/features/calendar/domain/event.dart';
 
+/// Creates an event, or edits [event] when one is given.
 class EventFormScreen extends StatefulWidget {
-  const EventFormScreen({super.key, required this.initialDate});
+  const EventFormScreen({super.key, this.initialDate, this.event});
 
-  final DateTime initialDate;
+  /// Day preselected for a new event.
+  final DateTime? initialDate;
+
+  /// Event being edited; null to create one.
+  final CalendarEvent? event;
 
   @override
   State<EventFormScreen> createState() => _EventFormScreenState();
 }
 
 class _EventFormScreenState extends State<EventFormScreen> {
-  final _title = TextEditingController(text: 'Design review');
-  final _location = TextEditingController(text: 'Studio 4 · 2nd floor');
-  final _notes = TextEditingController(
-    text: 'Review final flows with the product team. Bring tablet and printed specs.',
-  );
+  late final _title = TextEditingController(text: widget.event?.title);
+  late final _location = TextEditingController(text: widget.event?.location);
+  late final _notes = TextEditingController(text: widget.event?.description);
 
-  late DateTime _date = widget.initialDate;
-  int _start = 14 * 60;
-  int _end = 15 * 60;
-  int _color = 1;
-  String _category = 'Work';
-  String _reminder = '15 min before';
-  String _repeat = 'Every Monday';
-  String _calendar = 'Personal';
-  final List<String> _guests = ['AL', 'MK'];
+  DateTime? _date;
+  late int _start = widget.event?.startMinutes ?? 14 * 60;
+  late int _end = widget.event?.endMinutes ?? 15 * 60;
+  late int _color = widget.event?.colorIndex ?? 0;
+  late String _category = widget.event?.category ?? 'Work';
+  int? _reminder;
+  late String _repeat = widget.event?.repeat ?? 'Never';
+  String? _calendar;
+  late final List<String> _guests = [...?widget.event?.guests];
+  bool _initialized = false;
+
+  bool get _editing => widget.event != null;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
+    final app = AppScope.read(context);
+    final event = widget.event;
+    _date = event?.date ?? widget.initialDate ?? app.today;
+    _reminder = event == null
+        ? app.settings.defaultReminderMinutes
+        : event.reminderMinutes;
+    _calendar = event?.calendar ?? app.settings.defaultCalendar;
+  }
 
   @override
   void dispose() {
@@ -47,21 +70,35 @@ class _EventFormScreenState extends State<EventFormScreen> {
       context: context,
       initialDate: _date,
       firstDate: DateTime(2020),
-      lastDate: DateTime(2035),
+      lastDate: DateTime(2035, 12, 31),
     );
     if (picked != null) setState(() => _date = picked);
   }
 
   Future<void> _pickTime() async {
-    final picked = await showTimePicker(
+    final start = await showTimePicker(
       context: context,
+      helpText: 'Start time',
       initialTime: TimeOfDay(hour: _start ~/ 60, minute: _start % 60),
     );
-    if (picked == null) return;
+    if (start == null || !mounted) return;
+    final duration = _end - _start;
+    final newStart = start.hour * 60 + start.minute;
+    final suggestedEnd = (newStart + duration).clamp(newStart + 5, 24 * 60 - 1);
+    final end = await showTimePicker(
+      context: context,
+      helpText: 'End time',
+      initialTime: TimeOfDay(
+        hour: suggestedEnd ~/ 60,
+        minute: suggestedEnd % 60,
+      ),
+    );
+    if (!mounted) return;
     setState(() {
-      final duration = _end - _start;
-      _start = picked.hour * 60 + picked.minute;
-      _end = (_start + duration).clamp(0, 24 * 60 - 1);
+      _start = newStart;
+      final picked = end == null ? suggestedEnd : end.hour * 60 + end.minute;
+      // An end before the start would make a negative-length event.
+      _end = picked > newStart ? picked : suggestedEnd;
     });
   }
 
@@ -78,6 +115,11 @@ class _EventFormScreenState extends State<EventFormScreen> {
       current: current,
     );
     if (picked != null) setState(() => onPicked(picked));
+  }
+
+  Future<void> _chooseReminder() async {
+    final picked = await pickReminder(context, _reminder);
+    if (picked != null) setState(() => _reminder = picked < 0 ? null : picked);
   }
 
   Future<void> _addGuest() async {
@@ -101,54 +143,75 @@ class _EventFormScreenState extends State<EventFormScreen> {
       return;
     }
     final app = AppScope.read(context);
-    app.addEvent(
-      CalendarEvent(
-        id: app.newEventId(),
-        title: title,
-        date: DateTime(_date.year, _date.month, _date.day),
-        startMinutes: _start,
-        endMinutes: _end,
-        color: AppColors.accentSurfaces[_color],
-        accent: AppColors.accents[_color],
-        location: _location.text.trim(),
-        category: _category,
-      ),
+    final date = _date!;
+    final start = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      _start ~/ 60,
+      _start % 60,
     );
+    final end = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      _end ~/ 60,
+      _end % 60,
+    );
+    final existing = widget.event;
+    if (existing == null) {
+      app.events.add(
+        CalendarEvent(
+          id: newId('event'),
+          title: title,
+          description: _notes.text.trim(),
+          startTime: start,
+          endTime: end,
+          location: _location.text.trim(),
+          reminderMinutes: _reminder,
+          colorIndex: _color,
+          category: _category,
+          repeat: _repeat,
+          calendar: _calendar!,
+          guests: _guests,
+        ),
+      );
+    } else {
+      existing
+        ..title = title
+        ..description = _notes.text.trim()
+        ..startTime = start
+        ..endTime = end
+        ..location = _location.text.trim()
+        ..reminderMinutes = _reminder
+        ..colorIndex = _color
+        ..category = _category
+        ..repeat = _repeat
+        ..calendar = _calendar!
+        ..guests = [..._guests];
+      app.events.save(existing);
+    }
+    app.selectDay(date);
+    if (_reminder != null) unawaited(app.ensureRemindersCanFire());
     Navigator.of(context).pop();
-    showAppSnack(context, 'Event "$title" created');
+    showAppSnack(
+      context,
+      existing == null ? 'Event "$title" created' : 'Event updated',
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final time =
-        '${CalendarEvent.formatMinutes(_start)}–${CalendarEvent.formatMinutes(_end)}';
+    final app = AppScope.of(context);
     return Scaffold(
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
           children: [
-            Row(
-              children: [
-                RoundIconButton(
-                  icon: LucideIcons.x,
-                  onTap: () => Navigator.of(context).pop(),
-                ),
-                Expanded(
-                  child: Center(child: Text('New event', style: AppText.s(18))),
-                ),
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _save,
-                  child: Text(
-                    'Save',
-                    style: AppText.s(
-                      13,
-                      weight: FontWeight.w700,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-              ],
+            TopBar(
+              title: _editing ? 'Edit event' : 'New event',
+              close: true,
+              trailing: TopBarAction(label: 'Save', onTap: _save),
             ),
             const SizedBox(height: 12),
             AppCard(
@@ -165,12 +228,15 @@ class _EventFormScreenState extends State<EventFormScreen> {
                   ),
                   TextField(
                     controller: _title,
+                    autofocus: !_editing,
                     style: AppText.s(18),
-                    decoration: const InputDecoration(
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: InputDecoration(
                       isDense: true,
                       border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(vertical: 8),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
                       hintText: 'Add title',
+                      hintStyle: AppText.s(18, color: AppColors.faint),
                     ),
                   ),
                 ],
@@ -183,7 +249,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
                   child: FieldTile(
                     icon: LucideIcons.calendar,
                     label: 'Date',
-                    value: shortDate(_date),
+                    value: shortDate(_date!),
                     onTap: _pickDate,
                   ),
                 ),
@@ -191,7 +257,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
                   child: FieldTile(
                     icon: LucideIcons.clock3,
                     label: 'Time',
-                    value: time,
+                    value: '${formatMinutes(_start)}–${formatMinutes(_end)}',
                     onTap: _pickTime,
                   ),
                 ),
@@ -202,7 +268,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
                 AppCard(
                   shadow: false,
                   borderColor: Colors.transparent,
-                  padding: const EdgeInsets.fromLTRB(13, 11, 30, 11),
+                  padding: const EdgeInsets.fromLTRB(13, 11, 16, 11),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -232,7 +298,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
                 ),
               ],
             ),
-            _InlineField(
+            InlineField(
               icon: LucideIcons.mapPin,
               label: 'Location',
               controller: _location,
@@ -244,19 +310,8 @@ class _EventFormScreenState extends State<EventFormScreen> {
                   child: FieldTile(
                     icon: LucideIcons.bell,
                     label: 'Reminder',
-                    value: _reminder,
-                    onTap: () => _choose(
-                      'Reminder',
-                      const [
-                        'None',
-                        '5 min before',
-                        '15 min before',
-                        '30 min before',
-                        '1 hour before',
-                      ],
-                      _reminder,
-                      (v) => _reminder = v,
-                    ),
+                    value: formatReminder(_reminder),
+                    onTap: _chooseReminder,
                   ),
                 ),
                 Expanded(
@@ -266,7 +321,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
                     value: _repeat,
                     onTap: () => _choose(
                       'Repeat',
-                      const ['Never', 'Every day', 'Weekdays', 'Every Monday'],
+                      const ['Never', 'Every day', 'Weekdays', 'Every week'],
                       _repeat,
                       (v) => _repeat = v,
                     ),
@@ -274,11 +329,11 @@ class _EventFormScreenState extends State<EventFormScreen> {
                 ),
               ],
             ),
-            _InlineField(
+            InlineField(
               icon: LucideIcons.notebookPen,
               label: 'Notes',
               controller: _notes,
-              hint: 'Add notes',
+              hint: 'Add a description',
               multiline: true,
             ),
             const SizedBox(height: 8),
@@ -287,48 +342,32 @@ class _EventFormScreenState extends State<EventFormScreen> {
                 for (var i = 0; i < _guests.length; i++)
                   Padding(
                     padding: const EdgeInsets.only(right: 6),
-                    child: CircleAvatar(
-                      radius: 14,
-                      backgroundColor: i.isEven
-                          ? AppColors.pink
-                          : AppColors.blue,
-                      child: Text(
-                        _guests[i],
-                        style: AppText.s(9.5, weight: FontWeight.w700),
+                    child: GestureDetector(
+                      onLongPress: () => setState(() => _guests.removeAt(i)),
+                      child: CircleAvatar(
+                        radius: 14,
+                        backgroundColor: i.isEven
+                            ? AppColors.pink
+                            : AppColors.blue,
+                        child: Text(
+                          _guests[i],
+                          style: AppText.s(9.5, weight: FontWeight.w700),
+                        ),
                       ),
                     ),
                   ),
                 Expanded(
                   child: Text(
-                    '${_guests.length} guests',
+                    _guests.isEmpty
+                        ? 'No guests'
+                        : '${_guests.length} guest${_guests.length == 1 ? '' : 's'}',
                     style: AppText.s(11, color: AppColors.muted),
                   ),
                 ),
-                GestureDetector(
+                SoftPill(
+                  label: 'Add guests',
+                  icon: LucideIcons.userPlus,
                   onTap: _addGuest,
-                  child: Container(
-                    height: 22,
-                    padding: const EdgeInsets.symmetric(horizontal: 9),
-                    decoration: BoxDecoration(
-                      color: AppColors.primarySoft,
-                      borderRadius: BorderRadius.circular(11),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          LucideIcons.userPlus,
-                          size: 12,
-                          color: AppColors.primary,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          'Add guests',
-                          style: AppText.s(10, color: AppColors.primary),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
               ],
             ),
@@ -340,7 +379,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
               onTap: () => _choose(
                 'Calendar',
                 const ['Personal', 'Work', 'Family'],
-                _calendar,
+                _calendar!,
                 (v) => _calendar = v,
               ),
               child: Row(
@@ -348,19 +387,19 @@ class _EventFormScreenState extends State<EventFormScreen> {
                   Container(
                     width: 10,
                     height: 10,
-                    decoration: const BoxDecoration(
-                      color: AppColors.primary,
+                    decoration: BoxDecoration(
+                      color: AppColors.accent(_color),
                       shape: BoxShape.circle,
                     ),
                   ),
                   const SizedBox(width: 9),
                   Expanded(
                     child: Text(
-                      '${AppScope.of(context).userName} · $_calendar',
+                      '${app.user.firstName} · $_calendar',
                       style: AppText.s(12),
                     ),
                   ),
-                  const Icon(
+                  Icon(
                     LucideIcons.chevronRight,
                     size: 14,
                     color: AppColors.faint,
@@ -370,65 +409,12 @@ class _EventFormScreenState extends State<EventFormScreen> {
             ),
             const SizedBox(height: 12),
             PrimaryButton(
-              label: 'Create event',
-              icon: LucideIcons.calendarPlus,
+              label: _editing ? 'Save changes' : 'Create event',
+              icon: _editing ? LucideIcons.check : LucideIcons.calendarPlus,
               onTap: _save,
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Field with an icon and label whose value is edited in place.
-class _InlineField extends StatelessWidget {
-  const _InlineField({
-    required this.icon,
-    required this.label,
-    required this.controller,
-    required this.hint,
-    this.multiline = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final TextEditingController controller;
-  final String hint;
-  final bool multiline;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      child: Row(
-        crossAxisAlignment: multiline
-            ? CrossAxisAlignment.start
-            : CrossAxisAlignment.center,
-        children: [
-          Icon(icon, size: 16, color: AppColors.muted),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label.toUpperCase(), style: AppText.label()),
-                TextField(
-                  controller: controller,
-                  maxLines: multiline ? null : 1,
-                  style: AppText.s(13, height: 1.4),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.only(top: 3),
-                    hintText: hint,
-                    hintStyle: AppText.s(13, color: AppColors.faint),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

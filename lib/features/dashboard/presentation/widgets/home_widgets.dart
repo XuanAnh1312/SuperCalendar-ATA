@@ -4,8 +4,9 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_application/app/theme/app_colors.dart';
 import 'package:flutter_application/app/theme/app_text.dart';
 import 'package:flutter_application/core/services/app_state.dart';
-import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
+import 'package:flutter_application/core/widgets/app_widgets.dart';
+import 'package:flutter_application/features/dashboard/domain/screen_layout.dart';
 
 /// Labels `M 5 … S 11` for the week containing [today].
 List<String> weekLabels(DateTime today) {
@@ -29,7 +30,7 @@ String weekRangeLabel(DateTime today, {bool longMonth = false}) {
   return '$month ${monday.day}–$end';
 }
 
-const weekDotColors = [
+List<Color> get weekDotColors => [
   AppColors.pink,
   AppColors.blue,
   AppColors.green,
@@ -39,6 +40,93 @@ const weekDotColors = [
   AppColors.border,
 ];
 
+/// Callbacks of the dashboard widgets; all optional so the same widgets can
+/// be shown as a non-interactive preview.
+class HomeWidgetActions {
+  const HomeWidgetActions({
+    this.onEditTodo,
+    this.onEditHabits,
+    this.onOpenWeek,
+    this.onEditNote,
+    this.onSaveSnapshot,
+  });
+
+  final VoidCallback? onEditTodo;
+  final VoidCallback? onEditHabits;
+  final VoidCallback? onOpenWeek;
+  final VoidCallback? onEditNote;
+  final VoidCallback? onSaveSnapshot;
+}
+
+/// Builds the dashboard widget for a layout [type].
+Widget buildHomeWidget(
+  String type, {
+  HomeWidgetActions actions = const HomeWidgetActions(),
+}) {
+  return switch (type) {
+    WidgetType.todo => TodoWidget(onEdit: actions.onEditTodo),
+    WidgetType.habits => HabitsWidget(onEdit: actions.onEditHabits),
+    WidgetType.week => WeekWidget(onOpen: actions.onOpenWeek),
+    WidgetType.goals => const GoalsWidget(),
+    WidgetType.quickNote => QuickNoteWidget(onEdit: actions.onEditNote),
+    WidgetType.snapshot => MonthSnapshotWidget(onSave: actions.onSaveSnapshot),
+    _ => const SizedBox.shrink(),
+  };
+}
+
+/// The dashboard widgets arranged according to a [ScreenLayout]: wide items
+/// take a full row, the others pair up two per row.
+class HomeWidgetGrid extends StatelessWidget {
+  const HomeWidgetGrid({
+    super.key,
+    required this.layout,
+    this.actions = const HomeWidgetActions(),
+  });
+
+  final ScreenLayout layout;
+  final HomeWidgetActions actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = layout.visibleItems;
+    final rows = <Widget>[];
+    for (var i = 0; i < items.length; i++) {
+      final item = items[i];
+      if (rows.isNotEmpty) rows.add(const SizedBox(height: 12));
+      if (item.wide) {
+        rows.add(buildHomeWidget(item.type, actions: actions));
+        continue;
+      }
+      final next = i + 1 < items.length && !items[i + 1].wide
+          ? items[i + 1]
+          : null;
+      rows.add(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: buildHomeWidget(item.type, actions: actions)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: next == null
+                  ? const SizedBox.shrink()
+                  : buildHomeWidget(next.type, actions: actions),
+            ),
+          ],
+        ),
+      );
+      if (next != null) i++;
+    }
+    if (rows.isEmpty) {
+      return const EmptyState(
+        icon: LucideIcons.layoutGrid,
+        message:
+            'No widgets on this screen yet.\nAdd some in Edit Your Screen.',
+      );
+    }
+    return Column(mainAxisSize: MainAxisSize.min, children: rows);
+  }
+}
+
 class TodoWidget extends StatelessWidget {
   const TodoWidget({super.key, this.onEdit});
 
@@ -47,24 +135,34 @@ class TodoWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
+    final tasks = app.tasks.dashboard(app.today);
     return AppCard(
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CardHeader(title: 'To-do', action: 'Edit', onAction: onEdit),
-          for (final task in app.dashboardTasks)
+          if (tasks.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 9),
+              child: Text(
+                'Nothing to do today',
+                style: AppText.s(11, color: AppColors.muted),
+              ),
+            ),
+          for (final task in tasks)
             Padding(
               padding: const EdgeInsets.only(top: 9),
               child: Row(
                 children: [
                   AppCheckbox(
                     value: task.completed,
-                    onChanged: (_) => app.toggleTask(task),
+                    onChanged: (_) => app.tasks.toggle(task),
                   ),
-                  const SizedBox(width: 9),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      task.shortTitle,
+                      task.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppText.s(
@@ -78,9 +176,11 @@ class TodoWidget extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4),
                   Text(
-                    task.completed ? 'done' : task.due.toLowerCase(),
+                    task.completed
+                        ? 'done'
+                        : task.dueLabel(app.today).toLowerCase(),
                     style: AppText.s(10, color: AppColors.muted),
                   ),
                 ],
@@ -100,34 +200,46 @@ class HabitsWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
+    final habits = app.habits.occurrences(app.today);
     return AppCard(
       color: AppColors.green,
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CardHeader(title: 'Habits', action: 'Edit', onAction: onEdit),
-          for (final habit in app.habits)
+          if (habits.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 9),
+              child: Text(
+                'All done for today',
+                style: AppText.s(11, color: AppColors.muted),
+              ),
+            ),
+          for (final habit in habits)
             Padding(
               padding: const EdgeInsets.only(top: 9),
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: () => app.toggleHabit(habit),
+                onTap: () => app.habits.toggle(habit, app.today),
                 child: Row(
                   children: [
                     Container(
                       width: 24,
                       height: 24,
                       decoration: BoxDecoration(
-                        color: habit.done
+                        color: habit.isDone(app.today)
                             ? AppColors.greenStrong
                             : AppColors.surface,
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        habit.done ? LucideIcons.check : habit.icon,
+                        habit.isDone(app.today)
+                            ? LucideIcons.check
+                            : habitIcon(habit.icon),
                         size: 12,
-                        color: habit.done
-                            ? Colors.white
+                        color: habit.isDone(app.today)
+                            ? AppColors.onPrimary
                             : AppColors.greenStrong,
                       ),
                     ),
@@ -225,12 +337,13 @@ class QuickNoteWidget extends StatelessWidget {
 
   final VoidCallback? onEdit;
 
-  /// Hides the note text (used by the layout editor preview).
+  /// Hides the note text (used by the layout editor tray).
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
+    final text = app.notes.quickText;
     return AppCard(
       color: AppColors.yellow,
       onTap: onEdit,
@@ -246,7 +359,7 @@ class QuickNoteWidget extends StatelessWidget {
           if (!compact) ...[
             const SizedBox(height: 7),
             Text(
-              app.quickNote.isEmpty ? 'Tap to write a note' : app.quickNote,
+              text.isEmpty ? 'Tap to write a note' : text,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: AppText.s(11, height: 1.35),
@@ -285,13 +398,18 @@ class MonthSnapshotWidget extends StatelessWidget {
             children: [
               for (var i = 0; i < 14; i++)
                 Expanded(
-                  child: _snapshotDay(app, first.add(Duration(days: i))),
+                  child: _snapshotDay(
+                    app,
+                    DateTime(first.year, first.month, first.day + i),
+                  ),
                 ),
             ],
           ),
           const SizedBox(height: 9),
           Text(
             'Display-only · tap snapshot to share your month',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: AppText.s(9, color: AppColors.muted),
           ),
         ],
@@ -301,12 +419,12 @@ class MonthSnapshotWidget extends StatelessWidget {
 
   Widget _snapshotDay(AppState app, DateTime day) {
     final isToday = sameDay(day, app.today);
-    final events = app.eventsOn(day);
-    Color dot = Colors.transparent;
+    final events = app.events.on(day);
+    var dot = Colors.transparent;
     if (events.isNotEmpty) {
-      dot = events.first.accent == AppColors.primary
-          ? AppColors.primary
-          : AppColors.greenStrong;
+      dot = events.first.colorIndex == 2
+          ? AppColors.greenStrong
+          : AppColors.primary;
     }
     return Column(
       mainAxisSize: MainAxisSize.min,

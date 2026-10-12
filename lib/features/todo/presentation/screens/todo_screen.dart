@@ -5,10 +5,10 @@ import 'package:flutter_application/app/routes/app_routes.dart';
 import 'package:flutter_application/app/theme/app_colors.dart';
 import 'package:flutter_application/app/theme/app_text.dart';
 import 'package:flutter_application/core/services/app_state.dart';
-import 'package:flutter_application/features/todo/domain/task.dart';
-import 'package:flutter_application/core/widgets/app_widgets.dart';
-import 'package:flutter_application/features/todo/presentation/screens/task_detail_screen.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
+import 'package:flutter_application/core/widgets/app_widgets.dart';
+import 'package:flutter_application/features/todo/domain/task.dart';
+import 'package:flutter_application/features/todo/presentation/screens/task_detail_screen.dart';
 
 class TodoScreen extends StatefulWidget {
   const TodoScreen({super.key});
@@ -37,19 +37,20 @@ class _TodoScreenState extends State<TodoScreen> {
       _inputFocus.requestFocus();
       return;
     }
-    app.addTask(_input.text);
+    app.tasks.add(_input.text, dueDate: app.today);
     _input.clear();
   }
 
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
-    final today = app.tasks.where((t) => t.isToday).toList();
-    final upcoming = app.tasks.where((t) => !t.isToday).toList();
+    final all = app.tasks.items;
+    final today = app.tasks.dueOn(app.today);
+    final upcoming = app.tasks.notDueOn(app.today);
     var visible = switch (_filter) {
       1 => today,
       2 => upcoming,
-      _ => app.tasks,
+      _ => all,
     };
     if (_hideCompleted) {
       visible = visible.where((t) => !t.completed).toList();
@@ -67,7 +68,7 @@ class _TodoScreenState extends State<TodoScreen> {
             PageHeader(
               title: 'TO-DO LIST',
               subtitle:
-                  '${longDate(app.today)} · ${app.remainingTasks} remaining',
+                  '${longDate(app.today)} · ${app.tasks.remaining} remaining',
               trailing: RoundIconButton(
                 icon: LucideIcons.listFilter,
                 iconColor: _hideCompleted ? AppColors.primary : AppColors.text,
@@ -85,7 +86,7 @@ class _TodoScreenState extends State<TodoScreen> {
             const SizedBox(height: 10),
             FilterPillRow(
               labels: [
-                'All ${app.tasks.length}',
+                'All ${all.length}',
                 'Today ${today.length}',
                 'Upcoming',
               ],
@@ -114,6 +115,7 @@ class _TodoScreenState extends State<TodoScreen> {
                       focusNode: _inputFocus,
                       style: AppText.s(13),
                       textInputAction: TextInputAction.done,
+                      textCapitalization: TextCapitalization.sentences,
                       onSubmitted: (_) => _submit(app),
                       decoration: InputDecoration(
                         border: InputBorder.none,
@@ -131,21 +133,16 @@ class _TodoScreenState extends State<TodoScreen> {
               borderColor: Colors.transparent,
               shadow: false,
               child: visible.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 28),
-                      child: Center(
-                        child: Text(
-                          'Nothing here yet',
-                          style: AppText.s(11, color: AppColors.muted),
-                        ),
-                      ),
+                  ? const EmptyState(
+                      icon: LucideIcons.circleCheckBig,
+                      message: 'Nothing here yet',
                     )
                   : canReorder
                   ? ReorderableListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: visible.length,
-                      onReorderItem: app.reorderTasks,
+                      onReorderItem: app.tasks.reorder,
                       proxyDecorator: (child, _, _) => Material(
                         color: AppColors.surface,
                         elevation: 4,
@@ -178,14 +175,14 @@ class _TodoScreenState extends State<TodoScreen> {
     return Container(
       key: ValueKey(task.id),
       padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
       child: Row(
         children: [
           AppCheckbox(
             value: task.completed,
-            onChanged: (_) => app.toggleTask(task),
+            onChanged: (_) => app.tasks.toggle(task),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -212,14 +209,18 @@ class _TodoScreenState extends State<TodoScreen> {
                       width: 12,
                       height: 3,
                       decoration: BoxDecoration(
-                        color: task.tagColor,
+                        color: AppColors.accentSurface(task.colorIndex),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      task.subtitle,
-                      style: AppText.s(9.5, color: AppColors.muted),
+                    Flexible(
+                      child: Text(
+                        task.subtitle(app.today),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.s(9.5, color: AppColors.muted),
+                      ),
                     ),
                   ],
                 ),

@@ -6,21 +6,17 @@ import 'package:flutter_application/app/theme/app_colors.dart';
 import 'package:flutter_application/app/theme/app_text.dart';
 import 'package:flutter_application/core/services/app_state.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
-import 'package:flutter_application/features/lock_screen/presentation/screens/lock_screen.dart';
-import 'package:flutter_application/features/note/presentation/screens/quick_note_notification_screen.dart';
+import 'package:flutter_application/features/settings_screen/presentation/screens/appearance_screen.dart';
+import 'package:flutter_application/features/settings_screen/presentation/screens/calendar_settings_screen.dart';
+import 'package:flutter_application/features/settings_screen/presentation/screens/edit_screen.dart';
+import 'package:flutter_application/features/settings_screen/presentation/screens/notification_settings_screen.dart';
+import 'package:flutter_application/features/vip/presentation/screens/template_store_screen.dart';
 
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
-  @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends State<SettingsScreen> {
-  String _language = 'English';
-  String _dateTime = 'Automatic';
-
   Future<void> _choose(
+    BuildContext context,
     String title,
     List<String> options,
     String current,
@@ -32,88 +28,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
       options: options,
       current: current,
     );
-    if (picked != null) setState(() => onPicked(picked));
+    if (picked != null) onPicked(picked);
+  }
+
+  Future<void> _rename(BuildContext context) async {
+    final app = AppScope.read(context);
+    final name = await promptText(
+      context,
+      title: 'Your name',
+      initial: app.user.name,
+      hint: 'Name',
+    );
+    if (name != null) app.account.rename(name);
   }
 
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
-    final rows = [
-      _SettingsRow(
-        icon: LucideIcons.circleUserRound,
-        color: AppColors.purple,
-        title: 'Account',
-        value: app.userFullName,
-        onTap: () => showAppSnack(context, 'Signed in as ${app.userFullName}'),
-      ),
-      _SettingsRow(
-        icon: LucideIcons.sun,
-        color: AppColors.yellow,
-        title: 'Appearance',
-        value: 'Light',
-        onTap: () => goToTab(context, AppTab.vip),
-      ),
-      _SettingsRow(
-        icon: LucideIcons.languages,
-        color: AppColors.blue,
-        title: 'Language',
-        value: _language,
-        onTap: () => _choose(
-          'Language',
-          const ['English', 'Tiếng Việt'],
-          _language,
-          (v) => _language = v,
-        ),
-      ),
-      _SettingsRow(
-        icon: LucideIcons.clock3,
-        color: AppColors.green,
-        title: 'Date & Time',
-        value: _dateTime,
-        onTap: () => _choose(
-          'Date & Time',
-          const ['Automatic', '24-hour', '12-hour'],
-          _dateTime,
-          (v) => _dateTime = v,
-        ),
-      ),
-      _SettingsRow(
-        icon: LucideIcons.bell,
-        color: AppColors.purple,
-        title: 'Notifications',
-        value: 'On',
-        onTap: () =>
-            pushFullScreen(context, const QuickNoteNotificationScreen()),
-      ),
-      _SettingsRow(
-        icon: LucideIcons.calendarDays,
-        color: AppColors.pink,
-        title: 'Calendar',
-        value: 'Edit',
-        onTap: () => goToTab(context, AppTab.calendar),
-      ),
-      _SettingsRow(
-        icon: LucideIcons.lockKeyhole,
-        color: AppColors.blue,
-        title: 'Mobile Screen',
-        value: 'Edit',
-        onTap: () => pushFullScreen(context, const LockScreen()),
-      ),
-      _SettingsRow(
-        icon: LucideIcons.circleQuestionMark,
-        color: AppColors.green,
-        title: 'Help',
-        onTap: () =>
-            showAppSnack(context, 'Help center comes in a later phase'),
-      ),
-      _SettingsRow(
-        icon: LucideIcons.info,
-        color: AppColors.yellow,
-        title: 'App Version',
-        value: '1.0.0',
-        onTap: () => showAppSnack(context, 'SuperCalendar 1.0.0 · Prototype'),
-      ),
-    ];
+    final settings = app.settings;
+    final owned = app.templates
+        .ownedBy(app.user.id)
+        .where((t) => t.price > 0 || t.creatorId == app.user.id)
+        .length;
 
     return Scaffold(
       body: SafeArea(
@@ -127,7 +63,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               trailing: CircleAvatar(
                 radius: 21,
                 backgroundColor: AppColors.pink,
-                child: Text('MC', style: AppText.s(13)),
+                child: Text(app.user.initials, style: AppText.s(13)),
               ),
             ),
             const SizedBox(height: 12),
@@ -144,14 +80,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Container(
                         width: 40,
                         height: 40,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: AppColors.primaryTint,
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
                           LucideIcons.gem,
                           size: 17,
-                          color: Colors.white,
+                          color: AppColors.onPrimary,
                         ),
                       ),
                       const SizedBox(width: 11),
@@ -160,19 +96,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '${app.userFullName} · VIP',
+                              '${app.user.name} · ${app.isVip ? 'VIP' : 'Free'}',
                               style: AppText.s(
                                 14,
                                 weight: FontWeight.w700,
-                                color: Colors.white,
+                                color: AppColors.onPrimary,
                               ),
                             ),
                             const SizedBox(height: 3),
                             Text(
-                              'Synced across 3 devices',
+                              app.isVip
+                                  ? 'All customization unlocked'
+                                  : 'Upgrade to unlock the Theme Builder',
                               style: AppText.s(
                                 9.5,
-                                color: Colors.white.withValues(alpha: 0.8),
+                                color: AppColors.onPrimary.withValues(
+                                  alpha: 0.8,
+                                ),
                               ),
                             ),
                           ],
@@ -181,7 +121,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const Icon(
                         LucideIcons.chevronRight,
                         size: 16,
-                        color: Colors.white,
+                        color: AppColors.onPrimary,
                       ),
                     ],
                   ),
@@ -196,73 +136,103 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 10),
-            AppCard(
-              padding: EdgeInsets.zero,
-              borderColor: Colors.transparent,
-              shadow: false,
-              child: Column(
-                children: [
-                  for (var i = 0; i < rows.length; i++) ...[
-                    if (i > 0)
-                      const Divider(height: 1, color: AppColors.border),
-                    rows[i],
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SettingsRow extends StatelessWidget {
-  const _SettingsRow({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.onTap,
-    this.value,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String? value;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 11, 14, 11),
-        child: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, size: 16, color: AppColors.text),
-            ),
-            const SizedBox(width: 11),
-            Expanded(
-              child: Text(
-                title,
-                style: AppText.s(12.5, weight: FontWeight.w600),
-              ),
-            ),
-            if (value != null)
-              Text(value!, style: AppText.s(10.5, color: AppColors.muted)),
-            const SizedBox(width: 14),
-            const Icon(
-              LucideIcons.chevronRight,
-              size: 14,
-              color: AppColors.faint,
+            SettingsGroup(
+              children: [
+                SettingsRow(
+                  icon: LucideIcons.circleUserRound,
+                  color: AppColors.purple,
+                  title: 'Account',
+                  value: app.user.name,
+                  onTap: () => _rename(context),
+                ),
+                SettingsRow(
+                  icon: LucideIcons.sun,
+                  color: AppColors.yellow,
+                  title: 'Appearance',
+                  value: settings.darkMode ? 'Dark' : 'Light',
+                  onTap: () => pushInTab(context, const AppearanceScreen()),
+                ),
+                SettingsRow(
+                  icon: LucideIcons.languages,
+                  color: AppColors.blue,
+                  title: 'Language',
+                  value: settings.language,
+                  onTap: () => _choose(
+                    context,
+                    'Language',
+                    const ['English', 'Tiếng Việt'],
+                    settings.language,
+                    (v) => app.account.updateSettings((s) => s.language = v),
+                  ),
+                ),
+                SettingsRow(
+                  icon: LucideIcons.clock3,
+                  color: AppColors.green,
+                  title: 'Date & Time',
+                  value: settings.timeFormat,
+                  onTap: () => _choose(
+                    context,
+                    'Date & Time',
+                    const ['Automatic', '24-hour', '12-hour'],
+                    settings.timeFormat,
+                    (v) => app.account.updateSettings((s) => s.timeFormat = v),
+                  ),
+                ),
+                SettingsRow(
+                  icon: LucideIcons.bell,
+                  color: AppColors.purple,
+                  title: 'Notifications',
+                  value: settings.notificationsEnabled ? 'On' : 'Off',
+                  onTap: () =>
+                      pushInTab(context, const NotificationSettingsScreen()),
+                ),
+                SettingsRow(
+                  icon: LucideIcons.calendarDays,
+                  color: AppColors.pink,
+                  title: 'Calendar',
+                  value: settings.useSystemCalendar ? 'Phone + local' : 'Local',
+                  onTap: () =>
+                      pushInTab(context, const CalendarSettingsScreen()),
+                ),
+                SettingsRow(
+                  icon: LucideIcons.lockKeyhole,
+                  color: AppColors.blue,
+                  title: 'Mobile Screen',
+                  value: 'Edit',
+                  onTap: () => pushInTab(context, const EditScreen()),
+                ),
+                SettingsRow(
+                  icon: LucideIcons.gem,
+                  color: AppColors.purple,
+                  title: 'VIP',
+                  value: app.isVip ? 'Active' : 'Free plan',
+                  onTap: () => goToTab(context, AppTab.vip),
+                ),
+                SettingsRow(
+                  icon: LucideIcons.store,
+                  color: AppColors.pink,
+                  title: 'Template Store',
+                  value: owned == 0 ? 'Browse' : '$owned owned',
+                  onTap: () => pushInTab(context, const TemplateStoreScreen()),
+                ),
+                SettingsRow(
+                  icon: LucideIcons.circleQuestionMark,
+                  color: AppColors.green,
+                  title: 'Help',
+                  onTap: () => showAppSnack(
+                    context,
+                    'Everything is stored on this device · no account needed',
+                  ),
+                ),
+                SettingsRow(
+                  icon: LucideIcons.info,
+                  color: AppColors.yellow,
+                  title: 'App Version',
+                  value: '1.0.0',
+                  onTap: () =>
+                      showAppSnack(context, 'SuperCalendar 1.0.0 · Prototype'),
+                ),
+              ],
             ),
           ],
         ),

@@ -3,9 +3,10 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:flutter_application/app/theme/app_colors.dart';
 import 'package:flutter_application/app/theme/app_text.dart';
+import 'package:flutter_application/core/data/repository.dart';
 import 'package:flutter_application/core/services/app_state.dart';
-import 'package:flutter_application/features/calendar/domain/habit.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
+import 'package:flutter_application/features/calendar/domain/habit.dart';
 import 'package:flutter_application/features/dashboard/presentation/widgets/home_widgets.dart';
 
 class HabitsScreen extends StatefulWidget {
@@ -16,22 +17,46 @@ class HabitsScreen extends StatefulWidget {
 }
 
 class _HabitsScreenState extends State<HabitsScreen> {
+  // 0 = daily, 1 = weekly, 2 = custom.
   int _filter = 0;
 
-  static const _weekColors = [
-    AppColors.primary,
-    Color(0xFFBFE0CF),
-    Color(0xFFBFE0CF),
-    Color(0xFFBFE0CF),
-    Color(0xFFD5D8DE),
-    Color(0xFFD5D8DE),
-    Color(0xFFD5D8DE),
+  static const _kinds = ['Daily', 'Weekly', 'Custom'];
+
+  List<Color> _weekColors(DateTime today) => [
+    for (var i = 0; i < 7; i++)
+      i == today.weekday - 1
+          ? AppColors.primary
+          : i < today.weekday - 1 || i < 4
+          ? AppColors.dotDone
+          : AppColors.dotIdle,
   ];
+
+  Future<void> _addHabit(BuildContext context) async {
+    final title = await promptText(
+      context,
+      title: 'New ${_kinds[_filter].toLowerCase()} habit',
+      hint: 'e.g. Drink water',
+    );
+    if (title == null || title.isEmpty || !context.mounted) return;
+    final kind = _kinds[_filter];
+    AppScope.read(context).habits.add(
+      Habit(
+        id: newId('habit'),
+        title: title,
+        shortTitle: title,
+        schedule: '$kind · anytime',
+        occurrence: 'Today · ${kind.toLowerCase()} occurrence',
+        icon: 'check',
+        colorIndex: _filter == 0 ? 0 : (_filter == 1 ? 3 : 2),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
-    final habits = app.habits;
+    final today = app.today;
+    final habits = app.habits.occurrences(today);
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -45,25 +70,24 @@ class _HabitsScreenState extends State<HabitsScreen> {
                 icon: LucideIcons.plus,
                 size: 40,
                 filled: true,
-                onTap: () =>
-                    showAppSnack(context, 'New habits come in a later phase'),
+                onTap: () => _addHabit(context),
               ),
             ),
             const SizedBox(height: 10),
             FilterPillRow(
-              labels: const ['Daily', 'Weekly', 'Custom'],
+              labels: _kinds,
               index: _filter,
               onChanged: (i) => setState(() => _filter = i),
             ),
             const SizedBox(height: 12),
             AppCard(
-              color: const Color(0xFFF1F2F5),
+              color: AppColors.subtle,
               shadow: false,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: WeekDots(
-                labels: weekLabels(app.today),
-                colors: _weekColors,
-                activeIndex: app.today.weekday - 1,
+                labels: weekLabels(today),
+                colors: _weekColors(today),
+                activeIndex: today.weekday - 1,
               ),
             ),
             const SizedBox(height: 16),
@@ -83,21 +107,17 @@ class _HabitsScreenState extends State<HabitsScreen> {
             ),
             const SizedBox(height: 10),
             if (habits.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Center(
-                  child: Text(
-                    'No occurrences left today',
-                    style: AppText.s(11, color: AppColors.muted),
-                  ),
-                ),
+              const EmptyState(
+                icon: LucideIcons.circleCheck,
+                message: 'No occurrences left today',
               ),
             for (final habit in habits)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _HabitCard(
                   habit: habit,
-                  onToggle: () => app.toggleHabit(habit),
+                  today: today,
+                  onToggle: () => app.habits.toggle(habit, today),
                   onOpen: () => _showActions(context, habit),
                 ),
               ),
@@ -107,11 +127,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
                 children: [
-                  const Icon(
-                    LucideIcons.repeat2,
-                    size: 14,
-                    color: AppColors.primary,
-                  ),
+                  Icon(LucideIcons.repeat2, size: 14, color: AppColors.primary),
                   const SizedBox(width: 9),
                   Expanded(
                     child: Text(
@@ -130,6 +146,8 @@ class _HabitsScreenState extends State<HabitsScreen> {
 
   void _showActions(BuildContext context, Habit habit) {
     final app = AppScope.read(context);
+    final today = app.today;
+    final done = habit.isDone(today);
     showModalBottomSheet<void>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -156,10 +174,14 @@ class _HabitsScreenState extends State<HabitsScreen> {
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    color: habit.color,
+                    color: AppColors.accentSurface(habit.colorIndex),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(habit.icon, size: 17, color: AppColors.text),
+                  child: Icon(
+                    habitIcon(habit.icon),
+                    size: 17,
+                    color: AppColors.text,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -184,14 +206,11 @@ class _HabitsScreenState extends State<HabitsScreen> {
             _SheetAction(
               icon: LucideIcons.pencil,
               title: 'Edit this occurrence',
-              subtitle: 'Change today only',
+              subtitle: done ? 'Mark today as not done' : 'Mark today as done',
               color: AppColors.text,
               onTap: () {
                 Navigator.pop(sheetContext);
-                showAppSnack(
-                  context,
-                  'Occurrence editor comes in a later phase',
-                );
+                app.habits.toggle(habit, today);
               },
             ),
             _SheetAction(
@@ -201,7 +220,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
               color: AppColors.amber,
               onTap: () {
                 Navigator.pop(sheetContext);
-                app.skipHabit(habit);
+                app.habits.skip(habit, today);
                 showAppSnack(context, '${habit.title} skipped for today');
               },
             ),
@@ -212,7 +231,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
               color: AppColors.danger,
               onTap: () {
                 Navigator.pop(sheetContext);
-                app.deleteHabitOccurrence(habit);
+                app.habits.removeOccurrence(habit, today);
                 showAppSnack(context, '${habit.title} removed from today');
               },
             ),
@@ -226,18 +245,21 @@ class _HabitsScreenState extends State<HabitsScreen> {
 class _HabitCard extends StatelessWidget {
   const _HabitCard({
     required this.habit,
+    required this.today,
     required this.onToggle,
     required this.onOpen,
   });
 
   final Habit habit;
+  final DateTime today;
   final VoidCallback onToggle;
   final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
+    final done = habit.isDone(today);
     return AppCard(
-      color: habit.color,
+      color: AppColors.accentSurface(habit.colorIndex),
       shadow: false,
       padding: const EdgeInsets.fromLTRB(12, 12, 6, 12),
       onTap: onOpen,
@@ -250,7 +272,11 @@ class _HabitCard extends StatelessWidget {
               color: AppColors.background.withValues(alpha: 0.85),
               shape: BoxShape.circle,
             ),
-            child: Icon(habit.icon, size: 17, color: AppColors.primary),
+            child: Icon(
+              habitIcon(habit.icon),
+              size: 17,
+              color: AppColors.primary,
+            ),
           ),
           const SizedBox(width: 11),
           Expanded(
@@ -263,7 +289,7 @@ class _HabitCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  habit.skipped ? 'Skipped today' : habit.schedule,
+                  habit.isSkipped(today) ? 'Skipped today' : habit.schedule,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppText.s(9.5, color: AppColors.muted),
@@ -273,17 +299,15 @@ class _HabitCard extends StatelessWidget {
           ),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: habit.done ? onToggle : onOpen,
+            onTap: done ? onToggle : onOpen,
             onLongPress: onToggle,
             child: SizedBox(
               width: 38,
               height: 38,
               child: Icon(
-                habit.done
-                    ? LucideIcons.circleCheck
-                    : LucideIcons.ellipsisVertical,
+                done ? LucideIcons.circleCheck : LucideIcons.ellipsisVertical,
                 size: 17,
-                color: habit.done ? AppColors.greenStrong : AppColors.text,
+                color: done ? AppColors.greenStrong : AppColors.text,
               ),
             ),
           ),
@@ -337,11 +361,7 @@ class _SheetAction extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
-              LucideIcons.chevronRight,
-              size: 14,
-              color: AppColors.faint,
-            ),
+            Icon(LucideIcons.chevronRight, size: 14, color: AppColors.faint),
           ],
         ),
       ),

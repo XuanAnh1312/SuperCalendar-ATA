@@ -11,6 +11,10 @@ abstract final class AppTab {
   static const settings = 4;
 }
 
+/// Navigator above the bottom navigation; also used to open a screen from a
+/// notification, where no `BuildContext` is at hand.
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 /// One navigator per tab so pushed pages keep the bottom navigation visible.
 final tabNavigatorKeys = List.generate(5, (_) => GlobalKey<NavigatorState>());
 
@@ -18,6 +22,12 @@ final tabNavigatorKeys = List.generate(5, (_) => GlobalKey<NavigatorState>());
 void goToTab(BuildContext context, int tab) {
   AppScope.read(context).setTab(tab);
   tabNavigatorKeys[tab].currentState?.popUntil((route) => route.isFirst);
+}
+
+/// Pushes [page] inside the current tab, keeping the bottom navigation.
+Future<T?> pushInTab<T>(BuildContext context, Widget page) {
+  return Navigator.of(context)
+      .push<T>(MaterialPageRoute<T>(builder: (_) => page));
 }
 
 /// Switches to [tab] and pushes [page] inside it.

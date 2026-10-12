@@ -1,41 +1,123 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import 'package:flutter_application/core/services/app_state.dart';
-import 'package:flutter_application/features/calendar/presentation/screens/calendar_screen.dart';
-import 'package:flutter_application/features/dashboard/presentation/screens/home_screen.dart';
-import 'package:flutter_application/features/settings_screen/presentation/screens/settings_screen.dart';
-import 'package:flutter_application/features/todo/presentation/screens/todo_screen.dart';
-import 'package:flutter_application/features/vip/presentation/screens/template_studio_screen.dart';
 import 'package:flutter_application/app/routes/app_routes.dart';
 import 'package:flutter_application/app/theme/app_colors.dart';
 import 'package:flutter_application/app/theme/app_text.dart';
 import 'package:flutter_application/app/theme/app_theme.dart';
+import 'package:flutter_application/app/theme/app_theme_data.dart';
+import 'package:flutter_application/core/services/app_state.dart';
+import 'package:flutter_application/core/services/notification_service.dart';
+import 'package:flutter_application/features/calendar/presentation/screens/calendar_screen.dart';
+import 'package:flutter_application/features/calendar/presentation/screens/event_detail_screen.dart';
+import 'package:flutter_application/features/dashboard/presentation/screens/home_screen.dart';
+import 'package:flutter_application/features/lock_screen/presentation/screens/lock_screen.dart';
+import 'package:flutter_application/features/settings_screen/presentation/screens/settings_screen.dart';
+import 'package:flutter_application/features/todo/presentation/screens/task_detail_screen.dart';
+import 'package:flutter_application/features/todo/presentation/screens/todo_screen.dart';
+import 'package:flutter_application/features/vip/presentation/screens/vip_screen.dart';
 
 class SuperCalendarApp extends StatefulWidget {
-  const SuperCalendarApp({super.key});
+  const SuperCalendarApp({super.key, required this.state});
+
+  /// Already-loaded application state.
+  final AppState state;
 
   @override
   State<SuperCalendarApp> createState() => _SuperCalendarAppState();
 }
 
-class _SuperCalendarAppState extends State<SuperCalendarApp> {
-  final _state = AppState();
+class _SuperCalendarAppState extends State<SuperCalendarApp>
+    with WidgetsBindingObserver {
+  AppState get _app => widget.state;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _app.themeRevision.addListener(_onThemeChanged);
+    unawaited(_initNotifications());
+  }
 
   @override
   void dispose() {
-    _state.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _app.themeRevision.removeListener(_onThemeChanged);
     super.dispose();
+  }
+
+  Future<void> _initNotifications() async {
+    await _app.notifications.init(
+      onOpen: _openTarget,
+      onDataChanged: () => unawaited(_app.reloadFromDisk()),
+    );
+    final launch = await _app.notifications.launchTarget();
+    if (launch != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _openTarget(launch));
+    }
+  }
+
+  /// Opens the screen a tapped notification points at.
+  void _openTarget(NotificationTarget target) {
+    final navigator = rootNavigatorKey.currentState;
+    if (navigator == null) return;
+    Widget? page;
+    switch (target.type) {
+      case NotificationTarget.event:
+        final event = _app.events.byId(target.id);
+        if (event != null) page = EventDetailScreen(event: event);
+      case NotificationTarget.task:
+        final task = _app.tasks.byId(target.id);
+        if (task != null) page = TaskDetailScreen(task: task);
+      case NotificationTarget.lockScreen:
+        // The lock screen notification opens the next event of the day, or
+        // the lock screen layout when nothing is left on the schedule.
+        final next = _app.events
+            .on(_app.today)
+            .where((e) => e.endTime.isAfter(_app.now))
+            .firstOrNull;
+        page = next == null
+            ? const LockScreen()
+            : EventDetailScreen(event: next);
+    }
+    if (page == null) return;
+    final destination = page;
+    navigator.push(MaterialPageRoute<void>(builder: (_) => destination));
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    // A notification action may have changed data while we were away.
+    unawaited(_app.reloadFromDisk());
+    unawaited(_app.refreshSystemCalendar());
+    unawaited(_app.syncNotifications());
+  }
+
+  void _onThemeChanged() {
+    if (!mounted) return;
+    // Colors are read from AppTheme rather than through an InheritedWidget,
+    // so every element (const ones included) has to be asked to rebuild.
+    void rebuild(Element element) {
+      element.markNeedsBuild();
+      element.visitChildren(rebuild);
+    }
+
+    setState(() {});
+    (context as Element).visitChildren(rebuild);
   }
 
   @override
   Widget build(BuildContext context) {
     return AppScope(
-      state: _state,
+      state: _app,
       child: MaterialApp(
         title: 'SuperCalendar',
         debugShowCheckedModeBanner: false,
+        navigatorKey: rootNavigatorKey,
         theme: buildAppTheme(),
         home: const AppShell(),
       ),
@@ -51,13 +133,14 @@ class AppShell extends StatelessWidget {
     HomeScreen(),
     CalendarScreen(),
     TodoScreen(),
-    TemplateStudioScreen(),
+    VipScreen(),
     SettingsScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
+    final dark = AppTheme.palette.dark;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -72,11 +155,14 @@ class AppShell extends StatelessWidget {
         }
       },
       child: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle.dark.copyWith(
-          statusBarColor: Colors.transparent,
-          systemNavigationBarColor: AppColors.surface,
-          systemNavigationBarIconBrightness: Brightness.dark,
-        ),
+        value: (dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
+            .copyWith(
+              statusBarColor: Colors.transparent,
+              systemNavigationBarColor: AppColors.surface,
+              systemNavigationBarIconBrightness: dark
+                  ? Brightness.light
+                  : Brightness.dark,
+            ),
         child: Scaffold(
           body: IndexedStack(
             index: app.tab,
@@ -116,7 +202,7 @@ class _BottomNavigation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(top: BorderSide(color: AppColors.border)),
       ),

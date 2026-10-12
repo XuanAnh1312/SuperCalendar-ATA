@@ -1172,74 +1172,76 @@ lib/
 │   └── theme/                    Colors, typography, theme
 │
 ├── core/                         Phần dùng chung cho mọi tính năng
-│   ├── services/                 Nguồn dữ liệu dùng chung (AppState)
+│   ├── data/                     Local database (SQLite) và lớp Repository gốc
+│   ├── services/                 AppState, Notification, System Calendar, seed data
 │   ├── utils/                    Hàm tiện ích (định dạng ngày...)
 │   └── widgets/                  Widget dùng chung (card, checkbox, chip...)
 │
 └── features/
     │
-    ├── dashboard/                Home dashboard
+    ├── dashboard/                Home dashboard và layout của Home / Lock Screen
+    │   ├── data/                 LayoutRepository
+    │   ├── domain/               ScreenLayout
     │   └── presentation/
-    │       ├── screens/
-    │       └── widgets/
     │
-    ├── calendar/                 Month view, Week view, tạo Event, Habits
+    ├── calendar/                 Month view, Week view, Event (CRUD), Habits
+    │   ├── data/                 EventRepository, HabitRepository
     │   ├── domain/               Event, Habit
     │   └── presentation/
-    │       └── screens/
     │
     ├── todo/                     To-do list, Task details
+    │   ├── data/                 TaskRepository
     │   ├── domain/               Task
     │   └── presentation/
-    │       └── screens/
     │
-    ├── note/                     Quick Note
+    ├── note/                     Notes (CRUD) và Quick Note
+    │   ├── data/                 NoteRepository
+    │   ├── domain/               Note
     │   └── presentation/
-    │       └── screens/
     │
-    ├── lock_screen/              Lock Screen
+    ├── lock_screen/              Lock Screen (Schedule read-only, To-do tương tác)
     │   └── presentation/
-    │       └── screens/
     │
-    ├── vip/                      Template Studio
+    ├── vip/                      VIP, mock payment, Template Studio, Template Store
+    │   ├── data/                 TemplateRepository (Theme, Template, Purchase)
+    │   ├── domain/               Template, Purchase, PaymentResult
     │   └── presentation/
-    │       └── screens/
     │
-    └── settings_screen/          Settings, Edit Your Screen
+    └── settings_screen/          Settings, Appearance, Notifications, Calendar, Edit Your Screen
+        ├── data/                 UserRepository
+        ├── domain/               User, AppSettings
         └── presentation/
-            └── screens/
 
 
 Mỗi feature có thể có ba tầng:
 
 
 feature/
-├── data/                         Models, datasources, repository implementation
-├── domain/                       Entities, usecases, repository interfaces
-└── presentation/                 Screens, widgets, state management
+├── data/                         Repository đọc/ghi local database
+├── domain/                       Model (entity) của feature
+└── presentation/                 Screens, widgets
 
 
 Chỉ tạo thư mục khi có code thật để đặt vào.
 
-Các phần sẽ bổ sung ở những phase sau:
+Các phần sẽ bổ sung khi có backend:
 
 
 core/
 ├── errors/                       Failure / Exception classes
-├── network/                      API client (khi có backend)
-└── services/                     Local database, Notification service
+└── network/                      API client
 
 features/
-├── auth/                         Đăng nhập / Người dùng (khi có backend)
-└── <feature>/data/               Repository cho từng feature (Phase 2)
+└── auth/                         Đăng nhập / Người dùng
 
 
 Quy ước:
 
  Import nội bộ dùng dạng `package:flutter_application/...`.
- Screen không hard-code màu, luôn lấy từ `app/theme/`.
- Trong Phase 1, dữ liệu mẫu nằm trong bộ nhớ tại `core/services/app_state.dart`.
-
+ Screen không hard-code màu, luôn lấy từ `app/theme/` (`AppColors`), nên đổi Theme là đổi toàn app.
+ Mọi dữ liệu đi qua một `DocumentStore` duy nhất (`core/data/`): app chính, Lock Screen và Notification action cùng đọc/ghi một database.
+ `AppState` (`core/services/`) nối các repository lại và giữ state liên-feature: điều hướng, theme đang áp dụng, VIP, notification, system calendar.
+ Dữ liệu mẫu chỉ được ghi một lần ở lần chạy đầu (`core/services/seed_data.dart`).
 
 Android native:
 
