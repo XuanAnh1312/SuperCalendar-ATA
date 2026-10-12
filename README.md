@@ -1157,42 +1157,88 @@ Không giả định rằng implementation Android có thể copy nguyên sang i
 
 ---
 
- 33. KIẾN TRÚC CODE ĐỀ XUẤT
+ 33. KIẾN TRÚC CODE
 
-Prototype có thể tổ chức:
+Prototype được tổ chức theo hướng feature-first: mỗi tính năng là một thư mục riêng trong `features/`, bên trong chia theo tầng.
 
 
 lib/
 │
 ├── main.dart
 │
-├── app/
-│   ├── app.dart
-│   ├── routes.dart
-│   └── theme/
+├── app/                          Cấu hình toàn cục của app
+│   ├── app.dart                  MaterialApp và Bottom Navigation
+│   ├── routes/                   Điều hướng giữa các tab và màn hình
+│   └── theme/                    Colors, typography, theme
 │
-├── features/
-│   ├── calendar/
-│   ├── tasks/
-│   ├── notes/
-│   ├── settings/
-│   ├── vip/
-│   └── templates/
+├── core/                         Phần dùng chung cho mọi tính năng
+│   ├── services/                 Nguồn dữ liệu dùng chung (AppState)
+│   ├── utils/                    Hàm tiện ích (định dạng ngày...)
+│   └── widgets/                  Widget dùng chung (card, checkbox, chip...)
 │
-├── data/
-│   ├── models/
-│   ├── database/
-│   └── repositories/
-│
-├── services/
-│   ├── notification/
-│   ├── calendar/
-│   └── theme/
-│
-└── widgets/
-    ├── common/
-    ├── calendar/
-    └── tasks/
+└── features/
+    │
+    ├── dashboard/                Home dashboard
+    │   └── presentation/
+    │       ├── screens/
+    │       └── widgets/
+    │
+    ├── calendar/                 Month view, Week view, tạo Event, Habits
+    │   ├── domain/               Event, Habit
+    │   └── presentation/
+    │       └── screens/
+    │
+    ├── todo/                     To-do list, Task details
+    │   ├── domain/               Task
+    │   └── presentation/
+    │       └── screens/
+    │
+    ├── note/                     Quick Note
+    │   └── presentation/
+    │       └── screens/
+    │
+    ├── lock_screen/              Lock Screen
+    │   └── presentation/
+    │       └── screens/
+    │
+    ├── vip/                      Template Studio
+    │   └── presentation/
+    │       └── screens/
+    │
+    └── settings_screen/          Settings, Edit Your Screen
+        └── presentation/
+            └── screens/
+
+
+Mỗi feature có thể có ba tầng:
+
+
+feature/
+├── data/                         Models, datasources, repository implementation
+├── domain/                       Entities, usecases, repository interfaces
+└── presentation/                 Screens, widgets, state management
+
+
+Chỉ tạo thư mục khi có code thật để đặt vào.
+
+Các phần sẽ bổ sung ở những phase sau:
+
+
+core/
+├── errors/                       Failure / Exception classes
+├── network/                      API client (khi có backend)
+└── services/                     Local database, Notification service
+
+features/
+├── auth/                         Đăng nhập / Người dùng (khi có backend)
+└── <feature>/data/               Repository cho từng feature (Phase 2)
+
+
+Quy ước:
+
+ Import nội bộ dùng dạng `package:flutter_application/...`.
+ Screen không hard-code màu, luôn lấy từ `app/theme/`.
+ Trong Phase 1, dữ liệu mẫu nằm trong bộ nhớ tại `core/services/app_state.dart`.
 
 
 Android native:
