@@ -19,6 +19,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   String _language = 'English';
   String _dateTime = 'Automatic';
+  String _appearance = 'Light';
 
   Future<void> _choose(
     String title,
@@ -33,6 +34,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
       current: current,
     );
     if (picked != null) setState(() => onPicked(picked));
+  }
+
+  Future<void> _confirmLogOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Log out?'),
+        content: const Text('Are you sure you want to log out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Log out'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || confirmed != true) return;
+    showAppSnack(context, 'Log out is not available in this prototype');
   }
 
   @override
@@ -50,8 +74,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         icon: LucideIcons.sun,
         color: AppColors.yellow,
         title: 'Appearance',
-        value: 'Light',
-        onTap: () => goToTab(context, AppTab.vip),
+        value: _appearance,
+        onTap: () => _choose(
+          'Appearance',
+          const ['Light', 'Dark'],
+          _appearance,
+          (v) => _appearance = v,
+        ),
       ),
       _SettingsRow(
         icon: LucideIcons.languages,
@@ -208,6 +237,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     rows[i],
                   ],
                 ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: _confirmLogOut,
+              icon: const Icon(Icons.logout),
+              label: const Text('Log out'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red,
+                side: BorderSide(color: Colors.red.withValues(alpha: 0.4)),
+                padding: const EdgeInsets.symmetric(vertical: 13),
               ),
             ),
           ],
