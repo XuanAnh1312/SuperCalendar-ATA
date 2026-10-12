@@ -1091,531 +1091,803 @@ Không tự xử lý thông tin thẻ từ đầu.
 
 ---
 
- 31. MARKETPLACE — FUTURE
+## FR-20 – ANDROID QUICK NOTE NOTIFICATION
 
-Khi triển khai thật:
+**Description:** Notification cố định cho phép xem và cập nhật Quick Note ngay từ khay thông báo.
+**Actor:** User, Android OS · **Screens:** SCR-12 · **Priority:** P2
 
+### Preconditions
 
-Creator
- ↓
-Publish Template
- ↓
-Marketplace
- ↓
-Buyer purchases
- ↓
-Payment
- ↓
-Platform commission
- ↓
-Creator payout
+- Quick Note Notification được bật trong Settings → Lock Screen.
 
+### Main Flow
 
-Cần bổ sung:
+1. User kéo khay thông báo xuống.
+2. System hiển thị notification "SuperCalendar · Quick Note" với nội dung hiện tại.
+3. User mở rộng notification và nhập nội dung vào ô nhập.
+4. User nhấn **Save note**.
+5. System lưu nội dung vào Quick Note.
+6. Notification cập nhật nội dung mới và trạng thái "Saved just now".
 
- User authentication.
- Creator verification.
- Payment.
- Refund.
- Transaction management.
- Moderation.
- Copyright handling.
- Revenue sharing.
- Security.
- Terms of service.
+### Alternative Flows
+
+- **Open app:** User nhấn **Open app** → mở trình sửa Quick Note trong ứng dụng.
+
+### Detailed Requirements
+
+| ID | Requirement |
+|---|---|
+| FR-20.01 | Notification dạng ongoing, User có thể tắt trong Settings. |
+| FR-20.02 | Ô nhập dùng RemoteInput; nội dung cũ hiển thị dạng văn bản phía trên ô nhập (UI-08). |
+| FR-20.03 | Người dùng chọn chế độ ghi: **Replace** (thay thế) hoặc **Append** (nối thêm), mặc định Append. |
+| FR-20.04 | Giới hạn 500 ký tự giống Quick Note (FR-11.02). |
 
 ---
 
- 32. ANDROID / IOS
+## FR-21 – SETTINGS
 
- Android
+**Description:** Quản lý cấu hình ứng dụng theo nhóm.
+**Actor:** Free User, VIP User · **Screens:** SCR-10, SCR-20 · **Priority:** P1
 
-Là nền tảng phát triển đầu tiên.
+### Main Flow
 
-Ưu tiên:
+1. User mở tab Settings.
+2. System hiển thị thẻ tài khoản và danh sách nhóm cài đặt, mỗi dòng kèm giá trị hiện tại.
+3. User chọn một nhóm.
+4. System mở trang con.
+5. User thay đổi cài đặt.
+6. System lưu ngay và áp dụng.
 
-1. Flutter UI.
-2. Android Emulator.
-3. Android native integration.
-4. System Calendar.
-5. Notification.
-6. Lock Screen.
+### Settings Groups
 
- iOS
+| Group | UI Value | Details |
+|---|---|---|
+| Account | Tên người dùng | Profile, Avatar, Email, VIP Status |
+| Appearance | Light / Dark / System | Theme, màu, phông, kiểu widget |
+| Language | English | English, Tiếng Việt |
+| Date & Time | Automatic | Định dạng ngày, 12h/24h, ngày bắt đầu tuần, múi giờ |
+| Calendar | Personal + Work | Calendar mặc định, calendar hiển thị, quyền System Calendar, thời lượng event mặc định |
+| Tasks | — | Priority mặc định, reminder mặc định, hành vi task đã hoàn thành (giữ/ẩn) |
+| Notifications | On / Off | Bật/tắt chung và theo loại Event/Task/Habit/Goal, âm thanh |
+| Lock Screen | Schedule · To-do · Note | Bật/tắt từng khối, Quick actions, Hide details, Quick Note Notification |
+| Data | — | Export/Import backup (JSON), xóa toàn bộ dữ liệu |
+| Help | — | User Guide, FAQ, gửi phản hồi |
+| About | Phiên bản | Version, Privacy Policy, Terms of Use |
 
-Được triển khai sau Android.
+### Detailed Requirements
 
-Có thể cần các công nghệ/API riêng của Apple cho:
-
- Calendar access.
- Notifications.
- Widgets.
- Lock Screen.
- Live Activities.
-
-Không giả định rằng implementation Android có thể copy nguyên sang iOS.
-
----
-
- 33. KIẾN TRÚC CODE
-
-Prototype được tổ chức theo hướng feature-first: mỗi tính năng là một thư mục riêng trong `features/`, bên trong chia theo tầng.
-
-
-lib/
-│
-├── main.dart
-│
-├── app/                          Cấu hình toàn cục của app
-│   ├── app.dart                  MaterialApp và Bottom Navigation
-│   ├── routes/                   Điều hướng giữa các tab và màn hình
-│   └── theme/                    Colors, typography, theme
-│
-├── core/                         Phần dùng chung cho mọi tính năng
-│   ├── services/                 Nguồn dữ liệu dùng chung (AppState)
-│   ├── utils/                    Hàm tiện ích (định dạng ngày...)
-│   └── widgets/                  Widget dùng chung (card, checkbox, chip...)
-│
-└── features/
-    │
-    ├── dashboard/                Home dashboard
-    │   └── presentation/
-    │       ├── screens/
-    │       └── widgets/
-    │
-    ├── calendar/                 Month view, Week view, tạo Event, Habits
-    │   ├── domain/               Event, Habit
-    │   └── presentation/
-    │       └── screens/
-    │
-    ├── todo/                     To-do list, Task details
-    │   ├── domain/               Task
-    │   └── presentation/
-    │       └── screens/
-    │
-    ├── note/                     Quick Note
-    │   └── presentation/
-    │       └── screens/
-    │
-    ├── lock_screen/              Lock Screen
-    │   └── presentation/
-    │       └── screens/
-    │
-    ├── vip/                      Template Studio
-    │   └── presentation/
-    │       └── screens/
-    │
-    └── settings_screen/          Settings, Edit Your Screen
-        └── presentation/
-            └── screens/
-
-
-Mỗi feature có thể có ba tầng:
-
-
-feature/
-├── data/                         Models, datasources, repository implementation
-├── domain/                       Entities, usecases, repository interfaces
-└── presentation/                 Screens, widgets, state management
-
-
-Chỉ tạo thư mục khi có code thật để đặt vào.
-
-Các phần sẽ bổ sung ở những phase sau:
-
-
-core/
-├── errors/                       Failure / Exception classes
-├── network/                      API client (khi có backend)
-└── services/                     Local database, Notification service
-
-features/
-├── auth/                         Đăng nhập / Người dùng (khi có backend)
-└── <feature>/data/               Repository cho từng feature (Phase 2)
-
-
-Quy ước:
-
- Import nội bộ dùng dạng `package:flutter_application/...`.
- Screen không hard-code màu, luôn lấy từ `app/theme/`.
- Trong Phase 1, dữ liệu mẫu nằm trong bộ nhớ tại `core/services/app_state.dart`.
-
-
-Android native:
-
-
-android/
-└── app/
-    └── src/
-        └── main/
-            └── kotlin/
-
-
-Kotlin chỉ dùng khi cần Android-specific functionality.
+| ID | Requirement |
+|---|---|
+| FR-21.01 | Mỗi dòng hiển thị giá trị hiện tại bên phải và mở trang con khi chạm. |
+| FR-21.02 | Thay đổi cài đặt được lưu ngay, không cần nút Save. |
+| FR-21.03 | Đổi Language áp dụng ngay cho toàn ứng dụng. |
+| FR-21.04 | Xóa toàn bộ dữ liệu yêu cầu xác nhận hai bước (hộp thoại + nhập "DELETE"). |
+| FR-21.05 | Import backup ghi đè dữ liệu hiện tại sau khi người dùng xác nhận. |
 
 ---
 
- 34. DEVELOPMENT ROADMAP
+## FR-22 – SYSTEM CALENDAR INTEGRATION
 
- Phase 0 — Environment
+**Description:** Đọc sự kiện từ lịch hệ thống Android và hiển thị cùng Local Event.
+**Actor:** User, Android OS · **Screens:** SCR-20 · **Priority:** P2
 
-Mục tiêu:
+### Main Flow
 
+1. User mở Settings → Calendar → "Connect device calendars".
+2. System giải thích mục đích sử dụng quyền.
+3. Android hiển thị hộp thoại cấp quyền READ_CALENDAR.
+4. User cho phép.
+5. System đọc danh sách calendar trên thiết bị.
+6. User chọn calendar muốn hiển thị.
+7. System hiển thị event từ các calendar đã chọn trên Calendar, Home, Lock Screen.
 
-Flutter
-VS Code
-Android Studio
-Android Emulator
+### Alternative Flows
 
+- **4a.** User từ chối → Local Calendar hoạt động bình thường, không hiển thị event hệ thống.
+- **Revoke:** User thu hồi quyền trong cài đặt Android → System ẩn toàn bộ event hệ thống ở lần mở tiếp theo.
 
-Kết quả:
+### Detailed Requirements
 
-
-Hello SuperCalendar
-
-
----
-
- Phase 1 — UI
-
-Làm:
-
- Home.
- Calendar.
- Task.
- Notes.
- Navigation.
-
-Chưa cần database.
+| ID | Requirement |
+|---|---|
+| FR-22.01 | Event hệ thống có `Source = system_calendar`, chỉ đọc, hiển thị biểu tượng nguồn. |
+| FR-22.02 | Event hệ thống không ghi đè và không trùng lặp với Local Event. |
+| FR-22.03 | Dữ liệu event hệ thống được đọc lại mỗi lần mở Calendar và khi kéo để làm mới. |
 
 ---
 
- Phase 2 — Data
+# 5. ENTITY AND DATA REQUIREMENTS
 
-Làm:
+## 5.1 User
 
- Event model.
- Task model.
- Note model.
- Local database.
- CRUD.
+| Field | Type | Required | Description |
+|---|---|---|---|
+| UserID | UUID | Yes | Định danh người dùng |
+| DisplayName | String(30) | Yes | Tên hiển thị |
+| Email | String | No | Email |
+| Avatar | String (path) | No | Đường dẫn ảnh đại diện |
+| VIPStatus | Enum (Free, VIP) | Yes | Trạng thái gói |
+| CreatedAt | DateTime | Yes | Ngày tạo |
+| UpdatedAt | DateTime | Yes | Ngày cập nhật |
 
-CRUD:
+## 5.2 UserSettings
 
+| Field | Type | Required | Description |
+|---|---|---|---|
+| UserID | UUID (FK) | Yes | Người dùng |
+| ThemeMode | Enum (Light, Dark, System) | Yes | Chế độ giao diện |
+| ThemeID | UUID (FK) | Yes | Theme đang dùng |
+| Language | String | Yes | Ngôn ngữ |
+| DateFormat | String | Yes | Định dạng ngày |
+| TimeFormat | Enum (12h, 24h) | Yes | Định dạng giờ |
+| WeekStart | Enum (Mon, Sun) | Yes | Ngày bắt đầu tuần |
+| DefaultEventDuration | Integer (phút) | Yes | Thời lượng event mặc định |
+| DefaultReminderOffset | Integer (phút) | No | Reminder mặc định |
+| DefaultPriority | Enum | No | Priority mặc định cho task |
+| HideCompletedTasks | Boolean | Yes | Ẩn task đã hoàn thành |
+| NotificationConfig | JSON | Yes | Bật/tắt theo loại |
+| LockScreenConfig | JSON | Yes | Khối hiển thị, Quick actions, Hide details |
 
-Create
-Read
-Update
-Delete
+## 5.3 Category
 
+| Field | Type | Required | Description |
+|---|---|---|---|
+| CategoryID | UUID | Yes | ID |
+| Name | String(30) | Yes | Tên (Work, Personal, …) |
+| Color | String (hex) | Yes | Màu hiển thị |
+| IsDefault | Boolean | Yes | Danh mục hệ thống, không xóa được |
+
+## 5.4 CalendarSource
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| CalendarID | UUID | Yes | ID |
+| Name | String | Yes | Tên lịch (ví dụ Personal) |
+| Owner | String | No | Chủ sở hữu (ví dụ Mia) |
+| Color | String (hex) | Yes | Màu |
+| Type | Enum (Local, System) | Yes | Nguồn |
+| ExternalID | String | No | ID lịch trên Android |
+| IsVisible | Boolean | Yes | Có hiển thị hay không |
+
+## 5.5 Event
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| EventID | UUID | Yes | ID |
+| CalendarID | UUID (FK) | Yes | Lịch chứa event |
+| Title | String(100) | Yes | Tên event |
+| StartDateTime | DateTime | Yes | Bắt đầu |
+| EndDateTime | DateTime | Yes | Kết thúc |
+| IsAllDay | Boolean | Yes | Cả ngày |
+| Location | String(200) | No | Địa điểm |
+| CategoryID | UUID (FK) | No | Danh mục |
+| Color | String (hex) | No | Màu riêng |
+| ReminderOffset | Integer (phút) | No | Nhắc trước |
+| RepeatRule | String (RRULE) | No | Quy tắc lặp |
+| Notes | String(1000) | No | Ghi chú |
+| Source | Enum (local, system_calendar) | Yes | Nguồn dữ liệu |
+| ExternalID | String | No | ID event trên Android |
+| CreatedAt | DateTime | Yes | Ngày tạo |
+| UpdatedAt | DateTime | Yes | Ngày cập nhật |
+
+## 5.6 EventGuest
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| GuestID | UUID | Yes | ID |
+| EventID | UUID (FK) | Yes | Event |
+| Name | String(50) | Yes | Tên khách |
+| Initials | String(2) | Yes | Chữ viết tắt hiển thị |
+
+## 5.7 EventException
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| ExceptionID | UUID | Yes | ID |
+| EventID | UUID (FK) | Yes | Event lặp gốc |
+| OriginalDate | Date | Yes | Ngày của lần lặp bị thay đổi |
+| IsDeleted | Boolean | Yes | Lần lặp bị xóa |
+| OverrideData | JSON | No | Dữ liệu thay đổi riêng |
+
+## 5.8 Task
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| TaskID | UUID | Yes | ID |
+| Title | String(200) | Yes | Tên task |
+| DueDate | Date | No | Hạn ngày |
+| DueTime | Time | No | Hạn giờ |
+| Priority | Enum (None, Low, Medium, High) | Yes | Mức ưu tiên |
+| ReminderOffset | Integer (phút) | No | Nhắc trước |
+| RepeatRule | String (RRULE) | No | Quy tắc lặp |
+| CategoryID | UUID (FK) | No | Danh mục |
+| Color | String (hex) | No | Màu |
+| Notes | String(1000) | No | Ghi chú |
+| EstimatedMinutes | Integer | No | Thời gian dự kiến |
+| IsCompleted | Boolean | Yes | Trạng thái hoàn thành |
+| CompletedAt | DateTime | No | Thời điểm hoàn thành |
+| SortOrder | Integer | Yes | Thứ tự hiển thị |
+| CreatedAt | DateTime | Yes | Ngày tạo |
+| UpdatedAt | DateTime | Yes | Ngày cập nhật |
+
+## 5.9 TaskSubtask
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| SubtaskID | UUID | Yes | ID |
+| TaskID | UUID (FK) | Yes | Task cha |
+| Title | String(200) | Yes | Nội dung |
+| IsCompleted | Boolean | Yes | Trạng thái |
+| SortOrder | Integer | Yes | Thứ tự |
+
+## 5.10 Tag và TaskTag
+
+| Entity | Field | Type | Description |
+|---|---|---|---|
+| Tag | TagID | UUID | ID |
+| Tag | Name | String(30) | Tên tag, duy nhất |
+| TaskTag | TaskID | UUID (FK) | Task |
+| TaskTag | TagID | UUID (FK) | Tag |
+
+## 5.11 Goal
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| GoalID | UUID | Yes | ID |
+| Type | Enum (Weekly, Monthly) | Yes | Loại goal |
+| Title | String(60) | Yes | Tên |
+| Icon | String | No | Biểu tượng |
+| Color | String (hex) | No | Màu |
+| Target | Integer | No | Mục tiêu số lần |
+| Current | Integer | Yes | Tiến độ hiện tại (mặc định 0) |
+| PeriodStart | Date | Yes | Ngày bắt đầu kỳ |
+| PeriodEnd | Date | Yes | Ngày kết thúc kỳ |
+| Status | Enum (Active, Completed, Missed) | Yes | Trạng thái |
+| CreatedAt | DateTime | Yes | Ngày tạo |
+| UpdatedAt | DateTime | Yes | Ngày cập nhật |
+
+## 5.12 Habit
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| HabitID | UUID | Yes | ID |
+| Title | String(60) | Yes | Tên habit |
+| Icon | String | No | Biểu tượng |
+| Color | String (hex) | No | Màu |
+| StartDate | Date | Yes | Ngày bắt đầu |
+| EndDate | Date | No | Ngày kết thúc |
+| Time | Time | No | Giờ thực hiện |
+| RepeatRule | String (RRULE) | Yes | Quy tắc lặp |
+| ReminderOffset | Integer (phút) | No | Nhắc trước |
+| IsArchived | Boolean | Yes | Đã lưu trữ |
+| CreatedAt | DateTime | Yes | Ngày tạo |
+| UpdatedAt | DateTime | Yes | Ngày cập nhật |
+
+## 5.13 HabitOccurrence
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| OccurrenceID | UUID | Yes | ID |
+| HabitID | UUID (FK) | Yes | Habit Rule |
+| Date | Date | Yes | Ngày xuất hiện |
+| Status | Enum (Pending, Done, Skipped, Deleted) | Yes | Trạng thái |
+| OverrideData | JSON | No | Thay đổi riêng cho ngày này |
+| CompletedAt | DateTime | No | Thời điểm hoàn thành |
+
+## 5.14 Note
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| NoteID | UUID | Yes | ID |
+| Title | String(100) | No | Tiêu đề |
+| Content | Text | Yes | Nội dung (Quick Note tối đa 500 ký tự) |
+| Color | String (hex) | No | Màu |
+| IsPinned | Boolean | Yes | Ghim |
+| IsQuickNote | Boolean | Yes | Là Quick Note đang hoạt động |
+| CreatedAt | DateTime | Yes | Ngày tạo |
+| UpdatedAt | DateTime | Yes | Ngày cập nhật |
+
+## 5.15 Theme
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| ThemeID | UUID | Yes | ID |
+| Name | String | Yes | Tên |
+| Colors | JSON | Yes | Bảng màu |
+| Typography | JSON | Yes | Phông và cỡ chữ |
+| Radius | Integer | Yes | Bo góc |
+| ComponentStyle | JSON | Yes | Kiểu thành phần |
+| IsVIP | Boolean | Yes | Thuộc gói Premium |
+
+## 5.16 WidgetTemplate
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| TemplateID | UUID | Yes | ID |
+| Name | String(50) | Yes | Tên |
+| Description | String | No | Mô tả |
+| WidgetType | Enum | Yes | Loại widget hoặc Dashboard |
+| Category | String | No | Danh mục |
+| Configuration | JSON | Yes | Layout, màu, phông, kiểu thẻ, kích thước |
+| PreviewImage | String (path) | No | Ảnh xem trước |
+| CreatorID | UUID (FK) | No | Người tạo (rỗng nếu là mẫu hệ thống) |
+| IsSystem | Boolean | Yes | Mẫu có sẵn |
+| IsPremium | Boolean | Yes | Thuộc gói Premium |
+| Price | Decimal | No | Giá (Marketplace) |
+| Status | Enum (Draft, Published, Unpublished) | Yes | Trạng thái |
+| CreatedAt | DateTime | Yes | Ngày tạo |
+| UpdatedAt | DateTime | Yes | Ngày cập nhật |
+
+## 5.17 DashboardLayout
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| LayoutID | UUID | Yes | ID |
+| UserID | UUID (FK) | Yes | Người dùng |
+| Target | Enum (Home, LockScreen) | Yes | Bố cục cho Home hay Lock Screen |
+| ViewMode | Enum (Month, Week) | Yes | Kiểu lịch hiển thị |
+| BackgroundType | Enum (Image, Color, Gradient) | Yes | Loại nền |
+| BackgroundValue | String | Yes | Đường dẫn ảnh hoặc mã màu |
+| FontFamily | String | Yes | Phông chữ |
+| TemplateID | UUID (FK) | Yes | Template đang áp dụng |
+| IsActive | Boolean | Yes | Bố cục đang dùng |
+
+## 5.18 WidgetPlacement
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| PlacementID | UUID | Yes | ID |
+| LayoutID | UUID (FK) | Yes | Bố cục |
+| WidgetType | Enum | Yes | Loại widget |
+| PositionX | Integer | Yes | Cột trên lưới |
+| PositionY | Integer | Yes | Hàng trên lưới |
+| Size | Enum (S, M, L) | Yes | Kích thước |
+| Config | JSON | No | Cấu hình riêng (số dòng, nguồn dữ liệu) |
+
+## 5.19 Purchase
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| PurchaseID | UUID | Yes | ID |
+| UserID | UUID (FK) | Yes | Người mua |
+| ProductType | Enum (VIP, Template) | Yes | Loại sản phẩm |
+| ProductID | String | Yes | Gói VIP hoặc TemplateID |
+| Price | Decimal | Yes | Giá mô phỏng |
+| PurchaseDate | DateTime | Yes | Ngày mua |
+| Status | Enum (Completed, Cancelled) | Yes | Trạng thái |
+
+## 5.20 Reminder
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| ReminderID | UUID | Yes | ID |
+| SourceType | Enum (Event, Task, Habit, Goal) | Yes | Loại dữ liệu nguồn |
+| SourceID | UUID | Yes | ID dữ liệu nguồn |
+| TriggerAt | DateTime | Yes | Thời điểm nhắc |
+| Status | Enum (Scheduled, Fired, Snoozed, Cancelled) | Yes | Trạng thái |
+
+## 5.21 Relationships
+
+```text
+User            1 ─ 1  UserSettings
+User            1 ─ N  Purchase
+User            1 ─ N  DashboardLayout
+CalendarSource  1 ─ N  Event
+Event           1 ─ N  EventGuest
+Event           1 ─ N  EventException
+Category        1 ─ N  Event
+Category        1 ─ N  Task
+Task            1 ─ N  TaskSubtask
+Task            N ─ N  Tag            (qua TaskTag)
+Habit           1 ─ N  HabitOccurrence
+WidgetTemplate  1 ─ N  DashboardLayout
+DashboardLayout 1 ─ N  WidgetPlacement
+Event | Task | Habit | Goal  1 ─ N  Reminder
+```
 
 ---
 
- Phase 3 — Calendar Integration
+# 6. FUNCTIONAL RELATIONSHIP
 
-Làm:
+## 6.1 Functional Map
 
- Calendar permission.
- Read system calendar.
- Display events.
+```text
+                              SUPER CALENDAR
+                                    │
+      ┌─────────────────┬───────────┴───────────┬──────────────────────┐
+      │                 │                       │                      │
+     PLAN               DO                PERSONALIZE             SEE IT FIRST
+      │                 │                       │                      │
+   Calendar           To-do            Theme / Templates      Home / Lock Screen /
+      │                 │                       │                 Notification
+ ┌────┼─────┐           │            ┌──────────┼──────────┐           │
+ │    │     │           │            │          │          │           │
+Event Goal Habit       Task     Edit Your   Template    Template   Quick Note
+                        │        Screen     (Free)       Studio
+                     Subtask                               │
+                                                          VIP
+```
 
----
+## 6.2 Data Flow
 
- Phase 4 — Notification
+```text
+        ┌────────────── SOURCE OF TRUTH (Local Database) ──────────────┐
+        │   Event    Task/Subtask    Goal    Habit/Occurrence    Note   │
+        └──────────────────────────────┬────────────────────────────────┘
+                                       │  read + write-back
+          ┌──────────────┬─────────────┼──────────────┬───────────────┐
+          │              │             │              │               │
+     Home Widgets   Lock Screen   Notification   Month Snapshot   Calendar /
+                                                  (read only)     To-do screens
+```
 
-Làm:
+## 6.3 Template Ecosystem
 
- Event reminder.
- Task reminder.
- Notification action.
- Done.
- Snooze.
-
----
-
- Phase 5 — Lock Screen
-
-Làm:
-
-
-Schedule
-READ ONLY
-
-
-và:
-
-
-To-do
-INTERACTIVE
-
-
-Sau đó:
-
- Complete Task.
- Add Task.
- Open App.
-
----
-
- Phase 6 — Theme
-
-Làm:
-
- Theme system.
- Default pastel theme.
- Theme switching.
- Theme data model.
+```text
+Home ── Create More ──┐
+                      ├── Free Templates (3) ── Preview ── Apply
+Edit Your Screen ─────┤
+                      └── Premium Templates ── Paywall ── Mock Purchase ── Apply
+                                                  │
+VIP Tab ── Template Studio ── Canvas / Styles / Presets ── Save ── Apply
+                                                  │
+                         (P3) Marketplace ── Browse / Search / Purchase / Publish
+```
 
 ---
 
- Phase 7 — VIP Prototype
+# 7. BUSINESS RULES
 
-Làm:
-
- VIP screen.
- Mock subscription.
- `isVip`.
- Feature gating.
-
----
-
- Phase 8 — Template Prototype
-
-Làm:
-
- Template list.
- Template preview.
- Mock purchase.
- Apply template.
- Create template.
- Publish template.
-
----
-
- Phase 9 — Polish
-
-Kiểm tra:
-
- UI.
- Animation.
- Error handling.
- Empty states.
- Loading states.
- Permission states.
- Accessibility.
- Responsive layout.
+| ID | Rule |
+|---|---|
+| BR-01 | Event (có thời gian cụ thể) và Task (việc cần hoàn thành) là hai loại dữ liệu riêng, không dùng thay nhau. |
+| BR-02 | Habit Rule và Habit Occurrence được quản lý riêng; thao tác trên một occurrence không thay đổi Rule. |
+| BR-03 | Weekly Goal và Monthly Goal phân biệt bằng Goal Type và không trộn dữ liệu. |
+| BR-04 | Theme điều khiển giao diện toàn ứng dụng. |
+| BR-05 | Widget Template và Template Studio chỉ điều khiển phần trình bày widget và bố cục dashboard. |
+| BR-06 | Mọi chức năng Premium kiểm tra quyền qua `canAccess(feature)` dựa trên VIP Status. |
+| BR-07 | Sở hữu template không đồng nghĩa với đang áp dụng template. |
+| BR-08 | Notification, Lock Screen, Widget và Snapshot không là nguồn dữ liệu độc lập. |
+| BR-09 | Quick Note dùng chung bảng Note; chỉ có một Quick Note hoạt động. |
+| BR-10 | Sửa/xóa event lặp lại phải chọn phạm vi: một lần, từ lần này trở đi, hoặc tất cả. |
+| BR-11 | Goal có Current = Target thì chuyển Completed; hết kỳ chưa đạt thì chuyển Missed. |
+| BR-12 | Dữ liệu đã lưu phải còn sau khi mở lại ứng dụng hoặc khởi động lại thiết bị. |
+| BR-13 | Mọi thao tác xóa phải có xác nhận hoặc Undo. |
+| BR-14 | Ứng dụng không yêu cầu và không lưu PIN, mật khẩu, dữ liệu sinh trắc học của thiết bị. |
+| BR-15 | Tuần và số tuần tính theo ISO-8601 khi tuần bắt đầu Thứ Hai. |
+| BR-16 | Event từ System Calendar chỉ đọc trong Prototype. |
+| BR-17 | Đổi Repeat Rule của Habit chỉ ảnh hưởng occurrence từ hôm nay trở đi. |
 
 ---
 
- 35. ACCEPTANCE CRITERIA
+# 8. NON-FUNCTIONAL REQUIREMENTS
 
-Prototype được coi là hoàn thành khi:
-
- Calendar
-
- [ ] Có thể xem Calendar.
- [ ] Có thể tạo Event.
- [ ] Có thể sửa Event.
- [ ] Có thể xóa Event.
- [ ] Event được lưu.
-
- System Calendar
-
- [ ] Có thể xin quyền.
- [ ] Có thể đọc Event khi được cấp quyền.
- [ ] App xử lý được trường hợp user từ chối quyền.
-
- Tasks
-
- [ ] Có thể tạo Task.
- [ ] Có thể hoàn thành Task.
- [ ] Có thể sửa Task.
- [ ] Có thể xóa Task.
- [ ] Task được lưu.
-
- Notes
-
- [ ] Có thể tạo Note.
- [ ] Có thể sửa Note.
- [ ] Có thể xóa Note.
-
- Notification
-
- [ ] Notification xuất hiện.
- [ ] Event reminder hoạt động.
- [ ] Task reminder hoạt động.
- [ ] Done action cập nhật Task.
-
- Lock Screen
-
- [ ] Schedule được hiển thị.
- [ ] Schedule không thể chỉnh sửa trực tiếp.
- [ ] Click Schedule mở app.
- [ ] To-do được hiển thị.
- [ ] To-do có thể complete.
- [ ] Add Task có thể thực hiện theo cơ chế Android cho phép.
- [ ] Dữ liệu Lock Screen đồng bộ với app.
-
- Theme
-
- [ ] Default Theme hoạt động.
- [ ] Có thể đổi Theme.
- [ ] Theme áp dụng cho app.
-
- VIP
-
- [ ] Mock payment hoạt động.
- [ ] VIP state được lưu.
- [ ] VIP features bị khóa với Free user.
- [ ] VIP user có thể sử dụng Theme Builder.
-
- Templates
-
- [ ] Có Template Store.
- [ ] Có Template detail.
- [ ] Mock purchase hoạt động.
- [ ] Template đã mua có thể Apply.
- [ ] VIP user có thể tạo Template.
- [ ] Creator có thể publish Template trong prototype.
+| ID | Category | Requirement |
+|---|---|---|
+| NFR-01 | Performance | Từ lúc mở ứng dụng đến khi Home hiển thị ≤ 2 giây (cold start, thiết bị tầm trung). |
+| NFR-02 | Performance | Tạo, sửa, xóa, tick, tìm kiếm phản hồi ≤ 300 ms; chuyển tab ≤ 300 ms. |
+| NFR-03 | Performance | Kéo thả widget trong Edit Your Screen đạt ≥ 55 fps. |
+| NFR-04 | Reliability | Không mất dữ liệu khi ứng dụng bị buộc dừng giữa chừng (ghi theo transaction). |
+| NFR-05 | Reliability | Reminder vẫn hoạt động sau khi khởi động lại thiết bị. |
+| NFR-06 | Usability | Thao tác nhanh (thêm task, tick habit, sửa Quick Note) cần ≤ 2 lần chạm. |
+| NFR-07 | Usability | Giao diện tối giản, ít menu, không yêu cầu nhập nhiều thông tin khi thao tác nhanh. |
+| NFR-08 | Accessibility | Vùng chạm ≥ 48 dp; độ tương phản chữ đạt WCAG AA; hỗ trợ TalkBack và cỡ chữ hệ thống. |
+| NFR-09 | Localization | Không hard-code chuỗi; hỗ trợ English và Tiếng Việt. |
+| NFR-10 | Security | Dữ liệu lưu trong vùng riêng của ứng dụng; nội dung trên Lock Screen có thể ẩn. |
+| NFR-11 | Compatibility | Android 8.0 (API 26) trở lên; xử lý riêng quyền Notification (API 33+) và Exact Alarm (API 31+). |
+| NFR-12 | Maintainability | Kiến trúc tách lớp UI – State – Repository – Data Source để mở rộng Backend, Cloud Sync, iOS, Marketplace, thanh toán thật. |
 
 ---
 
- 36. ĐỊNH HƯỚNG PHÁT TRIỂN SAU PROTOTYPE
+# 9. PROTOTYPE SCOPE
 
-Sau khi Prototype hoạt động ổn định, có thể phát triển:
-
-
-                    PROTOTYPE
-                        │
-                        ↓
-                  Cloud Backend
-                        │
-            ┌───────────┴───────────┐
-            ↓                       ↓
-         Account                 Sync
-            │                       │
-            └───────────┬───────────┘
-                        ↓
-                   Real Payment
-                        │
-                        ↓
-                 VIP Subscription
-                        │
-                        ↓
-                Template Marketplace
-                        │
-             ┌──────────┴──────────┐
-             ↓                     ↓
-          Creator                 Buyer
-             │                     │
-             └──────────┬──────────┘
-                        ↓
-                  Revenue System
-                        │
-                        ↓
-                   Public App
-
+| Group | Functions | Priority |
+|---|---|---|
+| Core | Home, Calendar Month/Week, Event CRUD, Goal, Habit, To-do, Task Details, Subtask, Quick Note | P1 |
+| Personalization | Theme, Dark Mode, Edit Your Screen, Widget Template, 3 Free Template, Template Studio | P1 |
+| Monetization | VIP Status, Premium Feature Gating, Paywall, Mock Purchase | P1 |
+| System Integration | Notification, Reminder, Lock Screen, Settings | P1 |
+| Extended | Onboarding, Notes List, Month Snapshot, Quick Note Notification, System Calendar (đọc), Habit streak | P2 |
 
 ---
 
- 37. PRODUCT IDENTITY
+# 10. OUT OF SCOPE
 
-SuperCalendar không nên được định vị đơn giản là:
+Các chức năng sau không thuộc Prototype và có thể phát triển ở phiên bản Production:
 
-> "Một app giống Google Calendar."
-
-Mà là:
-
-> A personalized productivity app that puts your schedule where you see it first.
-
-Ba yếu tố nhận diện chính:
-
-
-📅 PLAN
-   Calendar
-
-✅ DO
-   Tasks
-
-🎨 PERSONALIZE
-   Themes & Templates
-
-🔒 SEE IT FIRST
-   Lock Screen
-
-
-Điểm khác biệt cốt lõi:
-
-> Lock Screen là nơi người dùng nhìn thấy lịch trình và xử lý những task nhanh nhất, trong khi ứng dụng chính cung cấp toàn bộ trải nghiệm quản lý Calendar, Tasks và Notes.
+| Group | Functions |
+|---|---|
+| Backend & Account | Real Backend, Real Account Authentication, Cloud Sync, đồng bộ nhiều thiết bị |
+| Payment | Real Payment Gateway, Credit Card Processing, Banking Integration, Google Play Billing |
+| Marketplace | Template Marketplace, Publish template, Real Marketplace Backend, Creator Revenue Sharing, Creator Payout, Complex Moderation, Review/Rating System |
+| Social | Social Network, Chat, Team Collaboration, gửi lời mời Guests thật, Public Social Sharing trong ứng dụng |
+| Calendar | Ghi ngược vào System Calendar, Advanced Third-party Calendar Synchronization (Google/Outlook API) |
+| Others | AI Assistant, nhắc nhở theo vị trí hoặc giờ mặt trời, đặt hình nền tự động, phiên bản iOS |
 
 ---
 
- 38. NGUYÊN TẮC PHÁT TRIỂN
+# 11. ACCEPTANCE CRITERIA
 
-1. Không xây tất cả cùng lúc.
-2. Ưu tiên Android trước.
-3. Flutter là nền tảng chính.
-4. Native Android chỉ dùng khi cần.
-5. Prototype trước, production sau.
-6. Payment giả trước, payment thật sau.
-7. Marketplace giả trước, marketplace thật sau.
-8. Local database trước, cloud database sau.
-9. UI và data phải tách biệt.
-10. Theme phải độc lập với dữ liệu.
-11. Lock Screen phải dùng cùng nguồn dữ liệu với app chính.
-12. Không lưu thông tin xác thực của hệ điều hành.
-13. Chỉ yêu cầu quyền khi thực sự cần.
-14. Mỗi tính năng phải được hoàn thiện và test trước khi chuyển sang tính năng tiếp theo.
+## 11.1 Navigation & General
+
+| ID | Scenario (Given – When – Then) |
+|---|---|
+| AC-01 | Given mở ứng dụng – Then Home hiển thị mặc định và có đúng 5 tab: Home, Calendar, To-do, VIP, Settings. |
+| AC-02 | Given vừa tạo task – When buộc dừng và mở lại ứng dụng – Then task vẫn còn. |
+| AC-03 | Given vừa xóa một mục – When nhấn Undo trong 5 giây – Then mục được khôi phục nguyên vẹn. |
+
+## 11.2 Onboarding & Account
+
+| ID | Scenario (Given – When – Then) |
+|---|---|
+| AC-04 | Given mở ứng dụng lần đầu – When nhập tên "Mia" – Then Home hiển thị "Good morning, Mia" (trước 12:00). |
+| AC-05 | Given từ chối quyền Notification – Then ứng dụng vẫn dùng được và Settings → Notifications có cảnh báo. |
+| AC-06 | When đổi Display Name thành "An" – Then lời chào trên Home cập nhật ngay. |
+
+## 11.3 Home & Edit Your Screen
+
+| ID | Scenario (Given – When – Then) |
+|---|---|
+| AC-07 | Given có 3 task hôm nay – When tick 1 task trên widget Home – Then task gạch ngang trên Home, To-do List và Lock Screen. |
+| AC-08 | When kéo widget Habits vào bản xem trước và nhấn Done – Then Home hiển thị widget Habits đúng vị trí sau khi mở lại ứng dụng. |
+| AC-09 | When thả widget vào vùng đồng hồ – Then widget tự trở về vị trí hợp lệ gần nhất. |
+| AC-10 | Given User Free – When chọn phông Premium – Then Paywall hiển thị. |
+
+## 11.4 Calendar & Event
+
+| ID | Scenario (Given – When – Then) |
+|---|---|
+| AC-11 | Given Month View tháng 10/2026, tuần bắt đầu Thứ Hai – Then ngày 1 nằm cột Thứ Năm và ngày 5 nằm cột Thứ Hai. |
+| AC-12 | Given Week View tuần 5–11/10/2026 – Then dòng phụ hiển thị "Week 41". |
+| AC-13 | When chọn ngày 14 rồi chạm lần hai – Then form New event mở với Date = 14/10. |
+| AC-14 | When Start = 15:00 và End = 14:00 – Then không lưu được và hiển thị lỗi dưới trường Time. |
+| AC-15 | Given event lặp "Every Monday" – When xóa và chọn "Chỉ sự kiện này" – Then chỉ lần đó biến mất. |
+| AC-16 | When xóa một event có reminder – Then không còn notification nào cho event đó. |
+
+## 11.5 Goal & Habit
+
+| ID | Scenario (Given – When – Then) |
+|---|---|
+| AC-17 | Given goal "12 workouts" có Current = 11 – When chạm chip – Then goal chuyển Completed và "x of y" tăng 1. |
+| AC-18 | Given Month View – When tạo goal từ thẻ Monthly Goals – Then goal có Type = Monthly và không xuất hiện ở Weekly Goals. |
+| AC-19 | When chọn "Skip occurrence" cho "Read 20 minutes" hôm nay – Then hôm nay là Skipped, các ngày lặp kế tiếp vẫn còn. |
+| AC-20 | When đổi Repeat Rule của habit – Then occurrence các ngày đã qua giữ nguyên, các ngày từ hôm nay cập nhật. |
+
+## 11.6 To-do & Task
+
+| ID | Scenario (Given – When – Then) |
+|---|---|
+| AC-21 | When gõ "Mua sữa" vào "Add a new task" và nhấn Enter – Then task xuất hiện đầu danh sách, ô nhập trống và vẫn focus. |
+| AC-22 | Given đang ở bộ lọc Today – When thêm task – Then task có DueDate = hôm nay. |
+| AC-23 | When kéo task thứ 3 lên đầu – Then thứ tự mới được giữ sau khi mở lại ứng dụng. |
+| AC-24 | Given task có 3 subtask – When xóa task – Then 3 subtask bị xóa và reminder bị hủy. |
+| AC-25 | Given task lặp "Weekdays" – When hoàn thành vào thứ Sáu – Then lần kế tiếp có DueDate là thứ Hai. |
+
+## 11.7 Notes, Snapshot & Theme
+
+| ID | Scenario (Given – When – Then) |
+|---|---|
+| AC-26 | When nhập 500 ký tự vào Quick Note – Then không nhập thêm được và bộ đếm hiển thị 500/500. |
+| AC-27 | When sửa Quick Note trên Home – Then Lock Screen và Notification hiển thị nội dung mới. |
+| AC-28 | When nhấn "Save image" – Then ảnh PNG đúng độ phân giải màn hình xuất hiện trong thư viện ảnh. |
+| AC-29 | When chuyển Appearance sang Dark – Then toàn ứng dụng đổi giao diện ngay, không cần khởi động lại. |
+
+## 11.8 Template, VIP & Template Studio
+
+| ID | Scenario (Given – When – Then) |
+|---|---|
+| AC-30 | Given User Free – Then có đúng 3 Free Template dùng được, các template còn lại có biểu tượng khóa. |
+| AC-31 | Given User Free – When mở template Premium và hoàn tất Mock Purchase – Then template mở khóa ngay và có bản ghi Purchase. |
+| AC-32 | Given VIP User – When đổi Widget size sang L trong Template Studio – Then bản xem trước cập nhật ngay. |
+| AC-33 | When lưu template trong Template Studio – Then template xuất hiện trong tab Presets. |
+| AC-34 | Given VIP User có template riêng – When Downgrade to Free – Then template bị khóa và bố cục về Free Template mặc định. |
+
+## 11.9 Notification & Lock Screen
+
+| ID | Scenario (Given – When – Then) |
+|---|---|
+| AC-35 | When chọn Done trên notification của task – Then task Completed và không phát sinh task mới. |
+| AC-36 | Given có reminder lúc 09:00 – When khởi động lại thiết bị lúc 08:00 – Then notification vẫn hiển thị lúc 09:00. |
+| AC-37 | When chạm khối Schedule trên Lock Screen – Then Android yêu cầu mở khóa trước khi mở ứng dụng. |
+| AC-38 | Given bật Hide details – Then Lock Screen chỉ hiển thị số lượng event/task. |
+| AC-39 | When nhập nội dung trong notification Quick Note và nhấn Save note – Then widget Quick Note trên Home hiển thị nội dung mới. |
+
+## 11.10 Settings & System Calendar
+
+| ID | Scenario (Given – When – Then) |
+|---|---|
+| AC-40 | When đổi ngày bắt đầu tuần sang Chủ Nhật – Then Month View và Week View cập nhật ngay. |
+| AC-41 | When đổi Language sang Tiếng Việt – Then toàn bộ giao diện chuyển sang Tiếng Việt. |
+| AC-42 | Given cấp quyền Calendar – Then event hệ thống hiển thị với biểu tượng nguồn và không sửa được. |
+| AC-43 | Given từ chối quyền Calendar – Then Local Event vẫn tạo và hiển thị bình thường. |
 
 ---
 
- 39. MỤC TIÊU CUỐI CÙNG
+# 12. REQUIREMENT TRACEABILITY
 
-SuperCalendar hướng tới một hệ sinh thái:
+## 12.1 Development Flow
 
+```text
+FUNCTIONAL REQUIREMENTS (FR)
+        ↓
+USE CASE SPECIFICATION
+        ↓
+UI/UX DESIGN (SCR)
+        ↓
+DATABASE DESIGN (Entity)
+        ↓
+CLASS / ARCHITECTURE DESIGN
+        ↓
+FLUTTER IMPLEMENTATION
+        ↓
+ANDROID NATIVE INTEGRATION
+        ↓
+TEST CASE (AC)
+        ↓
+ACCEPTANCE TEST
+```
 
-                 SUPER CALENDAR
-                        │
-       ┌────────────────┼────────────────┐
-       ↓                ↓                ↓
-    CALENDAR           TASKS           NOTES
-       │                │                │
-       └────────────────┼────────────────┘
-                        ↓
-                  LOCK SCREEN
-                        │
-              ┌─────────┴─────────┐
-              ↓                   ↓
-          Schedule              To-do
-          Read only           Interactive
-                                  │
-                                  ↓
-                              Quick Add
-                        
-                        ↓
-                     THEMES
-                        │
-              ┌─────────┴─────────┐
-              ↓                   ↓
-            Free                 VIP
-                                  │
-                           Theme Builder
-                                  │
-                                  ↓
-                              Templates
-                                  │
-                                  ↓
-                            Marketplace
-                                  │
-                       ┌──────────┴──────────┐
-                       ↓                     ↓
-                    Creator                Buyer
+- Mỗi chức năng được triển khai phải có FR tương ứng.
+- Mỗi màn hình phải truy ngược được về ít nhất một FR.
+- Mỗi Test Case phải ghi rõ FR và AC mà nó kiểm tra.
 
+## 12.2 Traceability Matrix
 
-Phiên bản đầu tiên không cần đạt đến toàn bộ hệ thống này.
+| FR | Name | Screens | Entities | Acceptance Criteria | Priority |
+|---|---|---|---|---|---|
+| FR-01 | Onboarding & Permission | SCR-13 | User, UserSettings | AC-04, AC-05 | P2 |
+| FR-02 | Account & Profile | SCR-10, SCR-20 | User | AC-06 | P1 |
+| FR-03 | Home Dashboard | SCR-01 | DashboardLayout, WidgetPlacement | AC-07 | P1 |
+| FR-04 | Edit Your Screen | SCR-02 | DashboardLayout, WidgetPlacement | AC-08, AC-09, AC-10 | P1 |
+| FR-05 | Calendar | SCR-03, SCR-04 | Event, Goal | AC-11, AC-12, AC-13 | P1 |
+| FR-06 | Event Management | SCR-05 | Event, EventGuest, EventException, Reminder | AC-14, AC-15, AC-16 | P1 |
+| FR-07 | Goal Management | SCR-03, SCR-04, SCR-14 | Goal | AC-17, AC-18 | P1 |
+| FR-08 | Habit Management | SCR-06, SCR-15 | Habit, HabitOccurrence | AC-19, AC-20 | P1 |
+| FR-09 | To-do List | SCR-07, SCR-21 | Task | AC-21, AC-22, AC-23 | P1 |
+| FR-10 | Task Details & Subtask | SCR-08 | Task, TaskSubtask, Tag, TaskTag | AC-24, AC-25 | P1 |
+| FR-11 | Notes & Quick Note | SCR-01, SCR-11, SCR-12, SCR-16 | Note | AC-26, AC-27 | P1 |
+| FR-12 | Month Snapshot & Save Image | SCR-01, SCR-19 | Event, DashboardLayout | AC-28 | P2 |
+| FR-13 | Theme & Appearance | SCR-10, SCR-20 | Theme, UserSettings | AC-29 | P1 |
+| FR-14 | Widget Template | SCR-01, SCR-02, SCR-09 | WidgetTemplate | AC-30 | P1 |
+| FR-15 | VIP & Paywall | SCR-09, SCR-17 | User, Purchase | AC-31, AC-34 | P1 |
+| FR-16 | Template Studio | SCR-09 | WidgetTemplate | AC-32, AC-33 | P1 |
+| FR-17 | Template Marketplace & Publish | SCR-18 | WidgetTemplate, Purchase | — | P3 |
+| FR-18 | Notification & Reminder | System | Reminder | AC-16, AC-35, AC-36 | P1 |
+| FR-19 | Lock Screen | SCR-11 | Event, Task, Note, UserSettings | AC-37, AC-38 | P1 |
+| FR-20 | Android Quick Note Notification | SCR-12 | Note | AC-39 | P2 |
+| FR-21 | Settings | SCR-10, SCR-20 | UserSettings | AC-40, AC-41 | P1 |
+| FR-22 | System Calendar Integration | SCR-20 | CalendarSource, Event | AC-42, AC-43 | P2 |
 
-Mục tiêu đầu tiên chỉ là:
+---
 
-> Xây được một SuperCalendar chạy thật trên Android, có Calendar + To-do + Notes + Notification + Lock Screen, sử dụng giao diện pastel/minimal và lưu dữ liệu trên thiết bị.
+# 13. FUNCTIONAL REQUIREMENTS SUMMARY
 
-Sau khi phần này chạy ổn, VIP và Marketplace sẽ được xây như những lớp tính năng tiếp theo.
+| ID | Functional Requirement | Main Responsibility |
+|---|---|---|
+| FR-01 | Onboarding & Permission | Giới thiệu, tạo local account, xin quyền |
+| FR-02 | Account & Profile | Quản lý thông tin cá nhân và VIP Status |
+| FR-03 | Home Dashboard | Tổng quan trong ngày bằng widget |
+| FR-04 | Edit Your Screen | Kéo thả, resize widget, nền, phông |
+| FR-05 | Calendar | Month/Week View và điều hướng lịch |
+| FR-06 | Event Management | Tạo, sửa, xóa sự kiện |
+| FR-07 | Goal Management | Mục tiêu Weekly/Monthly |
+| FR-08 | Habit Management | Habit Rule và Occurrence |
+| FR-09 | To-do List | Danh sách task, Quick Add, lọc, sắp xếp |
+| FR-10 | Task Details & Subtask | Chi tiết task và công việc con |
+| FR-11 | Notes & Quick Note | Ghi chú nhanh dùng chung một nguồn |
+| FR-12 | Month Snapshot & Save Image | Xuất lịch tháng thành ảnh |
+| FR-13 | Theme & Appearance | Giao diện toàn ứng dụng |
+| FR-14 | Widget Template | Mẫu trình bày widget |
+| FR-15 | VIP & Paywall | Kiểm soát Premium và nâng cấp |
+| FR-16 | Template Studio | VIP tự thiết kế template |
+| FR-17 | Template Marketplace & Publish | Khám phá và chia sẻ template (P3) |
+| FR-18 | Notification & Reminder | Nhắc nhở và thao tác nhanh |
+| FR-19 | Lock Screen | Lịch trình, To-do, Quick Note trên màn hình khóa |
+| FR-20 | Android Quick Note Notification | Sửa Quick Note từ khay thông báo |
+| FR-21 | Settings | Cấu hình ứng dụng |
+| FR-22 | System Calendar Integration | Đọc lịch hệ thống Android |
+
+---
+
+# 14. FINAL SYSTEM FUNCTIONAL STRUCTURE
+
+### CORE NAVIGATION
+
+**Home → Calendar → To-do → VIP → Settings**
+
+### CALENDAR MANAGEMENT
+
+**Calendar (Month/Week) → Event → Goal → Habit**
+
+### PRODUCTIVITY
+
+**To-do List → Task Details → Subtask → Reminder**
+
+### QUICK CAPTURE
+
+**Quick Note → Home Widget / Lock Screen / Notification → Note Database**
+
+### PERSONALIZATION
+
+**Theme → Edit Your Screen → Widget Template → Template Studio**
+
+### PREMIUM
+
+**Feature Lock → Paywall → Mock Purchase → VIP → Premium Access**
+
+### SYSTEM INTEGRATION
+
+**Reminder → Notification (Done / Snooze / Skip)**
+
+**Lock Screen → Schedule / To-do / Quick Note**
+
+**System Calendar → Event (read only)**
+
+### FUTURE
+
+**Template Marketplace → Purchase → Ownership → Apply → Publish**
+
+---
+
+# 15. UI REVIEW NOTES
+
+| ID | Screen | Issue | Recommendation |
+|---|---|---|---|
+| UI-01 | SCR-03 | Lưới tháng 10/2026 lệch một ngày: ngày 5 nằm cột Chủ Nhật, trong khi header ghi "Monday, October 5" và Week View ghi "M 5". Thực tế 1/10/2026 là Thứ Năm. | Hàng đầu sửa thành 28, 29, 30, 1, 2, 3, 4; ngày 31 nằm cột Thứ Bảy. |
+| UI-02 | SCR-03 | Month View không có nút "Today" như Week View. | Thêm chip "Today" cạnh mũi tên chuyển tháng. |
+| UI-03 | SCR-02 | Mục FONT dùng nhãn "ADD IMAGE". | Đổi thành "Choose font". |
+| UI-04 | SCR-02 | Nút "LET MAKE YOURS" sai ngữ pháp. | Đổi thành "Make it yours". |
+| UI-05 | SCR-05 | Có hai nút lưu: "Save" ở header và "Create event" ở cuối form. | Giữ một nút chính ở cuối form. |
+| UI-06 | SCR-01, SCR-10 | "Saved & synced", "Synced across 3 devices" không đúng khi Prototype chưa có Cloud Sync. | Đổi thành "Saved". |
+| UI-07 | SCR-06 | "Custom · sunset" ngụ ý nhắc theo giờ mặt trời lặn, cần quyền vị trí. | Đổi thành giờ cố định. |
+| UI-08 | SCR-12 | Ô nhập hiển thị sẵn nội dung cũ để sửa; RemoteInput của Android không hỗ trợ điền sẵn văn bản. Dòng "notification access" không rõ nghĩa. | Hiển thị nội dung cũ dạng text phía trên ô nhập; bỏ dòng "notification access". |
+| UI-09 | SCR-10 | Thiếu nhóm Tasks, Data và Privacy/Terms. | Bổ sung theo FR-21. |
+| UI-10 | General | Chưa có thiết kế cho SCR-13 → SCR-21. | Thiết kế bổ sung theo mục 3.5. |
+| UI-11 | General | Chưa có trạng thái Empty/Loading/Error và Dark Mode. | Bổ sung theo mục 3.4 và FR-13. |
+
+---
+
+# 16. OPEN ISSUES
+
+| ID | Issue | Proposed Solution |
+|---|---|---|
+| OI-01 | Notes không phải tab chính trên UI. | (a) Giữ như tài liệu: Notes truy cập qua widget Quick Note; (b) thay tab VIP bằng Notes và đưa VIP vào Home/Settings. |
+| OI-02 | Nhãn "synced" khi chưa có Cloud Sync. | Prototype dùng "Saved"; Cloud Sync thuộc Production. |
+| OI-03 | Guests trong Event dễ hiểu nhầm là mời người khác tham gia. | Lưu Guests như nhãn tên cục bộ, không gửi lời mời. |
+| OI-04 | Hai nút lưu trên form Event. | Xem UI-05. |
+| OI-05 | Chức năng icon sliders trên Home chưa rõ. | Đề xuất dùng để bật/tắt widget hiển thị; cần designer xác nhận. |
+| OI-06 | Lối vào Habits từ Calendar chưa có trên UI. | Thêm tab phụ "Events / Habits" dưới bộ chuyển Month/Week hoặc nút trên header Calendar. |
+| OI-07 | Android trên điện thoại không cho ứng dụng bên thứ ba đặt widget tùy ý lên màn hình khóa như thiết kế. | Prototype dùng ongoing notification kết hợp Activity hiển thị trên màn hình khóa (showWhenLocked); kiểm tra thêm hỗ trợ widget màn hình khóa theo phiên bản Android thực tế. |
+| OI-08 | Edit Your Screen chỉnh Home hay Lock Screen chưa rõ. | Thêm bộ chuyển "Home / Lock Screen" trong SCR-02 (FR-04.11). |
+| OI-09 | App Version 2.8.0 trên UI khác Version tài liệu 1.0. | Thống nhất số phiên bản Prototype là 1.0.0. |
+
+---
+
+# 17. CONCLUSION
+
+Super Calendar được xây dựng như một ứng dụng quản lý năng suất cá nhân có giao diện tối giản nhưng có khả năng mở rộng về chức năng, xoay quanh định hướng:
+
+> **PLAN → DO → PERSONALIZE → SEE IT FIRST**
+
+Trong đó:
+
+- **Calendar** quản lý lịch trình theo tháng và tuần.
+- **Event** quản lý hoạt động có thời gian cụ thể.
+- **Goal** theo dõi mục tiêu tuần và tháng.
+- **Habit** quản lý hành vi lặp lại qua Rule và Occurrence.
+- **To-do** quản lý công việc và công việc con.
+- **Quick Note** ghi lại ý tưởng nhanh từ bất kỳ đâu.
+- **Theme** cá nhân hóa giao diện toàn ứng dụng.
+- **Edit Your Screen, Widget Template, Template Studio** cá nhân hóa cách hiển thị.
+- **VIP** kiểm soát chức năng Premium.
+- **Notification** nhắc nhở và cho phép thao tác nhanh.
+- **Lock Screen** đưa thông tin quan trọng đến nơi dễ thấy nhất.
+- **Settings** quản lý cấu hình ứng dụng.
+
+Prototype ưu tiên Local Database và Flutter, sử dụng Android Native khi cần tích hợp System Calendar, Notification và Lock Screen. Tài liệu này là cơ sở để chuyển sang các bước tiếp theo:
+
+**Use Case Specification → UI/UX Specification → Database Specification → Class Diagram → Architecture → Implementation → Test Case.**
+
+---
+
+**END OF FUNCTIONAL REQUIREMENTS SPECIFICATION – SUPER CALENDAR v1.0**
