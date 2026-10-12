@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -5,11 +7,13 @@ import 'package:flutter_application/app/routes/app_routes.dart';
 import 'package:flutter_application/app/theme/app_colors.dart';
 import 'package:flutter_application/app/theme/app_text.dart';
 import 'package:flutter_application/core/services/app_state.dart';
-import 'package:flutter_application/features/calendar/domain/event.dart';
-import 'package:flutter_application/core/widgets/app_widgets.dart';
-import 'package:flutter_application/features/dashboard/presentation/widgets/home_widgets.dart';
-import 'package:flutter_application/features/calendar/presentation/screens/event_form_screen.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
+import 'package:flutter_application/core/widgets/app_widgets.dart';
+import 'package:flutter_application/features/calendar/domain/event.dart';
+import 'package:flutter_application/features/calendar/presentation/screens/event_detail_screen.dart';
+import 'package:flutter_application/features/calendar/presentation/screens/event_form_screen.dart';
+import 'package:flutter_application/features/calendar/presentation/widgets/system_calendar_prompt.dart';
+import 'package:flutter_application/features/dashboard/presentation/widgets/home_widgets.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -19,16 +23,32 @@ class CalendarScreen extends StatefulWidget {
 }
 
 class _CalendarScreenState extends State<CalendarScreen> {
-  DateTime? _month;
-
   void _newEvent(BuildContext context, DateTime day) {
     pushFullScreen(context, EventFormScreen(initialDate: day));
+  }
+
+  void _openEvent(BuildContext context, CalendarEvent event) {
+    pushFullScreen(context, EventDetailScreen(event: event));
+  }
+
+  /// Moves the month view to [month] by selecting a day inside it: today
+  /// for the current month, otherwise the 1st.
+  void _showMonth(AppState app, DateTime month) {
+    final today = app.today;
+    app.selectDay(
+      month.year == today.year && month.month == today.month ? today : month,
+    );
+    unawaited(app.refreshSystemCalendar());
   }
 
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
-    final month = _month ?? DateTime(app.today.year, app.today.month);
+    final selected = app.selectedDay;
+    final month = DateTime(selected.year, selected.month);
+    final showPrompt =
+        !app.settings.useSystemCalendar &&
+        !app.settings.calendarBannerDismissed;
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -47,7 +67,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   icon: LucideIcons.plus,
                   size: 40,
                   filled: true,
-                  onTap: () => _newEvent(context, app.selectedDay),
+                  onTap: () => _newEvent(context, selected),
                 ),
               ],
             ),
@@ -56,6 +76,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ..._weekView(context, app)
             else
               ..._monthView(context, app, month),
+            if (showPrompt) ...[
+              const SizedBox(height: 14),
+              const SystemCalendarPrompt(),
+            ],
           ],
         ),
       ),
@@ -69,7 +93,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final daysInMonth = DateUtils.getDaysInMonth(month.year, month.month);
     final weeks = ((month.weekday - 1 + daysInMonth) / 7).ceil();
     final selected = app.selectedDay;
-    final agenda = app.eventsOn(selected);
+    final agenda = app.events.on(selected);
 
     return [
       PageHeader(
@@ -78,12 +102,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _chevron(LucideIcons.chevronLeft, AppColors.muted, () {
-              setState(() => _month = DateTime(month.year, month.month - 1));
-            }),
-            _chevron(LucideIcons.chevronRight, AppColors.text, () {
-              setState(() => _month = DateTime(month.year, month.month + 1));
-            }),
+            _chevron(
+              LucideIcons.chevronLeft,
+              AppColors.muted,
+              () => _showMonth(app, DateTime(month.year, month.month - 1)),
+            ),
+            _chevron(
+              LucideIcons.chevronRight,
+              AppColors.text,
+              () => _showMonth(app, DateTime(month.year, month.month + 1)),
+            ),
           ],
         ),
       ),
@@ -138,20 +166,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
             Wrap(
               spacing: 6,
               runSpacing: 6,
-              children: const [
-                _GoalChip(
-                  'Launch site',
-                  color: AppColors.primarySoft,
-                  textColor: AppColors.primary,
-                  icon: LucideIcons.rocket,
-                ),
-                _GoalChip(
-                  '12 workouts',
+              children: [
+                const SoftPill(label: 'Launch site', icon: LucideIcons.rocket),
+                SoftPill(
+                  label: '12 workouts',
                   color: AppColors.green,
                   textColor: AppColors.greenStrong,
                 ),
-                _GoalChip(
-                  'Read 2 books',
+                SoftPill(
+                  label: 'Read 2 books',
                   color: AppColors.yellow,
                   textColor: AppColors.yellowText,
                 ),
@@ -167,7 +190,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
           style: AppText.s(10, color: AppColors.muted),
         )
       else
-        for (final event in agenda) _AgendaRow(event: event, app: app),
+        for (final event in agenda)
+          _AgendaRow(
+            event: event,
+            isToday: sameDay(event.date, app.today),
+            onTap: () => _openEvent(context, event),
+          ),
     ];
   }
 
@@ -191,7 +219,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   ) {
     final inMonth = day.month == month.month;
     final selected = sameDay(day, app.selectedDay);
-    final events = inMonth ? app.eventsOn(day) : const <CalendarEvent>[];
+    final events = inMonth ? app.events.on(day) : const <CalendarEvent>[];
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
@@ -199,7 +227,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           _newEvent(context, day);
         } else {
           app.selectDay(day);
-          if (!inMonth) setState(() => _month = DateTime(day.year, day.month));
+          if (!inMonth) unawaited(app.refreshSystemCalendar());
         }
       },
       child: Container(
@@ -216,8 +244,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
               '${day.day}',
               style: AppText.s(
                 11,
-                weight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: selected
+                weight: selected || sameDay(day, app.today)
+                    ? FontWeight.w700
+                    : FontWeight.w500,
+                color: selected || sameDay(day, app.today)
                     ? AppColors.primary
                     : inMonth
                     ? AppColors.text
@@ -230,7 +260,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _dot(events.first.accent, 8),
+                  _dot(AppColors.accent(events.first.colorIndex), 8),
                   if (events.length > 1) ...[
                     const SizedBox(width: 2),
                     _dot(AppColors.greenStrong, 4),
@@ -269,9 +299,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
     ];
     final eventCount = days.fold<int>(
       0,
-      (sum, day) => sum + app.eventsOn(day).length,
+      (sum, day) => sum + app.events.on(day).length,
     );
     final gridHeight = (_lastHour - _firstHour) * _hourHeight;
+    final outside = app.events
+        .on(anchor)
+        .where(
+          (e) =>
+              e.endMinutes <= _firstHour * 60 ||
+              e.startMinutes >= _lastHour * 60,
+        )
+        .toList();
 
     return [
       Row(
@@ -293,22 +331,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ],
             ),
           ),
-          GestureDetector(
-            onTap: () => app.selectDay(app.today),
-            child: Container(
-              height: 22,
-              padding: const EdgeInsets.symmetric(horizontal: 9),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.primarySoft,
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: Text(
-                'Today',
-                style: AppText.s(10, color: AppColors.primary),
-              ),
-            ),
-          ),
+          SoftPill(label: 'Today', onTap: () => app.selectDay(app.today)),
         ],
       ),
       const SizedBox(height: 10),
@@ -356,6 +379,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ),
         ),
       ),
+      if (outside.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        Text(
+          'Outside 08:00–17:00 on ${shortDate(anchor)}',
+          style: AppText.s(10, color: AppColors.muted),
+        ),
+        const SizedBox(height: 8),
+        for (final event in outside)
+          _AgendaRow(
+            event: event,
+            isToday: sameDay(event.date, app.today),
+            onTap: () => _openEvent(context, event),
+          ),
+      ],
       const SizedBox(height: 12),
       AppCard(
         color: AppColors.yellow,
@@ -368,15 +405,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
             Wrap(
               spacing: 6,
               runSpacing: 6,
-              children: const [
-                _GoalChip(
-                  '3 workouts',
+              children: [
+                SoftPill(
+                  label: '3 workouts',
+                  icon: LucideIcons.check,
                   color: AppColors.green,
                   textColor: AppColors.greenStrong,
-                  icon: LucideIcons.check,
                 ),
-                _GoalChip('Draft launch'),
-                _GoalChip('Call Mom'),
+                SoftPill(
+                  label: 'Draft launch',
+                  color: AppColors.surface,
+                  textColor: AppColors.text,
+                ),
+                SoftPill(
+                  label: 'Call Mom',
+                  color: AppColors.surface,
+                  textColor: AppColors.text,
+                ),
               ],
             ),
           ],
@@ -451,34 +496,41 @@ class _CalendarScreenState extends State<CalendarScreen> {
         child: Stack(
           clipBehavior: Clip.hardEdge,
           children: [
-            for (final event in app.eventsOn(day))
+            for (final event in app.events.on(day))
               if (event.endMinutes > _firstHour * 60 &&
                   event.startMinutes < _lastHour * 60)
-                _weekEvent(event),
+                _weekEvent(context, event),
           ],
         ),
       ),
     );
   }
 
-  Widget _weekEvent(CalendarEvent event) {
+  Widget _weekEvent(BuildContext context, CalendarEvent event) {
     final start = event.startMinutes.clamp(_firstHour * 60, _lastHour * 60);
     final end = event.endMinutes.clamp(_firstHour * 60, _lastHour * 60);
+    final height = ((end - start) / 60 * _hourHeight - 3).clamp(
+      24.0,
+      double.infinity,
+    );
     return Positioned(
       top: (start - _firstHour * 60) / 60 * _hourHeight,
-      height: ((end - start) / 60 * _hourHeight - 3).clamp(24, double.infinity),
+      height: height,
       left: 1,
       right: 2,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(4, 4, 2, 2),
-        decoration: BoxDecoration(
-          color: event.color,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          '${event.title}\n${event.startLabel}',
-          overflow: TextOverflow.clip,
-          style: AppText.s(8.5, height: 1.2),
+      child: GestureDetector(
+        onTap: () => _openEvent(context, event),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(4, 4, 2, 2),
+          decoration: BoxDecoration(
+            color: AppColors.accentSurface(event.colorIndex),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            '${event.title}\n${event.startLabel}',
+            overflow: TextOverflow.clip,
+            style: AppText.s(8.5, height: 1.2),
+          ),
         ),
       ),
     );
@@ -491,99 +543,76 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 }
 
-class _GoalChip extends StatelessWidget {
-  const _GoalChip(
-    this.label, {
-    this.color = AppColors.surface,
-    this.textColor = AppColors.text,
-    this.icon,
+class _AgendaRow extends StatelessWidget {
+  const _AgendaRow({
+    required this.event,
+    required this.isToday,
+    required this.onTap,
   });
 
-  final String label;
-  final Color color;
-  final Color textColor;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 22,
-      padding: const EdgeInsets.symmetric(horizontal: 9),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(11),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 11, color: textColor),
-            const SizedBox(width: 5),
-          ],
-          Text(label, style: AppText.s(10, color: textColor)),
-        ],
-      ),
-    );
-  }
-}
-
-class _AgendaRow extends StatelessWidget {
-  const _AgendaRow({required this.event, required this.app});
-
   final CalendarEvent event;
-  final AppState app;
+  final bool isToday;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final isToday = sameDay(event.date, app.today);
     final details = [
       if (event.location.isNotEmpty) event.location,
       event.category,
     ].join(' · ');
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              width: 56,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isToday
-                        ? 'TODAY'
-                        : shortDate(event.date).split(',').first.toUpperCase(),
-                    style: AppText.s(9.5, color: AppColors.muted),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    event.startLabel,
-                    style: AppText.s(12.5, weight: FontWeight.w700),
-                  ),
-                ],
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                width: 56,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isToday
+                          ? 'TODAY'
+                          : shortDate(event.date)
+                                .split(',')
+                                .first
+                                .toUpperCase(),
+                      style: AppText.s(9.5, color: AppColors.muted),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      event.startLabel,
+                      style: AppText.s(12.5, weight: FontWeight.w700),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Container(
-              width: 2.5,
-              margin: const EdgeInsets.only(right: 9),
-              color: event.accent,
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    event.title,
-                    style: AppText.s(12.5, weight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(details, style: AppText.s(10, color: AppColors.muted)),
-                ],
+              Container(
+                width: 2.5,
+                margin: const EdgeInsets.only(right: 9),
+                color: AppColors.accent(event.colorIndex),
               ),
-            ),
-          ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      event.title,
+                      style: AppText.s(12.5, weight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(details, style: AppText.s(10, color: AppColors.muted)),
+                  ],
+                ),
+              ),
+              if (event.isSystem)
+                Icon(LucideIcons.smartphone, size: 12, color: AppColors.faint),
+            ],
+          ),
         ),
       ),
     );

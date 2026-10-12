@@ -1124,45 +1124,103 @@ Không tự xử lý thông tin thẻ từ đầu.
 
 ---
 
-## FR-21 – SETTINGS
+ 33. KIẾN TRÚC CODE
 
-**Description:** Quản lý cấu hình ứng dụng theo nhóm.
-**Actor:** Free User, VIP User · **Screens:** SCR-10, SCR-20 · **Priority:** P1
+Prototype được tổ chức theo hướng feature-first: mỗi tính năng là một thư mục riêng trong `features/`, bên trong chia theo tầng.
 
-### Main Flow
 
-1. User mở tab Settings.
-2. System hiển thị thẻ tài khoản và danh sách nhóm cài đặt, mỗi dòng kèm giá trị hiện tại.
-3. User chọn một nhóm.
-4. System mở trang con.
-5. User thay đổi cài đặt.
-6. System lưu ngay và áp dụng.
+lib/
+│
+├── main.dart
+│
+├── app/                          Cấu hình toàn cục của app
+│   ├── app.dart                  MaterialApp và Bottom Navigation
+│   ├── routes/                   Điều hướng giữa các tab và màn hình
+│   └── theme/                    Colors, typography, theme
+│
+├── core/                         Phần dùng chung cho mọi tính năng
+│   ├── data/                     Local database (SQLite) và lớp Repository gốc
+│   ├── services/                 AppState, Notification, System Calendar, seed data
+│   ├── utils/                    Hàm tiện ích (định dạng ngày...)
+│   └── widgets/                  Widget dùng chung (card, checkbox, chip...)
+│
+└── features/
+    │
+    ├── dashboard/                Home dashboard và layout của Home / Lock Screen
+    │   ├── data/                 LayoutRepository
+    │   ├── domain/               ScreenLayout
+    │   └── presentation/
+    │
+    ├── calendar/                 Month view, Week view, Event (CRUD), Habits
+    │   ├── data/                 EventRepository, HabitRepository
+    │   ├── domain/               Event, Habit
+    │   └── presentation/
+    │
+    ├── todo/                     To-do list, Task details
+    │   ├── data/                 TaskRepository
+    │   ├── domain/               Task
+    │   └── presentation/
+    │
+    ├── note/                     Notes (CRUD) và Quick Note
+    │   ├── data/                 NoteRepository
+    │   ├── domain/               Note
+    │   └── presentation/
+    │
+    ├── lock_screen/              Lock Screen (Schedule read-only, To-do tương tác)
+    │   └── presentation/
+    │
+    ├── vip/                      VIP, mock payment, Template Studio, Template Store
+    │   ├── data/                 TemplateRepository (Theme, Template, Purchase)
+    │   ├── domain/               Template, Purchase, PaymentResult
+    │   └── presentation/
+    │
+    └── settings_screen/          Settings, Appearance, Notifications, Calendar, Edit Your Screen
+        ├── data/                 UserRepository
+        ├── domain/               User, AppSettings
+        └── presentation/
 
-### Settings Groups
 
-| Group | UI Value | Details |
-|---|---|---|
-| Account | Tên người dùng | Profile, Avatar, Email, VIP Status |
-| Appearance | Light / Dark / System | Theme, màu, phông, kiểu widget |
-| Language | English | English, Tiếng Việt |
-| Date & Time | Automatic | Định dạng ngày, 12h/24h, ngày bắt đầu tuần, múi giờ |
-| Calendar | Personal + Work | Calendar mặc định, calendar hiển thị, quyền System Calendar, thời lượng event mặc định |
-| Tasks | — | Priority mặc định, reminder mặc định, hành vi task đã hoàn thành (giữ/ẩn) |
-| Notifications | On / Off | Bật/tắt chung và theo loại Event/Task/Habit/Goal, âm thanh |
-| Lock Screen | Schedule · To-do · Note | Bật/tắt từng khối, Quick actions, Hide details, Quick Note Notification |
-| Data | — | Export/Import backup (JSON), xóa toàn bộ dữ liệu |
-| Help | — | User Guide, FAQ, gửi phản hồi |
-| About | Phiên bản | Version, Privacy Policy, Terms of Use |
+Mỗi feature có thể có ba tầng:
 
-### Detailed Requirements
 
-| ID | Requirement |
-|---|---|
-| FR-21.01 | Mỗi dòng hiển thị giá trị hiện tại bên phải và mở trang con khi chạm. |
-| FR-21.02 | Thay đổi cài đặt được lưu ngay, không cần nút Save. |
-| FR-21.03 | Đổi Language áp dụng ngay cho toàn ứng dụng. |
-| FR-21.04 | Xóa toàn bộ dữ liệu yêu cầu xác nhận hai bước (hộp thoại + nhập "DELETE"). |
-| FR-21.05 | Import backup ghi đè dữ liệu hiện tại sau khi người dùng xác nhận. |
+feature/
+├── data/                         Repository đọc/ghi local database
+├── domain/                       Model (entity) của feature
+└── presentation/                 Screens, widgets
+
+
+Chỉ tạo thư mục khi có code thật để đặt vào.
+
+Các phần sẽ bổ sung khi có backend:
+
+
+core/
+├── errors/                       Failure / Exception classes
+└── network/                      API client
+
+features/
+└── auth/                         Đăng nhập / Người dùng
+
+
+Quy ước:
+
+ Import nội bộ dùng dạng `package:flutter_application/...`.
+ Screen không hard-code màu, luôn lấy từ `app/theme/` (`AppColors`), nên đổi Theme là đổi toàn app.
+ Mọi dữ liệu đi qua một `DocumentStore` duy nhất (`core/data/`): app chính, Lock Screen và Notification action cùng đọc/ghi một database.
+ `AppState` (`core/services/`) nối các repository lại và giữ state liên-feature: điều hướng, theme đang áp dụng, VIP, notification, system calendar.
+ Dữ liệu mẫu chỉ được ghi một lần ở lần chạy đầu (`core/services/seed_data.dart`).
+
+Android native:
+
+
+android/
+└── app/
+    └── src/
+        └── main/
+            └── kotlin/
+
+
+Kotlin chỉ dùng khi cần Android-specific functionality.
 
 ---
 

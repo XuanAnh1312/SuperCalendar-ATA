@@ -1,24 +1,149 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:flutter_application/app/theme/app_colors.dart';
-import 'package:flutter_application/features/calendar/domain/event.dart';
-import 'package:flutter_application/features/calendar/domain/habit.dart';
-import 'package:flutter_application/features/todo/domain/task.dart';
+import 'package:flutter_application/app/theme/app_theme_data.dart';
+import 'package:flutter_application/core/data/document_store.dart';
+import 'package:flutter_application/core/data/repository.dart';
+import 'package:flutter_application/core/services/notification_service.dart';
+import 'package:flutter_application/core/services/seed_data.dart';
+import 'package:flutter_application/core/services/system_calendar_service.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
+import 'package:flutter_application/features/calendar/data/event_repository.dart';
+import 'package:flutter_application/features/calendar/data/habit_repository.dart';
+import 'package:flutter_application/features/dashboard/data/layout_repository.dart';
+import 'package:flutter_application/features/note/data/note_repository.dart';
+import 'package:flutter_application/features/settings_screen/data/user_repository.dart';
+import 'package:flutter_application/features/settings_screen/domain/user.dart';
+import 'package:flutter_application/features/todo/domain/task.dart';
+import 'package:flutter_application/features/todo/data/task_repository.dart';
+import 'package:flutter_application/features/vip/data/template_repository.dart';
+import 'package:flutter_application/features/vip/domain/template.dart';
 
-/// In-memory sample data shared by every screen (Phase 1: no database yet).
+/// Wires the feature repositories to the one local database and holds the
+/// app-level state that spans features: navigation, the active theme, VIP
+/// status, notifications and the system calendar connection.
 class AppState extends ChangeNotifier {
-  AppState() {
+  AppState({
+    required this.store,
+    NotificationService? notifications,
+    SystemCalendarService? systemCalendar,
+    DateTime Function()? clock,
+  }) : notifications = notifications ?? NoopNotificationService(),
+       systemCalendar = systemCalendar ?? FakeSystemCalendarService(),
+       clock = clock ?? DateTime.now {
+    tasks = TaskRepository(store, clock: this.clock);
+    events = EventRepository(store);
+    habits = HabitRepository(store);
+    notes = NoteRepository(store, clock: this.clock);
+    account = UserRepository(store, clock: this.clock);
+    templates = TemplateRepository(store, clock: this.clock);
+    layouts = LayoutRepository(store);
     selectedDay = today;
+    for (final repository in _repositories) {
+      repository.addListener(_onDataChanged);
+    }
   }
 
-  /// The demo data is anchored on the date used in the design.
-  final DateTime today = DateTime(2026, 10, 5);
-  final String userName = 'Mia';
-  final String userFullName = 'Mia Chen';
+  /// Price of the (mock) VIP subscription, in VND.
+  static const vipPrice = 49000;
 
-  // ---- Navigation -------------------------------------------------------
+  final DocumentStore store;
+  final NotificationService notifications;
+  final SystemCalendarService systemCalendar;
+  final DateTime Function() clock;
+
+  late final TaskRepository tasks;
+  late final EventRepository events;
+  late final HabitRepository habits;
+  late final NoteRepository notes;
+  late final UserRepository account;
+  late final TemplateRepository templates;
+  late final LayoutRepository layouts;
+
+  List<ChangeNotifier> get _repositories => [
+    tasks,
+    events,
+    habits,
+    notes,
+    account,
+    templates,
+    layouts,
+  ];
+
+  bool loaded = false;
+
+  DateTime get now => clock();
+  DateTime get today => dateOnly(clock());
+
+  User get user => account.user;
+  AppSettings get settings => account.settings;
+  bool get isVip => user.isVip;
+
+  // ---- Loading ------------------------------------------------------------
+
+  /// Reads everything from the device, writing the sample data on first run.
+  Future<void> load() async {
+    await _loadRepositories();
+    if (!settings.seeded) {
+      seedSampleData(this);
+      account.updateSettings((s) => s.seeded = true);
+      await flush();
+    }
+    selectedDay = today;
+    applyTheme();
+    loaded = true;
+    notifyListeners();
+    if (settings.useSystemCalendar) unawaited(refreshSystemCalendar());
+    _queueSync();
+  }
+
+  /// Picks up changes written by a notification action while the UI was
+  /// alive in another isolate.
+  Future<void> reloadFromDisk() async {
+    if (!loaded) return;
+    await tasks.load();
+    await notes.load();
+  }
+
+  Future<void> _loadRepositories() async {
+    await account.load();
+    await templates.load();
+    await layouts.load();
+    await tasks.load();
+    await events.load();
+    await habits.load();
+    await notes.load();
+  }
+
+  /// Completes when every queued write has reached the database.
+  Future<void> flush() async {
+    await Future.wait([
+      tasks.flush(),
+      events.flush(),
+      habits.flush(),
+      notes.flush(),
+      account.flush(),
+      templates.flush(),
+      layouts.flush(),
+    ]);
+  }
+
+  void _onDataChanged() {
+    notifyListeners();
+    _queueSync();
+  }
+
+  @override
+  void dispose() {
+    for (final repository in _repositories) {
+      repository.removeListener(_onDataChanged);
+    }
+    super.dispose();
+  }
+
+  // ---- Navigation ---------------------------------------------------------
 
   int tab = 0;
   bool weekView = false;
@@ -36,273 +161,266 @@ class AppState extends ChangeNotifier {
   }
 
   void selectDay(DateTime day) {
-    selectedDay = DateTime(day.year, day.month, day.day);
+    selectedDay = dateOnly(day);
     notifyListeners();
   }
 
-  // ---- Tasks ------------------------------------------------------------
+  // ---- Theme --------------------------------------------------------------
 
-  int _nextId = 100;
+  /// Bumped whenever the applied theme changes; the app root listens to it
+  /// and repaints everything.
+  final ValueNotifier<int> themeRevision = ValueNotifier(0);
 
-  final List<Task> tasks = [
-    Task(
-      id: 't1',
-      title: 'Send launch proposal',
-      shortTitle: 'Send proposal',
-      due: 'Today',
-      detail: 'High',
-      tagColor: AppColors.pink,
-      priority: 'High',
-      repeat: 'Weekdays',
-      category: 'Work',
-      estimate: '45 min',
-      tags: ['launch', 'client'],
-      notes: 'Include updated timeline, package options and the revised launch date.',
-      subtasks: [
-        Subtask('Finalize pricing table', done: true),
-        Subtask('Attach project timeline'),
-        Subtask('Proofread email'),
-      ],
-    ),
-    Task(
-      id: 't2',
-      title: 'Review October budget',
-      shortTitle: 'Review budget',
-      due: 'Today',
-      detail: 'Finance',
-      tagColor: AppColors.blue,
-      category: 'Finance',
-      colorIndex: 2,
-    ),
-    Task(
-      id: 't3',
-      title: 'Book dentist appointment',
-      shortTitle: 'Book dentist',
-      due: 'Today',
-      detail: 'Health',
-      tagColor: AppColors.green,
-      completed: true,
-      category: 'Health',
-      colorIndex: 2,
-    ),
-    Task(
-      id: 't4',
-      title: 'Pick up dry cleaning',
-      due: 'Tue',
-      detail: 'Personal',
-      tagColor: AppColors.yellow,
-      time: 'Tue · 6:00 PM',
-      colorIndex: 3,
-    ),
-    Task(
-      id: 't5',
-      title: 'Outline newsletter',
-      due: 'Wed',
-      detail: '45 min',
-      tagColor: AppColors.purple,
-      time: 'Wed · 10:00 AM',
-      category: 'Work',
-      estimate: '45 min',
-    ),
-    Task(
-      id: 't6',
-      title: 'Buy oat milk and berries',
-      due: '',
-      detail: 'Shopping',
-      tagColor: AppColors.green,
-      time: 'Anytime',
-      category: 'Shopping',
-      colorIndex: 2,
-    ),
-  ];
+  AppThemeData get selectedTheme => templates.theme(user.selectedThemeId);
 
-  int get remainingTasks => tasks.where((t) => !t.completed).length;
+  /// Pushes the user's theme choices into [AppTheme].
+  void applyTheme() {
+    final accent = settings.accentIndex;
+    AppTheme.apply(
+      selectedTheme,
+      dark: settings.darkMode,
+      accent: accent == null ? null : AppColors.accent(accent),
+      // Custom typography is a VIP feature; a lapsed VIP falls back.
+      typography: isVip ? settings.typography : null,
+    );
+    themeRevision.value++;
+  }
 
-  /// The three tasks shown on the dashboard and lock screen widgets.
-  List<Task> get dashboardTasks {
-    const pinned = ['t1', 't3', 't2'];
-    final picked = [for (final id in pinned) ...tasks.where((t) => t.id == id)];
-    for (final t in tasks) {
-      if (picked.length >= 3) break;
-      if (!picked.contains(t)) picked.add(t);
+  void selectTheme(String themeId) {
+    account.selectTheme(themeId);
+    // A theme brings its own primary color, so drop the accent override.
+    account.updateSettings((s) => s.accentIndex = null);
+    applyTheme();
+  }
+
+  void setDarkMode(bool value) {
+    account.updateSettings((s) => s.darkMode = value);
+    applyTheme();
+  }
+
+  void setAccent(int? index) {
+    account.updateSettings((s) => s.accentIndex = index);
+    applyTheme();
+  }
+
+  /// VIP only. Returns false (and changes nothing) for a Free user.
+  bool setTypography(String? typography) {
+    if (!isVip) return false;
+    account.updateSettings((s) => s.typography = typography);
+    applyTheme();
+    return true;
+  }
+
+  // ---- VIP & mock payment -------------------------------------------------
+
+  /// Finishes the test payment for the VIP subscription. No real money moves;
+  /// only a [PaymentResult.success] grants VIP.
+  void completeVipPayment(PaymentResult result) {
+    templates.recordPurchase(
+      userId: user.id,
+      productId: Purchase.vipProduct,
+      price: vipPrice,
+      result: result,
+    );
+    if (result == PaymentResult.success) {
+      account.setVip(true);
+      applyTheme();
     }
-    return picked;
   }
 
-  void toggleTask(Task task) {
-    task.completed = !task.completed;
-    notifyListeners();
+  /// Back to Free, so the gating can be tested again.
+  void cancelVip() {
+    account.setVip(false);
+    applyTheme();
   }
 
-  void addTask(String title) {
-    final clean = title.trim();
-    if (clean.isEmpty) return;
-    tasks.insert(
-      0,
-      Task(
-        id: 't${_nextId++}',
-        title: clean,
-        due: 'Today',
-        detail: 'New',
-        tagColor: AppColors.purple,
-      ),
+  // ---- Templates ----------------------------------------------------------
+
+  bool ownsTemplate(Template template) => templates.owns(user.id, template);
+
+  /// Finishes the test payment for [template]; success unlocks it.
+  void completeTemplatePayment(Template template, PaymentResult result) {
+    templates.recordPurchase(
+      userId: user.id,
+      productId: template.id,
+      price: template.price,
+      result: result,
     );
-    notifyListeners();
   }
 
-  void deleteTask(Task task) {
-    tasks.remove(task);
-    notifyListeners();
+  /// Applies an owned template. Returns false if it is not unlocked.
+  bool applyTemplate(Template template) {
+    if (!ownsTemplate(template)) return false;
+    templates.saveTheme(template.themeData);
+    selectTheme(template.themeData.id);
+    return true;
   }
 
-  /// [newIndex] is the position after the item at [oldIndex] is removed.
-  void reorderTasks(int oldIndex, int newIndex) {
-    tasks.insert(newIndex, tasks.removeAt(oldIndex));
-    notifyListeners();
-  }
+  bool isTemplateApplied(Template template) =>
+      user.selectedThemeId == template.themeData.id;
 
-  /// Call after mutating a model object in place.
-  void touch() => notifyListeners();
-
-  // ---- Events -----------------------------------------------------------
-
-  late final List<CalendarEvent> events = [
-    _event('Team sync', 5, 9, 0, 90, 2, location: 'Room A203'),
-    _event('Lunch with Ana', 5, 11, 30, 60, 1, category: 'Personal'),
-    _event('Design review', 5, 14, 0, 60, 3, location: 'Studio 4'),
-    _event('1:1 with Sam', 6, 10, 0, 60, 0),
-    _event('Gym', 7, 11, 30, 90, 1, category: 'Health'),
-    _event('Launch', 9, 10, 0, 120, 0, location: 'Main stage'),
-    _event('Coffee with Lina', 9, 15, 0, 60, 3, category: 'Personal'),
-    _event('Sprint planning', 2, 9, 30, 60, 0),
-    _event('Yoga', 2, 18, 0, 60, 1, category: 'Health'),
-    _event('Budget check', 14, 13, 0, 60, 0, category: 'Finance'),
-    _event('Run club', 14, 18, 30, 60, 1, category: 'Health'),
-    _event('Dinner with Mom', 17, 19, 0, 90, 3, category: 'Personal'),
-    _event('Workout', 17, 7, 0, 60, 1, category: 'Health'),
-    _event('Book club', 21, 19, 30, 90, 3, category: 'Personal'),
-    _event('Photo shoot', 23, 10, 0, 120, 3),
-    _event('Pilates', 23, 17, 0, 60, 1, category: 'Health'),
-    _event('Retro', 26, 15, 0, 60, 0),
-    _event('Swim', 26, 7, 30, 45, 1, category: 'Health'),
-    _event('Client call', 28, 11, 0, 45, 0),
-    _event('Month wrap-up', 30, 16, 0, 60, 0),
-  ];
-
-  // Palette index: 0 purple, 1 green, 2 blue, 3 pink.
-  static const _eventColors = [
-    AppColors.purple,
-    AppColors.green,
-    AppColors.blue,
-    AppColors.pink,
-  ];
-  static const _eventAccents = [
-    AppColors.primary,
-    AppColors.greenDot,
-    AppColors.primary,
-    AppColors.pinkStrong,
-  ];
-
-  CalendarEvent _event(
-    String title,
-    int day,
-    int hour,
-    int minute,
-    int duration,
-    int palette, {
-    String location = '',
-    String category = 'Work',
+  /// VIP only: saves a template built in the Template Studio. Returns null
+  /// for a Free user.
+  Template? createTemplate({
+    required String name,
+    required String description,
+    required int price,
+    required String preview,
+    required AppThemeData theme,
+    String? id,
   }) {
-    final start = hour * 60 + minute;
-    return CalendarEvent(
-      id: 'e${_nextId++}',
-      title: title,
-      date: DateTime(2026, 10, day),
-      startMinutes: start,
-      endMinutes: start + duration,
-      color: _eventColors[palette],
-      accent: _eventAccents[palette],
-      location: location,
-      category: category,
+    if (!isVip) return null;
+    final templateId = id ?? newId('template');
+    final existing = templates.byId(templateId);
+    final template = Template(
+      id: templateId,
+      name: name.trim().isEmpty ? 'Untitled' : name.trim(),
+      description: description.trim(),
+      creatorId: user.id,
+      price: price,
+      preview: preview,
+      themeData: theme.copyWith(id: 'theme_$templateId', name: name.trim()),
+      published: existing?.published ?? false,
     );
+    templates.saveTemplate(template);
+    if (isTemplateApplied(template)) applyTheme();
+    return template;
   }
 
-  List<CalendarEvent> eventsOn(DateTime day) {
-    final list = events.where((e) => sameDay(e.date, day)).toList();
-    list.sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
-    return list;
+  /// VIP only: lists (or unlists) one of the user's templates in the store.
+  bool publishTemplate(Template template, {bool published = true}) {
+    if (!isVip || template.creatorId != user.id) return false;
+    templates.setPublished(template, published);
+    return true;
   }
 
-  void addEvent(CalendarEvent event) {
-    events.add(event);
-    selectedDay = event.date;
-    notifyListeners();
+  // ---- Notifications ------------------------------------------------------
+
+  bool _syncQueued = false;
+
+  /// Turns reminders on, asking for the system permission the first time.
+  /// Returns false when the permission is denied.
+  Future<bool> enableNotifications() async {
+    var granted = await notifications.hasPermission();
+    if (!granted) granted = await notifications.requestPermission();
+    account.updateSettings((s) {
+      s.notificationPermissionAsked = true;
+      s.notificationsEnabled = granted;
+    });
+    return granted;
   }
 
-  String newEventId() => 'e${_nextId++}';
-
-  // ---- Habits -----------------------------------------------------------
-
-  final List<Habit> habits = [
-    Habit(
-      id: 'h1',
-      title: 'Morning meditation',
-      shortTitle: 'Meditate',
-      schedule: 'Daily · 08:00 · auto-generated',
-      occurrence: 'Today, 8:00 AM · daily occurrence',
-      icon: LucideIcons.brain,
-      color: AppColors.purple,
-      done: true,
-    ),
-    Habit(
-      id: 'h2',
-      title: 'Read 20 minutes',
-      shortTitle: 'Read 20 min',
-      schedule: 'Mon, Wed, Fri · 19:30 · auto-generated',
-      occurrence: 'Today, 7:30 PM · weekly occurrence',
-      icon: LucideIcons.bookOpen,
-      color: AppColors.yellow,
-      done: true,
-    ),
-    Habit(
-      id: 'h3',
-      title: 'Evening walk',
-      shortTitle: 'Evening walk',
-      schedule: 'Custom · sunset · auto-generated',
-      occurrence: 'Today, sunset · custom occurrence',
-      icon: LucideIcons.footprints,
-      color: AppColors.green,
-    ),
-  ];
-
-  void toggleHabit(Habit habit) {
-    habit.done = !habit.done;
-    habit.skipped = false;
-    notifyListeners();
+  Future<void> disableNotifications() async {
+    account.updateSettings((s) {
+      s.notificationsEnabled = false;
+      s.lockScreenNotification = false;
+    });
+    await notifications.cancelReminders();
+    await notifications.hideLockScreen();
   }
 
-  void skipHabit(Habit habit) {
-    habit.skipped = true;
-    habit.done = false;
-    notifyListeners();
+  /// Called when the user saves something with a reminder. Asks for the
+  /// notification permission once; never again after a refusal.
+  Future<void> ensureRemindersCanFire() async {
+    if (settings.notificationsEnabled || settings.notificationPermissionAsked) {
+      return;
+    }
+    await enableNotifications();
   }
 
-  void deleteHabitOccurrence(Habit habit) {
-    habits.remove(habit);
-    notifyListeners();
+  void setDefaultReminder(int minutes) =>
+      account.updateSettings((s) => s.defaultReminderMinutes = minutes);
+
+  /// Shows today's schedule and next to-do on the lock screen. Needs
+  /// notifications to be on; returns false if they could not be enabled.
+  Future<bool> setLockScreenNotification(bool value) async {
+    if (value && !settings.notificationsEnabled) {
+      if (!await enableNotifications()) return false;
+    }
+    account.updateSettings((s) => s.lockScreenNotification = value);
+    if (!value) await notifications.hideLockScreen();
+    return true;
   }
 
-  // ---- Goals & notes ----------------------------------------------------
+  LockScreenContent get lockScreenContent => LockScreenContent(
+    events: events.on(today),
+    tasks: tasks.pending(today),
+    day: today,
+  );
+
+  void _queueSync() {
+    if (_syncQueued || !loaded) return;
+    _syncQueued = true;
+    scheduleMicrotask(() {
+      _syncQueued = false;
+      unawaited(syncNotifications());
+    });
+  }
+
+  /// Reschedules reminders and refreshes the lock screen notification.
+  Future<void> syncNotifications() async {
+    if (!settings.notificationsEnabled) return;
+    await notifications.syncReminders(
+      tasks: tasks.items,
+      events: events.items,
+      now: now,
+    );
+    if (settings.lockScreenNotification) {
+      await notifications.showLockScreen(lockScreenContent);
+    }
+  }
+
+  // ---- System calendar ----------------------------------------------------
+
+  /// True once the user has allowed reading the device calendar.
+  bool systemCalendarGranted = false;
+
+  /// Asks for the calendar permission and loads the device's events. When the
+  /// user refuses, the app simply keeps using its local events.
+  Future<bool> connectSystemCalendar() async {
+    var granted = await systemCalendar.hasPermission();
+    if (!granted) granted = await systemCalendar.requestPermission();
+    systemCalendarGranted = granted;
+    account.updateSettings((s) {
+      s.calendarPermissionAsked = true;
+      s.useSystemCalendar = granted;
+    });
+    if (granted) await refreshSystemCalendar();
+    return granted;
+  }
+
+  void disconnectSystemCalendar() {
+    account.updateSettings((s) => s.useSystemCalendar = false);
+    events.setSystemEvents(const []);
+  }
+
+  void dismissCalendarBanner() =>
+      account.updateSettings((s) => s.calendarBannerDismissed = true);
+
+  /// Re-reads the device calendar around the selected day. Does nothing
+  /// (and never prompts) unless the user has connected it.
+  Future<void> refreshSystemCalendar() async {
+    if (!settings.useSystemCalendar) return;
+    systemCalendarGranted = await systemCalendar.hasPermission();
+    if (!systemCalendarGranted) {
+      events.setSystemEvents(const []);
+      return;
+    }
+    final anchor = selectedDay;
+    final from = DateTime(anchor.year, anchor.month - 1, 1);
+    final to = DateTime(anchor.year, anchor.month + 2, 1);
+    events.setSystemEvents(await systemCalendar.events(from, to));
+  }
+
+  // ---- Convenience writes that span features ------------------------------
+
+  /// Quick Add from the lock screen or notification: a task due today.
+  Task? quickAddTask(String title) => tasks.add(title, dueDate: today);
+
+  // ---- Goals (shown on the dashboard; not part of the data model yet) -----
 
   final String goalTitle = 'Finish portfolio refresh';
   final double goalProgress = 0.67;
-
-  String quickNote = 'Ask Lina for the launch photos before Friday.';
-
-  void setQuickNote(String value) {
-    quickNote = value.trim();
-    notifyListeners();
-  }
 }
 
 /// Exposes [AppState] to the widget tree and rebuilds dependents on change.

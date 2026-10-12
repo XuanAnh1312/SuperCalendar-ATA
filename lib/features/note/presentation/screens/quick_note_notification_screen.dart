@@ -4,11 +4,11 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_application/app/theme/app_colors.dart';
 import 'package:flutter_application/app/theme/app_text.dart';
 import 'package:flutter_application/core/services/app_state.dart';
-import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
+import 'package:flutter_application/core/widgets/app_widgets.dart';
 
-/// In-app simulation of the Android notification shade with the Quick Note
-/// notification. The note is saved to the same state the dashboard reads.
+/// In-app preview of the notification shade with the Quick Note
+/// notification. The note is saved to the same database the dashboard reads.
 class QuickNoteNotificationScreen extends StatefulWidget {
   const QuickNoteNotificationScreen({super.key});
 
@@ -38,7 +38,9 @@ class _QuickNoteNotificationScreenState
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _note ??= TextEditingController(text: AppScope.read(context).quickNote);
+    _note ??= TextEditingController(
+      text: AppScope.read(context).notes.quickText,
+    );
   }
 
   @override
@@ -48,7 +50,7 @@ class _QuickNoteNotificationScreenState
   }
 
   void _save() {
-    AppScope.read(context).setQuickNote(_note!.text);
+    AppScope.read(context).notes.setQuick(_note!.text);
     FocusScope.of(context).unfocus();
     setState(() => _dirty = false);
     showAppSnack(context, 'Note saved');
@@ -62,13 +64,14 @@ class _QuickNoteNotificationScreenState
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
     final note = _note!;
+    final now = app.now;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFF4F1F6), Color(0xFFE7E9EF)],
+            colors: [AppColors.shadeTop, AppColors.shadeBottom],
           ),
         ),
         child: SafeArea(
@@ -81,7 +84,10 @@ class _QuickNoteNotificationScreenState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('9:41', style: AppText.s(24)),
+                        Text(
+                          '${now.hour}:${now.minute.toString().padLeft(2, '0')}',
+                          style: AppText.s(24),
+                        ),
                         const SizedBox(height: 3),
                         Text(
                           shortDate(app.today),
@@ -127,7 +133,9 @@ class _QuickNoteNotificationScreenState
                         child: Icon(
                           _toggleIcons[i],
                           size: 16,
-                          color: _toggles[i] ? Colors.white : AppColors.muted,
+                          color: _toggles[i]
+                              ? AppColors.onPrimary
+                              : AppColors.muted,
                         ),
                       ),
                     ),
@@ -143,7 +151,7 @@ class _QuickNoteNotificationScreenState
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       LucideIcons.sunMedium,
                       size: 14,
                       color: AppColors.muted,
@@ -171,7 +179,7 @@ class _QuickNoteNotificationScreenState
                         ),
                       ),
                     ),
-                    const Icon(LucideIcons.sun, size: 16),
+                    Icon(LucideIcons.sun, size: 16, color: AppColors.text),
                   ],
                 ),
               ),
@@ -200,9 +208,10 @@ class _QuickNoteNotificationScreenState
                               color: AppColors.yellow,
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               LucideIcons.notebookPen,
                               size: 16,
+                              color: AppColors.text,
                             ),
                           ),
                           const SizedBox(width: 9),
@@ -330,7 +339,7 @@ class _QuickNoteNotificationScreenState
               if (_mailVisible) ...[
                 const SizedBox(height: 14),
                 AppCard(
-                  color: const Color(0xFFFAFAFC),
+                  color: AppColors.lockCard,
                   radius: 20,
                   shadow: false,
                   padding: const EdgeInsets.all(13),
@@ -343,7 +352,11 @@ class _QuickNoteNotificationScreenState
                           color: AppColors.blue,
                           borderRadius: BorderRadius.circular(9),
                         ),
-                        child: const Icon(LucideIcons.mail, size: 15),
+                        child: Icon(
+                          LucideIcons.mail,
+                          size: 15,
+                          color: AppColors.text,
+                        ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -370,38 +383,23 @@ class _QuickNoteNotificationScreenState
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _shadePill(
-                    'Notification settings',
-                    () => showAppSnack(
-                      context,
-                      'Notification settings come in a later phase',
-                    ),
+                  SoftPill(
+                    label: 'Notification settings',
+                    color: AppColors.subtle,
+                    textColor: AppColors.muted,
+                    onTap: () => Navigator.of(context).pop(),
                   ),
-                  _shadePill(
-                    'Clear',
-                    () => setState(() => _mailVisible = false),
+                  SoftPill(
+                    label: 'Clear',
+                    color: AppColors.subtle,
+                    textColor: AppColors.muted,
+                    onTap: () => setState(() => _mailVisible = false),
                   ),
                 ],
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _shadePill(String label, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 22,
-        padding: const EdgeInsets.symmetric(horizontal: 9),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF3F4F7),
-          borderRadius: BorderRadius.circular(11),
-        ),
-        child: Text(label, style: AppText.s(10, color: AppColors.muted)),
       ),
     );
   }
