@@ -267,10 +267,13 @@ void seedSampleData(AppState app) {
         typography: typography,
         radius: radius,
       ),
+      isSystem: true,
+      isPremium: price > 0,
       published: true,
     );
   }
 
+  // 3 free + 2 premium system templates.
   final templates = [
     template(
       'sakura_morning',
@@ -306,6 +309,15 @@ void seedSampleData(AppState app) {
       '🩶',
       const Color(0xFF4B5563),
       radius: 12,
+    ),
+    template(
+      'lavender_calm',
+      'Lavender Calm',
+      'The default pastel look with softer corners.',
+      0,
+      '💜',
+      const Color(0xFF6D66D9),
+      radius: 24,
     ),
   ];
   templates.forEach(app.templates.saveTemplate);

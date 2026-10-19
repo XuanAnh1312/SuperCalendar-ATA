@@ -97,6 +97,11 @@ class _SuperCalendarAppState extends State<SuperCalendarApp>
     unawaited(_app.syncNotifications());
   }
 
+  @override
+  void didChangePlatformBrightness() {
+    if (_app.themeMode == ThemeMode.system) _app.applyTheme();
+  }
+
   void _onThemeChanged() {
     if (!mounted) return;
     // Colors are read from AppTheme rather than through an InheritedWidget,

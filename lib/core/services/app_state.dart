@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
 
@@ -92,6 +93,15 @@ class AppState extends ChangeNotifier {
   User get user => account.user;
   AppSettings get settings => account.settings;
   bool get isVip => user.isVip;
+
+  /// BR-06: every [VipFeature] is open to VIP users only.
+  bool canAccess(VipFeature feature) => isVip;
+
+  /// First day of the week for the Calendar widgets.
+  WeekStartSetting get weekStart => settings.weekStart;
+
+  void setWeekStart(WeekStartSetting value) =>
+      account.updateSettings((s) => s.weekStart = value);
 
   // ---- Loading ------------------------------------------------------------
 
@@ -189,17 +199,46 @@ class AppState extends ChangeNotifier {
 
   AppThemeData get selectedTheme => templates.theme(user.selectedThemeId);
 
-  /// Pushes the user's theme choices into [AppTheme].
+  /// [AppSettings.themeMode] in the form [MaterialApp.themeMode] expects.
+  ThemeMode get themeMode => switch (settings.themeMode) {
+    ThemeModeSetting.light => ThemeMode.light,
+    ThemeModeSetting.dark => ThemeMode.dark,
+    ThemeModeSetting.system => ThemeMode.system,
+  };
+
+  /// True when the dark palette is applied (resolved from [themeMode]).
+  bool get darkMode => settings.darkMode;
+
+  bool get _resolvedDark => switch (settings.themeMode) {
+    ThemeModeSetting.light => false,
+    ThemeModeSetting.dark => true,
+    ThemeModeSetting.system =>
+      PlatformDispatcher.instance.platformBrightness == Brightness.dark,
+  };
+
+  /// Pushes the user's theme choices into [AppTheme]. Call again when the OS
+  /// brightness changes so [ThemeModeSetting.system] follows it.
   void applyTheme() {
+    final dark = _resolvedDark;
+    if (settings.darkMode != dark) {
+      account.updateSettings((s) => s.darkMode = dark);
+    }
     final accent = settings.accentIndex;
     AppTheme.apply(
       selectedTheme,
-      dark: settings.darkMode,
+      dark: dark,
       accent: accent == null ? null : AppColors.accent(accent),
       // Custom typography is a VIP feature; a lapsed VIP falls back.
-      typography: isVip ? settings.typography : null,
+      typography: canAccess(VipFeature.customTypography)
+          ? settings.typography
+          : null,
     );
     themeRevision.value++;
+  }
+
+  void setThemeMode(ThemeModeSetting mode) {
+    account.updateSettings((s) => s.themeMode = mode);
+    applyTheme();
   }
 
   void selectTheme(String themeId) {
@@ -209,10 +248,9 @@ class AppState extends ChangeNotifier {
     applyTheme();
   }
 
-  void setDarkMode(bool value) {
-    account.updateSettings((s) => s.darkMode = value);
-    applyTheme();
-  }
+  /// The Light/Dark switch: picks an explicit mode, leaving "system".
+  void setDarkMode(bool value) =>
+      setThemeMode(value ? ThemeModeSetting.dark : ThemeModeSetting.light);
 
   void setAccent(int? index) {
     account.updateSettings((s) => s.accentIndex = index);
@@ -221,7 +259,7 @@ class AppState extends ChangeNotifier {
 
   /// VIP only. Returns false (and changes nothing) for a Free user.
   bool setTypography(String? typography) {
-    if (!isVip) return false;
+    if (!canAccess(VipFeature.customTypography)) return false;
     account.updateSettings((s) => s.typography = typography);
     applyTheme();
     return true;
@@ -287,7 +325,7 @@ class AppState extends ChangeNotifier {
     required AppThemeData theme,
     String? id,
   }) {
-    if (!isVip) return null;
+    if (!canAccess(VipFeature.themeBuilder)) return null;
     final templateId = id ?? newId('template');
     final existing = templates.byId(templateId);
     final template = Template(
@@ -307,7 +345,10 @@ class AppState extends ChangeNotifier {
 
   /// VIP only: lists (or unlists) one of the user's templates in the store.
   bool publishTemplate(Template template, {bool published = true}) {
-    if (!isVip || template.creatorId != user.id) return false;
+    if (!canAccess(VipFeature.publishTemplates) ||
+        template.creatorId != user.id) {
+      return false;
+    }
     templates.setPublished(template, published);
     return true;
   }
@@ -512,6 +553,15 @@ class AppState extends ChangeNotifier {
 
   /// Active monthly goals for today.
   List<Goal> get monthlyGoals => goals.activeOn(today, GoalType.monthly);
+}
+
+/// Features locked behind VIP (BR-06); checked with [AppState.canAccess].
+enum VipFeature {
+  themeBuilder,
+  freeFormLayout,
+  customTypography,
+  backgroundImages,
+  publishTemplates,
 }
 
 /// Exposes [AppState] to the widget tree and rebuilds dependents on change.

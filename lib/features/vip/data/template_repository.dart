@@ -79,14 +79,14 @@ class TemplateRepository extends ChangeNotifier {
   /// True when [userId] may apply [template]: it is free, theirs, or bought.
   bool owns(String userId, Template template) {
     if (template.price == 0 || template.creatorId == userId) return true;
-    return purchases.any(
-      (p) =>
-          p.userId == userId &&
-          p.productType == ProductType.template &&
-          p.productId == template.id &&
-          p.status == PaymentResult.success,
-    );
+    return hasPurchased(userId, template.id);
   }
+
+  /// True when [userId] has a successful purchase of [productId]
+  /// (a template id or [Purchase.vipProductId]).
+  bool hasPurchased(String userId, String productId) => purchases.any(
+    (p) => p.userId == userId && p.productId == productId && p.isSuccessful,
+  );
 
   List<Template> ownedBy(String userId) =>
       templates.where((t) => owns(userId, t)).toList();

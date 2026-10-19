@@ -6,9 +6,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.embedding.engine.dart.DartExecutor
-import io.flutter.view.FlutterMain
 
 /**
  * Handles [BOOT_COMPLETED] and [QUICKBOOT_POWERON] to re-create notification

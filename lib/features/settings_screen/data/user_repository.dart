@@ -50,7 +50,16 @@ class UserRepository extends ChangeNotifier {
     _saveUser();
   }
 
-  /// Applies [change] to the settings and persists them.
+  /// Updates the optional profile fields. An empty string clears the field;
+  /// null leaves it unchanged.
+  void updateProfile({String? email, String? avatar}) {
+    if (email != null) user.email = email.trim().isEmpty ? null : email.trim();
+    if (avatar != null) user.avatar = avatar.isEmpty ? null : avatar;
+    _saveUser();
+  }
+
+  /// Applies [change] to the settings and persists every field of
+  /// [AppSettings] (theme mode, week start, time format, ...).
   void updateSettings(void Function(AppSettings settings) change) {
     change(settings);
     final data = settings.toJson();
@@ -61,6 +70,7 @@ class UserRepository extends ChangeNotifier {
   }
 
   void _saveUser() {
+    user.updatedAt = _clock();
     final data = user.toJson();
     _pending = _pending.then(
       (_) => store.put(Collections.users, user.id, data),
