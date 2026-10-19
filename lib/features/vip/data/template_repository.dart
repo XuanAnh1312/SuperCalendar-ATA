@@ -82,7 +82,8 @@ class TemplateRepository extends ChangeNotifier {
     return purchases.any(
       (p) =>
           p.userId == userId &&
-          p.templateId == template.id &&
+          p.productType == ProductType.template &&
+          p.productId == template.id &&
           p.status == PaymentResult.success,
     );
   }
@@ -109,6 +110,7 @@ class TemplateRepository extends ChangeNotifier {
   /// Records the outcome of a payment for [productId].
   Purchase recordPurchase({
     required String userId,
+    required ProductType productType,
     required String productId,
     required int price,
     required PaymentResult result,
@@ -116,10 +118,11 @@ class TemplateRepository extends ChangeNotifier {
     final purchase = Purchase(
       id: newId('purchase'),
       userId: userId,
-      templateId: productId,
+      productType: productType,
+      productId: productId,
       price: price,
       status: result,
-      purchasedAt: _clock(),
+      purchaseDate: _clock(),
     );
     purchases.add(purchase);
     _put(Collections.purchases, purchase.id, purchase.toJson());

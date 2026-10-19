@@ -36,12 +36,19 @@ class _EventFormScreenState extends State<EventFormScreen> {
   late int _color = widget.event?.colorIndex ?? 0;
   late String _category = widget.event?.category ?? 'Work';
   int? _reminder;
-  late String _repeat = widget.event?.repeat ?? 'Never';
+  late String _repeat = widget.event?.repeatLabel ?? 'Never';
   String? _calendar;
   late final List<String> _guests = [...?widget.event?.guests];
   bool _initialized = false;
 
   bool get _editing => widget.event != null;
+
+  String? _repeatRule(String repeat) => switch (repeat) {
+    'Every day' => 'FREQ=DAILY',
+    'Weekdays' => 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR',
+    'Every week' => 'FREQ=WEEKLY',
+    _ => null,
+  };
 
   @override
   void didChangeDependencies() {
@@ -171,7 +178,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
           reminderMinutes: _reminder,
           colorIndex: _color,
           category: _category,
-          repeat: _repeat,
+          repeatRule: _repeatRule(_repeat),
           calendar: _calendar!,
           guests: _guests,
         ),
@@ -186,7 +193,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
         ..reminderMinutes = _reminder
         ..colorIndex = _color
         ..category = _category
-        ..repeat = _repeat
+        ..repeatRule = _repeatRule(_repeat)
         ..calendar = _calendar!
         ..guests = [..._guests];
       app.events.save(existing);

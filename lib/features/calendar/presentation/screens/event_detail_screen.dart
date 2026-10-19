@@ -120,7 +120,7 @@ class EventDetailScreen extends StatelessWidget {
               FieldTile(
                 icon: LucideIcons.repeat2,
                 label: 'Repeat',
-                value: event.repeat,
+                value: event.repeatLabel,
               ),
             FieldTile(
               icon: LucideIcons.calendarDays,

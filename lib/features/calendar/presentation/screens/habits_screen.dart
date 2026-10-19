@@ -5,9 +5,18 @@ import 'package:flutter_application/app/theme/app_colors.dart';
 import 'package:flutter_application/app/theme/app_text.dart';
 import 'package:flutter_application/core/data/repository.dart';
 import 'package:flutter_application/core/services/app_state.dart';
+import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/features/calendar/domain/habit.dart';
 import 'package:flutter_application/features/dashboard/presentation/widgets/home_widgets.dart';
+
+String _habitSchedule(Habit habit) {
+  final frequency = habit.repeatRule.contains('WEEKLY') ? 'Weekly' : 'Daily';
+  final time = habit.time;
+  return time == null
+      ? '$frequency · anytime'
+      : '$frequency · ${formatMinutes(time)}';
+}
 
 class HabitsScreen extends StatefulWidget {
   const HabitsScreen({super.key});
@@ -44,10 +53,11 @@ class _HabitsScreenState extends State<HabitsScreen> {
         id: newId('habit'),
         title: title,
         shortTitle: title,
-        schedule: '$kind · anytime',
-        occurrence: 'Today · ${kind.toLowerCase()} occurrence',
+        startDate: AppScope.read(context).today,
+        repeatRule: kind == 'Weekly' ? 'FREQ=WEEKLY' : 'FREQ=DAILY',
         icon: 'check',
         colorIndex: _filter == 0 ? 0 : (_filter == 1 ? 3 : 2),
+        createdAt: AppScope.read(context).now,
       ),
     );
   }
@@ -194,7 +204,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        habit.occurrence,
+                        'Today · ${_habitSchedule(habit)}',
                         style: AppText.s(10.5, color: AppColors.muted),
                       ),
                     ],
@@ -289,7 +299,9 @@ class _HabitCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  habit.isSkipped(today) ? 'Skipped today' : habit.schedule,
+                  habit.isSkipped(today)
+                      ? 'Skipped today'
+                      : _habitSchedule(habit),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppText.s(9.5, color: AppColors.muted),

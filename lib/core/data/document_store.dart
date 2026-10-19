@@ -8,6 +8,8 @@ abstract final class Collections {
   static const tasks = 'tasks';
   static const notes = 'notes';
   static const habits = 'habits';
+  static const habitOccurrences = 'habit_occurrences';
+  static const goals = 'goals';
   static const themes = 'themes';
   static const templates = 'templates';
   static const purchases = 'purchases';
@@ -20,6 +22,8 @@ abstract final class Collections {
     tasks,
     notes,
     habits,
+    habitOccurrences,
+    goals,
     themes,
     templates,
     purchases,

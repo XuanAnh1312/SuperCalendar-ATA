@@ -74,7 +74,7 @@ Future<void> _refreshNotifications(
     events: events.items,
     now: now(),
   );
-  if (account.settings.lockScreenNotification) {
+  if (account.settings.lockScreenEnabled) {
     final today = dateOnly(now());
     await notifications.showLockScreen(
       LockScreenContent(

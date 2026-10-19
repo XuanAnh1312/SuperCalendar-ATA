@@ -57,7 +57,11 @@ class _VipOffer extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
     final lastAttempt = app.templates.purchases
-        .where((p) => p.templateId == Purchase.vipProduct)
+        .where(
+          (p) =>
+              p.productType == ProductType.vip &&
+              p.productId == Purchase.vipProductId,
+        )
         .lastOrNull;
     return Scaffold(
       body: SafeArea(

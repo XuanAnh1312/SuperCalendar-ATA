@@ -218,7 +218,8 @@ class AppState extends ChangeNotifier {
   void completeVipPayment(PaymentResult result) {
     templates.recordPurchase(
       userId: user.id,
-      productId: Purchase.vipProduct,
+      productType: ProductType.vip,
+      productId: Purchase.vipProductId,
       price: vipPrice,
       result: result,
     );
@@ -242,6 +243,7 @@ class AppState extends ChangeNotifier {
   void completeTemplatePayment(Template template, PaymentResult result) {
     templates.recordPurchase(
       userId: user.id,
+      productType: ProductType.template,
       productId: template.id,
       price: template.price,
       result: result,
@@ -313,7 +315,7 @@ class AppState extends ChangeNotifier {
   Future<void> disableNotifications() async {
     account.updateSettings((s) {
       s.notificationsEnabled = false;
-      s.lockScreenNotification = false;
+      s.lockScreenEnabled = false;
     });
     await notifications.cancelReminders();
     await notifications.hideLockScreen();
@@ -337,7 +339,7 @@ class AppState extends ChangeNotifier {
     if (value && !settings.notificationsEnabled) {
       if (!await enableNotifications()) return false;
     }
-    account.updateSettings((s) => s.lockScreenNotification = value);
+    account.updateSettings((s) => s.lockScreenEnabled = value);
     if (!value) await notifications.hideLockScreen();
     return true;
   }
@@ -365,7 +367,7 @@ class AppState extends ChangeNotifier {
       events: events.items,
       now: now,
     );
-    if (settings.lockScreenNotification) {
+    if (settings.lockScreenEnabled) {
       await notifications.showLockScreen(lockScreenContent);
     }
   }

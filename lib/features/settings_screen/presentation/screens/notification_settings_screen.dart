@@ -109,13 +109,11 @@ class NotificationSettingsScreen extends StatelessWidget {
                   title: 'Show on lock screen',
                   subtitle: 'Today’s schedule and your next to-do, with Done and Add task',
                   trailing: AppSwitch(
-                    value: settings.lockScreenNotification,
+                    value: settings.lockScreenEnabled,
                     onChanged: (v) => _toggleLockScreen(context, v),
                   ),
-                  onTap: () => _toggleLockScreen(
-                    context,
-                    !settings.lockScreenNotification,
-                  ),
+                  onTap: () =>
+                      _toggleLockScreen(context, !settings.lockScreenEnabled),
                 ),
               ],
             ),

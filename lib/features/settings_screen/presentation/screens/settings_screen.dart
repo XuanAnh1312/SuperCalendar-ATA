@@ -6,6 +6,7 @@ import 'package:flutter_application/app/theme/app_colors.dart';
 import 'package:flutter_application/app/theme/app_text.dart';
 import 'package:flutter_application/core/services/app_state.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
+import 'package:flutter_application/features/settings_screen/domain/app_settings.dart';
 import 'package:flutter_application/features/settings_screen/presentation/screens/appearance_screen.dart';
 import 'package:flutter_application/features/settings_screen/presentation/screens/calendar_settings_screen.dart';
 import 'package:flutter_application/features/settings_screen/presentation/screens/edit_screen.dart';
@@ -169,13 +170,27 @@ class SettingsScreen extends StatelessWidget {
                   icon: LucideIcons.clock3,
                   color: AppColors.green,
                   title: 'Date & Time',
-                  value: settings.timeFormat,
+                  value: switch (settings.timeFormat) {
+                    TimeFormatSetting.h12 => '12-hour',
+                    TimeFormatSetting.h24 => '24-hour',
+                    TimeFormatSetting.automatic => 'Automatic',
+                  },
                   onTap: () => _choose(
                     context,
                     'Date & Time',
                     const ['Automatic', '24-hour', '12-hour'],
-                    settings.timeFormat,
-                    (v) => app.account.updateSettings((s) => s.timeFormat = v),
+                    switch (settings.timeFormat) {
+                      TimeFormatSetting.h12 => '12-hour',
+                      TimeFormatSetting.h24 => '24-hour',
+                      TimeFormatSetting.automatic => 'Automatic',
+                    },
+                    (v) => app.account.updateSettings(
+                      (s) => s.timeFormat = switch (v) {
+                        '12-hour' => TimeFormatSetting.h12,
+                        '24-hour' => TimeFormatSetting.h24,
+                        _ => TimeFormatSetting.automatic,
+                      },
+                    ),
                   ),
                 ),
                 SettingsRow(
