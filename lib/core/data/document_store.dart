@@ -14,6 +14,7 @@ abstract final class Collections {
   static const templates = 'templates';
   static const purchases = 'purchases';
   static const layouts = 'layouts';
+  static const eventExceptions = 'event_exceptions';
 
   static const all = [
     users,
@@ -28,6 +29,7 @@ abstract final class Collections {
     templates,
     purchases,
     layouts,
+    eventExceptions,
   ];
 }
 

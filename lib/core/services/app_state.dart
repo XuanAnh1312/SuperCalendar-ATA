@@ -11,7 +11,9 @@ import 'package:flutter_application/core/services/seed_data.dart';
 import 'package:flutter_application/core/services/system_calendar_service.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/features/calendar/data/event_repository.dart';
+import 'package:flutter_application/features/calendar/data/goal_repository.dart';
 import 'package:flutter_application/features/calendar/data/habit_repository.dart';
+import 'package:flutter_application/features/calendar/domain/goal.dart';
 import 'package:flutter_application/features/dashboard/data/layout_repository.dart';
 import 'package:flutter_application/features/note/data/note_repository.dart';
 import 'package:flutter_application/features/settings_screen/data/user_repository.dart';
@@ -36,10 +38,15 @@ class AppState extends ChangeNotifier {
     tasks = TaskRepository(store, clock: this.clock);
     events = EventRepository(store);
     habits = HabitRepository(store);
+    habitOccurrences = HabitOccurrenceRepository(store);
+    goals = GoalRepository(store, clock: this.clock);
     notes = NoteRepository(store, clock: this.clock);
     account = UserRepository(store, clock: this.clock);
     templates = TemplateRepository(store, clock: this.clock);
     layouts = LayoutRepository(store);
+    // Wire companions so deleteScope / updateRepeatRule enforce BR-10 / BR-17.
+    events.attachExceptions(EventExceptionRepository(store));
+    habits.attachOccurrences(habitOccurrences);
     selectedDay = today;
     for (final repository in _repositories) {
       repository.addListener(_onDataChanged);
@@ -57,6 +64,8 @@ class AppState extends ChangeNotifier {
   late final TaskRepository tasks;
   late final EventRepository events;
   late final HabitRepository habits;
+  late final HabitOccurrenceRepository habitOccurrences;
+  late final GoalRepository goals;
   late final NoteRepository notes;
   late final UserRepository account;
   late final TemplateRepository templates;
@@ -66,6 +75,8 @@ class AppState extends ChangeNotifier {
     tasks,
     events,
     habits,
+    habitOccurrences,
+    goals,
     notes,
     account,
     templates,
@@ -114,6 +125,8 @@ class AppState extends ChangeNotifier {
     await tasks.load();
     await events.load();
     await habits.load();
+    await habitOccurrences.load();
+    await goals.load();
     await notes.load();
   }
 
@@ -123,6 +136,8 @@ class AppState extends ChangeNotifier {
       tasks.flush(),
       events.flush(),
       habits.flush(),
+      habitOccurrences.flush(),
+      goals.flush(),
       notes.flush(),
       account.flush(),
       templates.flush(),
@@ -419,10 +434,13 @@ class AppState extends ChangeNotifier {
   /// Quick Add from the lock screen or notification: a task due today.
   Task? quickAddTask(String title) => tasks.add(title, dueDate: today);
 
-  // ---- Goals (shown on the dashboard; not part of the data model yet) -----
+  // ---- Goals ---------------------------------------------------------------
 
-  final String goalTitle = 'Finish portfolio refresh';
-  final double goalProgress = 0.67;
+  /// Active weekly goals for today.
+  List<Goal> get weeklyGoals => goals.activeOn(today, GoalType.weekly);
+
+  /// Active monthly goals for today.
+  List<Goal> get monthlyGoals => goals.activeOn(today, GoalType.monthly);
 }
 
 /// Exposes [AppState] to the widget tree and rebuilds dependents on change.

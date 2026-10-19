@@ -298,6 +298,12 @@ class GoalsWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
+    // Show the first active weekly goal; fall back to monthly if none.
+    final allGoals = [...app.weeklyGoals, ...app.monthlyGoals];
+    final goal = allGoals.isNotEmpty ? allGoals.first : null;
+    final progress = goal?.progress ?? 0.0;
+    final title = goal?.title ?? 'No active goals';
+    final pct = '${(progress * 100).round()}%';
     return AppCard(
       color: AppColors.purple,
       child: Column(
@@ -306,11 +312,11 @@ class GoalsWidget extends StatelessWidget {
         children: [
           CardHeader(
             title: 'Goals',
-            action: '${(app.goalProgress * 100).round()}%',
+            action: pct,
           ),
           const SizedBox(height: 8),
           Text(
-            app.goalTitle,
+            title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: AppText.s(11),
@@ -319,7 +325,7 @@ class GoalsWidget extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(3),
             child: LinearProgressIndicator(
-              value: app.goalProgress,
+              value: progress,
               minHeight: 5,
               backgroundColor: AppColors.surface,
               color: AppColors.primary,

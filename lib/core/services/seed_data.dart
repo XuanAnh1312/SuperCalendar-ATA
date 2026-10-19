@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application/app/theme/app_theme_data.dart';
 import 'package:flutter_application/core/services/app_state.dart';
 import 'package:flutter_application/features/calendar/domain/event.dart';
+import 'package:flutter_application/features/calendar/domain/goal.dart';
 import 'package:flutter_application/features/calendar/domain/habit.dart';
 import 'package:flutter_application/features/todo/domain/task.dart';
 import 'package:flutter_application/features/vip/domain/template.dart';
@@ -170,6 +171,68 @@ void seedSampleData(AppState app) {
   app.habits.toggle(habits[0], today);
   app.habits.toggle(habits[1], today);
 
+  // ── Habit Occurrences ─────────────────────────────────────────────────────
+  // Pre-seed a few past occurrences so habit history is non-empty on first
+  // open (BR-02: touching occurrences never modifies the Rule).
+
+  // Meditation: done the last 3 days + today (via toggle above)
+  for (var i = -3; i <= -1; i++) {
+    app.habitOccurrences.markDone(habits[0].id, day(i));
+  }
+  // Read 20 min: done yesterday, skipped two days ago
+  app.habitOccurrences.markDone(habits[1].id, day(-1));
+  app.habitOccurrences.markSkipped(habits[1].id, day(-4));
+  // Evening walk: done yesterday, done two days ago
+  app.habitOccurrences.markDone(habits[2].id, day(-1));
+  app.habitOccurrences.markDone(habits[2].id, day(-2));
+
+  // ── Goals ─────────────────────────────────────────────────────────────────
+  // Weekly goal — current week (Mon–Sun, ISO-8601)
+  final weekStart = _isoWeekStart(today);
+  final weekEnd = weekStart.add(const Duration(days: 6));
+
+  // Monthly goal — current month
+  final monthStart = DateTime(today.year, today.month, 1);
+  final monthEnd = DateTime(today.year, today.month + 1, 0); // last day
+
+  final workoutGoal = app.goals.add(
+    type: GoalType.weekly,
+    title: 'Work out 4×',
+    icon: '🏋️',
+    color: '#3F9B72',
+    target: 4,
+    periodStart: weekStart,
+    periodEnd: weekEnd,
+  );
+  // Simulate 2 workouts done so far this week (AC-17 scenario)
+  app.goals.increment(workoutGoal);
+  app.goals.increment(workoutGoal);
+
+  final readingGoal = app.goals.add(
+    type: GoalType.weekly,
+    title: 'Read 3 sessions',
+    icon: '📚',
+    color: '#D96C8E',
+    target: 3,
+    periodStart: weekStart,
+    periodEnd: weekEnd,
+  );
+  app.goals.increment(readingGoal); // 1 of 3
+
+  final runGoal = app.goals.add(
+    type: GoalType.monthly,
+    title: 'Run 12 times',
+    icon: '🏃',
+    color: '#4F8FD9',
+    target: 12,
+    periodStart: monthStart,
+    periodEnd: monthEnd,
+  );
+  // Simulate 5 runs done already this month
+  for (var i = 0; i < 5; i++) {
+    app.goals.increment(runGoal);
+  }
+
   app.notes.setQuick('Ask Lina for the launch photos before Friday.');
   app.notes.add(
     title: 'Java notes',
@@ -246,4 +309,13 @@ void seedSampleData(AppState app) {
     ),
   ];
   templates.forEach(app.templates.saveTemplate);
+}
+
+// ── Private helpers ──────────────────────────────────────────────────────────
+
+/// Returns the Monday of the ISO-8601 week that contains [day] (BR-15).
+DateTime _isoWeekStart(DateTime day) {
+  // weekday: Monday = 1, Sunday = 7
+  final offset = day.weekday - 1; // days since Monday
+  return DateTime(day.year, day.month, day.day - offset);
 }

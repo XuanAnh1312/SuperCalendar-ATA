@@ -12,8 +12,24 @@ import io.flutter.plugin.common.MethodChannel
 
 /**
  * Hosts the Flutter UI and exposes read-only access to the system calendar
- * over the `supercalendar/system_calendar` channel. Everything else in the
- * app is Dart; this is the one place that needs an Android API.
+ * over the `supercalendar/system_calendar` channel (FR-22).
+ *
+ * Channel methods:
+ *   hasPermission    → Boolean
+ *   requestPermission → Boolean
+ *   events(from: Long, to: Long) → List<Map<String, Any?>>
+ *
+ * Each event map contains:
+ *   id          Long    CalendarContract.Instances.EVENT_ID
+ *   title       String?
+ *   description String?
+ *   begin       Long    epoch ms
+ *   end         Long    epoch ms
+ *   allDay      Int     1 = all-day, 0 = timed
+ *   location    String?
+ *   calendar    String? display name of the owning calendar
+ *   calendarId  Long    _ID of the owning calendar
+ *   color       Int?    ARGB event colour (may be null)
  */
 class MainActivity : FlutterActivity() {
     private var pendingPermissionResult: MethodChannel.Result? = null
@@ -71,24 +87,37 @@ class MainActivity : FlutterActivity() {
         pendingPermissionResult = null
     }
 
-    /** Event instances between [from] and [to] (epoch millis), recurring ones expanded. */
+    /**
+     * Event instances between [from] and [to] (epoch millis), recurring ones
+     * expanded by the CalendarContract.Instances provider.
+     *
+     * Returns a list of maps, one per expanded occurrence.  Fields marked with
+     * `?` may be null when the system calendar does not provide a value.
+     */
     private fun queryEvents(from: Long, to: Long): List<Map<String, Any?>> {
         if (!hasCalendarPermission()) return emptyList()
+
         val uri = CalendarContract.Instances.CONTENT_URI.buildUpon().let {
             ContentUris.appendId(it, from)
             ContentUris.appendId(it, to)
             it.build()
         }
+
         val projection = arrayOf(
-            CalendarContract.Instances.EVENT_ID,
-            CalendarContract.Instances.TITLE,
-            CalendarContract.Instances.DESCRIPTION,
-            CalendarContract.Instances.BEGIN,
-            CalendarContract.Instances.END,
-            CalendarContract.Instances.EVENT_LOCATION,
-            CalendarContract.Instances.CALENDAR_DISPLAY_NAME,
+            CalendarContract.Instances.EVENT_ID,            // 0 Long
+            CalendarContract.Instances.TITLE,               // 1 String?
+            CalendarContract.Instances.DESCRIPTION,         // 2 String?
+            CalendarContract.Instances.BEGIN,               // 3 Long
+            CalendarContract.Instances.END,                 // 4 Long
+            CalendarContract.Instances.ALL_DAY,             // 5 Int (0 or 1)
+            CalendarContract.Instances.EVENT_LOCATION,      // 6 String?
+            CalendarContract.Instances.CALENDAR_DISPLAY_NAME, // 7 String?
+            CalendarContract.Instances.CALENDAR_ID,         // 8 Long
+            CalendarContract.Instances.DISPLAY_COLOR,       // 9 Int? (ARGB, may be null)
         )
+
         val events = mutableListOf<Map<String, Any?>>()
+
         contentResolver.query(
             uri,
             projection,
@@ -97,19 +126,27 @@ class MainActivity : FlutterActivity() {
             "${CalendarContract.Instances.BEGIN} ASC",
         )?.use { cursor ->
             while (cursor.moveToNext()) {
+                // DISPLAY_COLOR can be null in the cursor
+                val colorIndex = cursor.getColumnIndex(CalendarContract.Instances.DISPLAY_COLOR)
+                val color: Int? = if (!cursor.isNull(colorIndex)) cursor.getInt(colorIndex) else null
+
                 events.add(
                     mapOf(
-                        "id" to cursor.getLong(0),
-                        "title" to cursor.getString(1),
+                        "id"          to cursor.getLong(0),
+                        "title"       to cursor.getString(1),
                         "description" to cursor.getString(2),
-                        "begin" to cursor.getLong(3),
-                        "end" to cursor.getLong(4),
-                        "location" to cursor.getString(5),
-                        "calendar" to cursor.getString(6),
+                        "begin"       to cursor.getLong(3),
+                        "end"         to cursor.getLong(4),
+                        "allDay"      to cursor.getInt(5),
+                        "location"    to cursor.getString(6),
+                        "calendar"    to cursor.getString(7),
+                        "calendarId"  to cursor.getLong(8),
+                        "color"       to color,
                     ),
                 )
             }
         }
+
         return events
     }
 
