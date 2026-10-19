@@ -1,4 +1,8 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:gal/gal.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:flutter_application/app/theme/app_colors.dart';
@@ -7,6 +11,7 @@ import 'package:flutter_application/core/services/app_state.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/features/dashboard/domain/screen_layout.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 /// Labels `M 5 … S 11` for the week containing [today].
 List<String> weekLabels(DateTime today) {
@@ -145,8 +150,7 @@ class TodoWidget extends StatelessWidget {
           if (tasks.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 9),
-              child: Text(
-                'Nothing to do today',
+              child: Text(tr('Nothing to do today'),
                 style: AppText.s(11, color: AppColors.muted),
               ),
             ),
@@ -178,9 +182,9 @@ class TodoWidget extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    task.completed
+                    tr(task.completed
                         ? 'done'
-                        : task.dueLabel(app.today).toLowerCase(),
+                        : task.dueLabel(app.today).toLowerCase()),
                     style: AppText.s(10, color: AppColors.muted),
                   ),
                 ],
@@ -211,8 +215,7 @@ class HabitsWidget extends StatelessWidget {
           if (habits.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 9),
-              child: Text(
-                'All done for today',
+              child: Text(tr('All done for today'),
                 style: AppText.s(11, color: AppColors.muted),
               ),
             ),
@@ -228,17 +231,17 @@ class HabitsWidget extends StatelessWidget {
                       width: 24,
                       height: 24,
                       decoration: BoxDecoration(
-                        color: habit.isDone(app.today)
+                        color: app.habits.isDone(habit, app.today)
                             ? AppColors.greenStrong
                             : AppColors.surface,
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        habit.isDone(app.today)
+                        app.habits.isDone(habit, app.today)
                             ? LucideIcons.check
                             : habitIcon(habit.icon),
                         size: 12,
-                        color: habit.isDone(app.today)
+                        color: app.habits.isDone(habit, app.today)
                             ? AppColors.onPrimary
                             : AppColors.greenStrong,
                       ),
@@ -310,10 +313,7 @@ class GoalsWidget extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CardHeader(
-            title: 'Goals',
-            action: pct,
-          ),
+          CardHeader(title: 'Goals', action: pct),
           const SizedBox(height: 8),
           Text(
             title,
@@ -365,7 +365,7 @@ class QuickNoteWidget extends StatelessWidget {
           if (!compact) ...[
             const SizedBox(height: 7),
             Text(
-              text.isEmpty ? 'Tap to write a note' : text,
+              tr(text.isEmpty ? 'Tap to write a note' : text),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: AppText.s(11, height: 1.35),
@@ -379,15 +379,50 @@ class QuickNoteWidget extends StatelessWidget {
   }
 }
 
-class MonthSnapshotWidget extends StatelessWidget {
+class MonthSnapshotWidget extends StatefulWidget {
   const MonthSnapshotWidget({super.key, this.onSave});
 
+  /// Called after the image is saved; null hides the Save image action.
   final VoidCallback? onSave;
+
+  @override
+  State<MonthSnapshotWidget> createState() => _MonthSnapshotWidgetState();
+}
+
+class _MonthSnapshotWidgetState extends State<MonthSnapshotWidget> {
+  final _boundary = GlobalKey();
+
+  /// Saves the card as a PNG in the phone's gallery (AC-28).
+  Future<void> _save() async {
+    final boundary =
+        _boundary.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+    if (boundary == null) return;
+    // Render at the screen's full width in pixels.
+    final ratio = View.of(context).physicalSize.width / boundary.size.width;
+    final image = await boundary.toImage(pixelRatio: ratio);
+    final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    image.dispose();
+    if (data == null) return;
+    try {
+      if (!await Gal.hasAccess()) await Gal.requestAccess();
+      await Gal.putImageBytes(
+        data.buffer.asUint8List(),
+        name: 'supercalendar_${DateTime.now().millisecondsSinceEpoch}',
+      );
+      widget.onSave?.call();
+    } on GalException {
+      if (mounted) showAppSnack(context, 'Could not save the image');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
     final first = app.today;
+    return RepaintBoundary(key: _boundary, child: _card(app, first));
+  }
+
+  Widget _card(AppState app, DateTime first) {
     return AppCard(
       color: AppColors.blue,
       child: Column(
@@ -395,9 +430,9 @@ class MonthSnapshotWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CardHeader(
-            title: '${monthNames[first.month - 1]} snapshot',
-            action: 'Save image',
-            onAction: onSave,
+            title: trf('{month} snapshot', {'month': monthNames[first.month - 1]}),
+            action: widget.onSave == null ? null : 'Save image',
+            onAction: widget.onSave == null ? null : _save,
           ),
           const SizedBox(height: 9),
           Row(
@@ -412,8 +447,7 @@ class MonthSnapshotWidget extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 9),
-          Text(
-            'Display-only · tap snapshot to share your month',
+          Text(tr('Display-only · tap snapshot to share your month'),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: AppText.s(9, color: AppColors.muted),

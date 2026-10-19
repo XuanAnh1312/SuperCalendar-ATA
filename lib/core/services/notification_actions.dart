@@ -1,6 +1,7 @@
 import 'package:flutter_application/core/data/document_store.dart';
 import 'package:flutter_application/core/services/notification_service.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 import 'package:flutter_application/features/calendar/data/event_repository.dart';
 import 'package:flutter_application/features/calendar/data/habit_repository.dart';
 import 'package:flutter_application/features/note/data/note_repository.dart';
@@ -27,6 +28,10 @@ Future<bool> handleNotificationAction({
 }) async {
   final now = clock ?? DateTime.now;
   final target = NotificationTarget.decode(payload);
+  // Runs outside the UI, so pick up the user's language here too.
+  final account = UserRepository(store, clock: now);
+  await account.load();
+  AppStrings.vi = account.settings.language == AppStrings.vietnamese;
   final tasks = TaskRepository(store, clock: now);
   await tasks.load();
   var changed = false;
@@ -45,8 +50,15 @@ Future<bool> handleNotificationAction({
       if (input != null && input.trim().isNotEmpty) {
         final notes = NoteRepository(store, clock: now);
         await notes.load();
-        notes.setQuick(input);
+        // FR-20.03: Append (default) or Replace; setQuick clamps to 500.
+        final old = notes.quickText;
+        notes.setQuick(
+          account.settings.quickNoteAppend && old.isNotEmpty
+              ? '$old\n${input.trim()}'
+              : input,
+        );
         await notes.flush();
+        await notifications.showQuickNoteNotification(notes.quickText);
         changed = true;
       }
     case NotificationActions.snooze:
@@ -80,6 +92,7 @@ Future<void> _refreshNotifications(
 ) async {
   final account = UserRepository(store, clock: now);
   await account.load();
+  AppStrings.vi = account.settings.language == AppStrings.vietnamese;
   if (!account.settings.notificationsEnabled) return;
   final events = EventRepository(store);
   await events.load();
@@ -98,6 +111,7 @@ Future<void> _refreshNotifications(
         events: events.on(today),
         tasks: tasks.pending(today),
         day: today,
+        hideDetails: account.settings.lockScreenHideDetails,
       ),
     );
   }

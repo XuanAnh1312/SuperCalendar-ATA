@@ -6,6 +6,7 @@ import 'package:flutter_application/app/theme/app_text.dart';
 import 'package:flutter_application/core/services/app_state.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 /// In-app preview of the notification shade with the Quick Note
 /// notification. The note is saved to the same database the dashboard reads.
@@ -184,8 +185,7 @@ class _QuickNoteNotificationScreenState
                 ),
               ),
               const SizedBox(height: 16),
-              Text(
-                'CONVERSATIONS & NOTES',
+              Text(tr('CONVERSATIONS & NOTES'),
                 style: AppText.s(10, color: AppColors.muted),
               ),
               const SizedBox(height: 8),
@@ -219,16 +219,14 @@ class _QuickNoteNotificationScreenState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'SuperCalendar',
+                                Text(tr('SuperCalendar'),
                                   style: AppText.s(
                                     11.5,
                                     weight: FontWeight.w700,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
-                                Text(
-                                  'now · notification access',
+                                Text(tr('now · notification access'),
                                   style: AppText.s(9.5, color: AppColors.muted),
                                 ),
                               ],
@@ -257,8 +255,7 @@ class _QuickNoteNotificationScreenState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'QUICK NOTE',
+                            Text(tr('QUICK NOTE'),
                               style: AppText.s(9.5, color: AppColors.primary),
                             ),
                             TextField(
@@ -274,7 +271,7 @@ class _QuickNoteNotificationScreenState
                                 contentPadding: const EdgeInsets.symmetric(
                                   vertical: 8,
                                 ),
-                                hintText: 'Type a quick note',
+                                hintText: tr('Type a quick note'),
                                 hintStyle: AppText.s(
                                   13,
                                   color: AppColors.faint,
@@ -285,8 +282,7 @@ class _QuickNoteNotificationScreenState
                               children: [
                                 Expanded(
                                   child: _dirty
-                                      ? Text(
-                                          'Not saved yet',
+                                      ? Text(tr('Not saved yet'),
                                           style: AppText.s(
                                             9.5,
                                             color: AppColors.amber,
@@ -363,13 +359,11 @@ class _QuickNoteNotificationScreenState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Mail · 12 min',
+                            Text(tr('Mail · 12 min'),
                               style: AppText.s(10.5, weight: FontWeight.w700),
                             ),
                             const SizedBox(height: 3),
-                            Text(
-                              'Weekly project summary is ready',
+                            Text(tr('Weekly project summary is ready'),
                               style: AppText.s(10.5, color: AppColors.muted),
                             ),
                           ],

@@ -10,10 +10,12 @@ import 'package:flutter_application/core/services/app_state.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/features/calendar/domain/event.dart';
+import 'package:flutter_application/features/calendar/domain/goal.dart';
 import 'package:flutter_application/features/calendar/presentation/screens/event_detail_screen.dart';
 import 'package:flutter_application/features/calendar/presentation/screens/event_form_screen.dart';
 import 'package:flutter_application/features/calendar/presentation/widgets/system_calendar_prompt.dart';
 import 'package:flutter_application/features/dashboard/presentation/widgets/home_widgets.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -89,9 +91,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
   // ---- Month --------------------------------------------------------------
 
   List<Widget> _monthView(BuildContext context, AppState app, DateTime month) {
-    final gridStart = month.subtract(Duration(days: month.weekday - 1));
+    final gridStart = app.weekStartOf(month);
     final daysInMonth = DateUtils.getDaysInMonth(month.year, month.month);
-    final weeks = ((month.weekday - 1 + daysInMonth) / 7).ceil();
+    final lead = (month.weekday - app.firstWeekday) % 7;
+    final weeks = ((lead + daysInMonth) / 7).ceil();
     final selected = app.selectedDay;
     final agenda = app.events.on(selected);
 
@@ -122,11 +125,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
           children: [
             Row(
               children: [
-                for (final name in weekdayShort)
+                for (var i = 0; i < 7; i++)
                   Expanded(
                     child: Center(
                       child: Text(
-                        name,
+                        weekdayShort[(app.firstWeekday - 1 + i) % 7],
                         style: AppText.s(9, color: AppColors.muted),
                       ),
                     ),
@@ -156,37 +159,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ),
       ),
       const SizedBox(height: 12),
-      AppCard(
+      _GoalsCard(
+        type: GoalType.monthly,
+        periodStart: month,
+        periodEnd: DateTime(month.year, month.month + 1, 0),
         color: AppColors.purple,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const CardHeader(title: 'Monthly Goals', action: '3 of 5'),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                const SoftPill(label: 'Launch site', icon: LucideIcons.rocket),
-                SoftPill(
-                  label: '12 workouts',
-                  color: AppColors.green,
-                  textColor: AppColors.greenStrong,
-                ),
-                SoftPill(
-                  label: 'Read 2 books',
-                  color: AppColors.yellow,
-                  textColor: AppColors.yellowText,
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
       const SizedBox(height: 14),
       if (agenda.isEmpty)
         Text(
-          'No events on ${shortDate(selected)} · tap the date again to add one',
+          trf('No events on {date} · tap the date again to add one', {'date': shortDate(selected)}),
           style: AppText.s(10, color: AppColors.muted),
         )
       else
@@ -288,15 +270,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   List<Widget> _weekView(BuildContext context, AppState app) {
     final anchor = app.selectedDay;
-    final monday = DateTime(
-      anchor.year,
-      anchor.month,
-      anchor.day - (anchor.weekday - 1),
-    );
+    final first = app.weekStartOf(anchor);
     final days = [
       for (var i = 0; i < 7; i++)
-        DateTime(monday.year, monday.month, monday.day + i),
+        DateTime(first.year, first.month, first.day + i),
     ];
+    // ISO week number of the Monday in this week (BR-15).
+    final monday = days.firstWhere((d) => d.weekday == DateTime.monday);
     final eventCount = days.fold<int>(
       0,
       (sum, day) => sum + app.events.on(day).length,
@@ -325,7 +305,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Week ${_isoWeek(monday)} · $eventCount events',
+                  trf('Week {n} · {count} events', {'n': _isoWeek(monday), 'count': eventCount}),
                   style: AppText.s(10, color: AppColors.muted),
                 ),
               ],
@@ -382,7 +362,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       if (outside.isNotEmpty) ...[
         const SizedBox(height: 12),
         Text(
-          'Outside 08:00–17:00 on ${shortDate(anchor)}',
+          trf('Outside 08:00–17:00 on {date}', {'date': shortDate(anchor)}),
           style: AppText.s(10, color: AppColors.muted),
         ),
         const SizedBox(height: 8),
@@ -394,38 +374,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ),
       ],
       const SizedBox(height: 12),
-      AppCard(
+      _GoalsCard(
+        type: GoalType.weekly,
+        periodStart: first,
+        periodEnd: DateTime(first.year, first.month, first.day + 6),
         color: AppColors.yellow,
-        borderColor: AppColors.border,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const CardHeader(title: 'Weekly Goals', action: '2 of 4'),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                SoftPill(
-                  label: '3 workouts',
-                  icon: LucideIcons.check,
-                  color: AppColors.green,
-                  textColor: AppColors.greenStrong,
-                ),
-                SoftPill(
-                  label: 'Draft launch',
-                  color: AppColors.surface,
-                  textColor: AppColors.text,
-                ),
-                SoftPill(
-                  label: 'Call Mom',
-                  color: AppColors.surface,
-                  textColor: AppColors.text,
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     ];
   }
@@ -446,7 +399,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              '${weekdayLetters[index]} ${day.day}',
+              '${weekdayLetters[day.weekday - 1]} ${day.day}',
               style: AppText.s(
                 9.5,
                 weight: selected ? FontWeight.w700 : FontWeight.w400,
@@ -543,6 +496,115 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 }
 
+/// Weekly or Monthly goals of one period (BR-03: the two never mix).
+/// Tap a chip to add progress (AC-17), long-press to delete, + to add one
+/// of this card's type (AC-18).
+class _GoalsCard extends StatelessWidget {
+  const _GoalsCard({
+    required this.type,
+    required this.periodStart,
+    required this.periodEnd,
+    required this.color,
+  });
+
+  final GoalType type;
+  final DateTime periodStart;
+  final DateTime periodEnd;
+  final Color color;
+
+  bool get _monthly => type == GoalType.monthly;
+
+  Future<void> _add(BuildContext context) async {
+    final app = AppScope.read(context);
+    final title = await promptText(
+      context,
+      title: _monthly ? 'New monthly goal' : 'New weekly goal',
+      hint: 'e.g. 12 workouts',
+    );
+    if (title == null || title.isEmpty || !context.mounted) return;
+    final target = await promptText(
+      context,
+      title: 'How many times?',
+      hint: 'Leave empty for a one-off goal',
+    );
+    app.goals.add(
+      type: type,
+      title: title,
+      target: int.tryParse(target ?? ''),
+      periodStart: periodStart,
+      periodEnd: periodEnd,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = AppScope.of(context);
+    // A day inside this card's period; the selected day for weeks, so goals
+    // still match after the week start setting changes.
+    final day = _monthly ? periodStart : app.selectedDay;
+    final goals = app.goals.activeOn(day, type);
+    final done = goals.where((g) => g.status == GoalStatus.completed).length;
+    return AppCard(
+      color: color,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CardHeader(
+            title: _monthly ? 'Monthly Goals' : 'Weekly Goals',
+            action: '$done of ${goals.length}',
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final goal in goals)
+                GestureDetector(
+                  onLongPress: () {
+                    app.goals.delete(goal);
+                    showUndoSnack(
+                      context,
+                      'Goal deleted',
+                      onUndo: () => app.goals.restore(goal),
+                    );
+                  },
+                  child: SoftPill(
+                    label: goal.target == null
+                        ? goal.title
+                        : '${goal.title} · ${goal.progressLabel}',
+                    icon: switch (goal.status) {
+                      GoalStatus.completed => LucideIcons.check,
+                      GoalStatus.missed => LucideIcons.x,
+                      GoalStatus.active => null,
+                    },
+                    color: goal.status == GoalStatus.completed
+                        ? AppColors.green
+                        : AppColors.surface,
+                    textColor: switch (goal.status) {
+                      GoalStatus.completed => AppColors.greenStrong,
+                      GoalStatus.missed => AppColors.muted,
+                      GoalStatus.active => AppColors.text,
+                    },
+                    onTap: goal.isActive
+                        ? () => app.goals.increment(goal)
+                        : null,
+                  ),
+                ),
+              SoftPill(
+                label: 'Add',
+                icon: LucideIcons.plus,
+                color: AppColors.surface,
+                textColor: AppColors.primary,
+                onTap: () => _add(context),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AgendaRow extends StatelessWidget {
   const _AgendaRow({
     required this.event,
@@ -575,12 +637,12 @@ class _AgendaRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isToday
+                      tr(isToday
                           ? 'TODAY'
                           : shortDate(event.date)
                                 .split(',')
                                 .first
-                                .toUpperCase(),
+                                .toUpperCase()),
                       style: AppText.s(9.5, color: AppColors.muted),
                     ),
                     const SizedBox(height: 3),

@@ -13,6 +13,7 @@ import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/features/calendar/presentation/screens/event_detail_screen.dart';
 import 'package:flutter_application/features/lock_screen/presentation/widgets/lock_widgets.dart';
 import 'package:flutter_application/features/note/presentation/screens/quick_note_notification_screen.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 /// Background of the lock screen for the active theme's lock screen style.
 BoxDecoration lockScreenDecoration() {
@@ -96,7 +97,7 @@ class LockScreen extends StatelessWidget {
                         unawaited(app.notifications.showTaskReminder(task));
                         showAppSnack(
                           context,
-                          'Reminder sent for "${task.title}"',
+                          trf('Reminder sent for "{title}"', {'title': task.title}),
                         );
                       },
                       onAddTask: () => showQuickAddTask(context),
@@ -123,8 +124,7 @@ class LockScreen extends StatelessWidget {
                           color: AppColors.muted,
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          'Swipe up to unlock',
+                        Text(tr('Swipe up to unlock'),
                           style: AppText.s(10.5, color: AppColors.muted),
                         ),
                       ],

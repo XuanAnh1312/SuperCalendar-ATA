@@ -11,6 +11,7 @@ import 'package:flutter_application/features/dashboard/domain/screen_layout.dart
 import 'package:flutter_application/features/dashboard/presentation/widgets/home_widgets.dart';
 import 'package:flutter_application/features/vip/domain/template.dart';
 import 'package:flutter_application/features/vip/presentation/screens/template_store_screen.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 /// The VIP Theme Builder: style controls drive a live canvas, and the result
 /// can be saved as a template, applied, and published to the store.
@@ -105,31 +106,31 @@ class _TemplateStudioScreenState extends State<TemplateStudioScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _editingId == null ? 'Save as template' : 'Update template',
+                tr(_editingId == null ? 'Save as template' : 'Update template'),
                 style: AppText.s(15, weight: FontWeight.w700),
               ),
               const SizedBox(height: 10),
-              Text('NAME', style: AppText.label()),
+              Text(tr('NAME'), style: AppText.label()),
               TextField(
                 controller: name,
                 style: AppText.s(14),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   isDense: true,
-                  hintText: 'Template name',
+                  hintText: tr('Template name'),
                 ),
               ),
               const SizedBox(height: 12),
-              Text('DESCRIPTION', style: AppText.label()),
+              Text(tr('DESCRIPTION'), style: AppText.label()),
               TextField(
                 controller: description,
                 style: AppText.s(13),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   isDense: true,
-                  hintText: 'What makes it yours?',
+                  hintText: tr('What makes it yours?'),
                 ),
               ),
               const SizedBox(height: 12),
-              Text('PRICE', style: AppText.label()),
+              Text(tr('PRICE'), style: AppText.label()),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 7,
@@ -177,8 +178,8 @@ class _TemplateStudioScreenState extends State<TemplateStudioScreen> {
     showAppSnack(
       context,
       apply
-          ? 'Template "${template.name}" saved and applied'
-          : 'Template "${template.name}" saved',
+          ? trf('Template "{name}" saved and applied', {'name': template.name})
+          : trf('Template "{name}" saved', {'name': template.name}),
     );
   }
 
@@ -278,8 +279,8 @@ class _TemplateStudioScreenState extends State<TemplateStudioScreen> {
                       ),
                     ),
                     Text(
-                      '${template.priceLabel} · '
-                      '${template.published ? 'Published' : 'Draft'}',
+                      '${tr(template.priceLabel)} · '
+                      '${tr(template.published ? 'Published' : 'Draft')}',
                       style: AppText.s(10, color: AppColors.muted),
                     ),
                   ],
@@ -302,7 +303,7 @@ class _TemplateStudioScreenState extends State<TemplateStudioScreen> {
                           : null,
                       onTap: () {
                         app.applyTemplate(template);
-                        showAppSnack(context, '${template.name} applied');
+                        showAppSnack(context, trf('{name} applied', {'name': template.name}));
                       },
                     ),
                     SoftPill(
@@ -321,8 +322,8 @@ class _TemplateStudioScreenState extends State<TemplateStudioScreen> {
                         showAppSnack(
                           context,
                           published
-                              ? '${template.name} published to the store'
-                              : '${template.name} removed from the store',
+                              ? trf('{name} published to the store', {'name': template.name})
+                              : trf('{name} removed from the store', {'name': template.name}),
                         );
                       },
                     ),
@@ -358,8 +359,7 @@ class _TemplateStudioScreenState extends State<TemplateStudioScreen> {
             );
             if (ok) app.cancelVip();
           },
-          child: Text(
-            'Cancel VIP (test)',
+          child: Text(tr('Cancel VIP (test)'),
             style: AppText.s(10, color: AppColors.muted),
           ),
         ),
@@ -372,7 +372,9 @@ class _TemplateStudioScreenState extends State<TemplateStudioScreen> {
   Widget _canvas(AppState app) {
     final events = app.events.on(app.today);
     final habits = app.habits.occurrences(app.today);
-    final doneHabits = habits.where((h) => h.isDone(app.today)).length;
+    final doneHabits = habits
+        .where((h) => app.habits.isDone(h, app.today))
+        .length;
     final draft = _draft;
     final radius = draft.radius * 0.9;
     final pad = draft.spacing * 0.7;
@@ -426,15 +428,13 @@ class _TemplateStudioScreenState extends State<TemplateStudioScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Today',
+                      Text(tr('Today'),
                         style: AppText.s(11, weight: FontWeight.w700),
                       ),
                       if (events.isEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 7),
-                          child: Text(
-                            'No events today',
+                          child: Text(tr('No events today'),
                             style: AppText.s(8.5, color: AppColors.muted),
                           ),
                         ),
@@ -491,7 +491,7 @@ class _TemplateStudioScreenState extends State<TemplateStudioScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Habits · $doneHabits/${habits.length}',
+                            '${tr('Habits')} · $doneHabits/${habits.length}',
                             style: AppText.s(9.5, weight: FontWeight.w700),
                           ),
                           const SizedBox(height: 7),
@@ -503,7 +503,7 @@ class _TemplateStudioScreenState extends State<TemplateStudioScreen> {
                                   height: 17,
                                   margin: const EdgeInsets.only(right: 6),
                                   decoration: BoxDecoration(
-                                    color: habit.isDone(app.today)
+                                    color: app.habits.isDone(habit, app.today)
                                         ? AppColors.greenStrong
                                         : AppColors.surface,
                                     shape: BoxShape.circle,
@@ -526,8 +526,7 @@ class _TemplateStudioScreenState extends State<TemplateStudioScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Quick Note',
+                          Text(tr('Quick Note'),
                             style: AppText.s(9.5, weight: FontWeight.w700),
                           ),
                           const SizedBox(height: 6),
@@ -587,8 +586,7 @@ class _TemplateStudioScreenState extends State<TemplateStudioScreen> {
                       color: AppColors.primary,
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      'Mix any style and save unlimited templates.',
+                    Text(tr('Mix any style and save unlimited templates.'),
                       style: AppText.s(10, height: 1.3),
                     ),
                   ],
@@ -609,7 +607,7 @@ class _TemplateStudioScreenState extends State<TemplateStudioScreen> {
   );
 
   Text _panelTitle(String text) =>
-      Text(text, style: AppText.s(12.5, weight: FontWeight.w700));
+      Text(tr(text), style: AppText.s(12.5, weight: FontWeight.w700));
 
   Widget _colorsCard() {
     return _panel(

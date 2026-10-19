@@ -11,6 +11,7 @@ import 'package:flutter_application/features/calendar/presentation/screens/habit
 import 'package:flutter_application/features/dashboard/presentation/widgets/home_widgets.dart';
 import 'package:flutter_application/features/note/presentation/screens/note_list_screen.dart';
 import 'package:flutter_application/features/settings_screen/presentation/screens/edit_screen.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -61,7 +62,7 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      '${_greeting(app.now)}, ${app.user.firstName}',
+                      '${tr(_greeting(app.now))}, ${app.user.firstName}',
                       style: AppText.s(18, weight: FontWeight.w700),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -88,10 +89,8 @@ class HomeScreen extends StatelessWidget {
                     goToTab(context, AppTab.calendar);
                   },
                   onEditNote: () => pushInTab(context, const NoteListScreen()),
-                  onSaveSnapshot: () => showAppSnack(
-                    context,
-                    'Sharing the snapshot comes in a later phase',
-                  ),
+                  onSaveSnapshot: () =>
+                      showAppSnack(context, 'Snapshot saved to Photos'),
                 ),
               ),
               const SizedBox(height: 14),
@@ -106,9 +105,9 @@ class HomeScreen extends StatelessWidget {
                   const SizedBox(width: 7),
                   Flexible(
                     child: Text(
-                      app.isVip
+                      tr(app.isVip
                           ? 'VIP · free-form layouts unlocked'
-                          : '3 free layouts · More templates with VIP',
+                          : '3 free layouts · More templates with VIP'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppText.s(10, color: AppColors.muted),

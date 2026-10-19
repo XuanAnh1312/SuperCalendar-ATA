@@ -8,6 +8,7 @@ import 'package:flutter_application/app/theme/app_theme_data.dart';
 import 'package:flutter_application/core/services/app_state.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/features/vip/presentation/widgets/vip_gate.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 /// Settings → Appearance: theme, light/dark and accent color. Typography is
 /// part of the VIP Theme Builder.
@@ -38,7 +39,7 @@ class AppearanceScreen extends StatelessWidget {
           children: [
             const TopBar(title: 'Appearance'),
             const SizedBox(height: 14),
-            Text('THEME', style: AppText.label()),
+            Text(tr('THEME'), style: AppText.label()),
             const SizedBox(height: 8),
             SettingsGroup(
               children: [
@@ -75,7 +76,7 @@ class AppearanceScreen extends StatelessWidget {
                                 Text(
                                   theme.builtIn
                                       ? 'Built-in'
-                                      : 'Template · ${theme.typography}',
+                                      : '${tr('Template')} · ${theme.typography}',
                                   style: AppText.s(9.5, color: AppColors.muted),
                                 ),
                               ],
@@ -94,7 +95,7 @@ class AppearanceScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            Text('MODE', style: AppText.label()),
+            Text(tr('MODE'), style: AppText.label()),
             const SizedBox(height: 8),
             SettingsGroup(
               children: [
@@ -112,7 +113,7 @@ class AppearanceScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            Text('ACCENT COLOR', style: AppText.label()),
+            Text(tr('ACCENT COLOR'), style: AppText.label()),
             const SizedBox(height: 8),
             AppCard(
               shadow: false,
@@ -143,7 +144,7 @@ class AppearanceScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Text('TYPOGRAPHY', style: AppText.label()),
+            Text(tr('TYPOGRAPHY'), style: AppText.label()),
             const SizedBox(height: 8),
             SettingsGroup(
               children: [
@@ -169,9 +170,9 @@ class AppearanceScreen extends StatelessWidget {
               child: GestureDetector(
                 onTap: () => goToTab(context, AppTab.vip),
                 child: Text(
-                  app.isVip
+                  tr(app.isVip
                       ? 'Build your own theme in the Template Studio'
-                      : 'More control with VIP · Theme Builder',
+                      : 'More control with VIP · Theme Builder'),
                   style: AppText.s(10, color: AppColors.primary),
                 ),
               ),
@@ -186,7 +187,7 @@ class AppearanceScreen extends StatelessWidget {
 /// Typography picker. A Free user is sent to the VIP offer instead.
 Future<void> pickTypography(BuildContext context) async {
   final app = AppScope.read(context);
-  if (!await requireVip(context, feature: 'Custom typography')) return;
+  if (!await requireVip(context, feature: VipFeature.customTypography)) return;
   if (!context.mounted) return;
   final picked = await pickOption(
     context,

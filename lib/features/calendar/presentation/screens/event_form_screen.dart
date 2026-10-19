@@ -9,9 +9,31 @@ import 'package:flutter_application/core/data/repository.dart';
 import 'package:flutter_application/core/services/app_state.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
+import 'package:flutter_application/features/calendar/data/event_repository.dart';
 import 'package:flutter_application/features/calendar/domain/event.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 /// Creates an event, or edits [event] when one is given.
+/// Asks which repeats of a recurring event an edit or delete applies to
+/// (BR-10). Null when dismissed.
+Future<DeleteScope?> pickEventScope(
+  BuildContext context, {
+  required String title,
+}) async {
+  const labels = {
+    'Only this event': DeleteScope.one,
+    'This and following events': DeleteScope.fromThis,
+    'All events': DeleteScope.all,
+  };
+  final picked = await pickOption(
+    context,
+    title: title,
+    options: labels.keys.toList(),
+    current: '',
+  );
+  return labels[picked];
+}
+
 class EventFormScreen extends StatefulWidget {
   const EventFormScreen({super.key, this.initialDate, this.event});
 
@@ -85,7 +107,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
   Future<void> _pickTime() async {
     final start = await showTimePicker(
       context: context,
-      helpText: 'Start time',
+      helpText: tr('Start time'),
       initialTime: TimeOfDay(hour: _start ~/ 60, minute: _start % 60),
     );
     if (start == null || !mounted) return;
@@ -94,7 +116,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
     final suggestedEnd = (newStart + duration).clamp(newStart + 5, 24 * 60 - 1);
     final end = await showTimePicker(
       context: context,
-      helpText: 'End time',
+      helpText: tr('End time'),
       initialTime: TimeOfDay(
         hour: suggestedEnd ~/ 60,
         minute: suggestedEnd % 60,
@@ -104,8 +126,8 @@ class _EventFormScreenState extends State<EventFormScreen> {
     setState(() {
       _start = newStart;
       final picked = end == null ? suggestedEnd : end.hour * 60 + end.minute;
-      // An end before the start would make a negative-length event.
-      _end = picked > newStart ? picked : suggestedEnd;
+      // An end before the start is kept so the form can flag it (AC-14).
+      _end = picked;
     });
   }
 
@@ -143,10 +165,23 @@ class _EventFormScreenState extends State<EventFormScreen> {
     setState(() => _guests.add(initials.toUpperCase()));
   }
 
-  void _save() {
+  /// The rule to save; an unchanged choice keeps the stored rule (and any
+  /// UNTIL it carries).
+  String? get _rule => _repeat == widget.event?.repeatLabel
+      ? widget.event!.repeatRule
+      : _repeatRule(_repeat);
+
+  /// AC-14: an event must end after it starts.
+  bool get _timeValid => _end > _start;
+
+  Future<void> _save() async {
     final title = _title.text.trim();
     if (title.isEmpty) {
       showAppSnack(context, 'Give the event a title first');
+      return;
+    }
+    if (!_timeValid) {
+      setState(() {});
       return;
     }
     final app = AppScope.read(context);
@@ -166,7 +201,58 @@ class _EventFormScreenState extends State<EventFormScreen> {
       _end % 60,
     );
     final existing = widget.event;
-    if (existing == null) {
+    CalendarEvent build(String id) => CalendarEvent(
+      id: id,
+      title: title,
+      description: _notes.text.trim(),
+      startTime: start,
+      endTime: end,
+      location: _location.text.trim(),
+      reminderMinutes: _reminder,
+      colorIndex: _color,
+      category: _category,
+      repeatRule: _rule,
+      calendar: _calendar!,
+      guests: [..._guests],
+    );
+    // [existing] may be one repeat of a series (BR-10).
+    final series = existing == null ? null : app.events.byId(existing.id);
+    if (series != null && series.isRecurring) {
+      final scope = await pickEventScope(context, title: 'Save changes to');
+      if (scope == null || !mounted) return;
+      final occurrence = existing!.date;
+      switch (scope) {
+        case DeleteScope.one:
+          // The edited repeat becomes a standalone event.
+          app.events.deleteScope(series, scope, occurrenceDate: occurrence);
+          app.events.add(build(newId('event'))..repeatRule = null);
+        case DeleteScope.fromThis:
+          // End the old series here and start a new one with the edits.
+          app.events.deleteScope(series, scope, occurrenceDate: occurrence);
+          app.events.add(build(newId('event')));
+        case DeleteScope.all:
+          final edited = build(series.id);
+          // Keep the series' first day; only the time of day changes.
+          final shift = DateTime(
+            series.date.year,
+            series.date.month,
+            series.date.day,
+          ).difference(DateTime(date.year, date.month, date.day));
+          series
+            ..title = edited.title
+            ..description = edited.description
+            ..startTime = edited.startTime.add(shift)
+            ..endTime = edited.endTime.add(shift)
+            ..location = edited.location
+            ..reminderMinutes = edited.reminderMinutes
+            ..colorIndex = edited.colorIndex
+            ..category = edited.category
+            ..repeatRule = edited.repeatRule
+            ..calendar = edited.calendar
+            ..guests = edited.guests;
+          app.events.save(series);
+      }
+    } else if (existing == null) {
       app.events.add(
         CalendarEvent(
           id: newId('event'),
@@ -178,7 +264,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
           reminderMinutes: _reminder,
           colorIndex: _color,
           category: _category,
-          repeatRule: _repeatRule(_repeat),
+          repeatRule: _rule,
           calendar: _calendar!,
           guests: _guests,
         ),
@@ -193,7 +279,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
         ..reminderMinutes = _reminder
         ..colorIndex = _color
         ..category = _category
-        ..repeatRule = _repeatRule(_repeat)
+        ..repeatRule = _rule
         ..calendar = _calendar!
         ..guests = [..._guests];
       app.events.save(existing);
@@ -203,7 +289,9 @@ class _EventFormScreenState extends State<EventFormScreen> {
     Navigator.of(context).pop();
     showAppSnack(
       context,
-      existing == null ? 'Event "$title" created' : 'Event updated',
+      existing == null
+          ? trf('Event "{title}" created', {'title': title})
+          : 'Event updated',
     );
   }
 
@@ -229,8 +317,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'EVENT TITLE',
+                  Text(tr('EVENT TITLE'),
                     style: AppText.s(10, color: AppColors.primary),
                   ),
                   TextField(
@@ -242,7 +329,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
                       isDense: true,
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                      hintText: 'Add title',
+                      hintText: tr('Add title'),
                       hintStyle: AppText.s(18, color: AppColors.faint),
                     ),
                   ),
@@ -270,6 +357,13 @@ class _EventFormScreenState extends State<EventFormScreen> {
                 ),
               ],
             ),
+            if (!_timeValid)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+                child: Text(tr('End time must be after the start time'),
+                  style: AppText.s(11, color: AppColors.danger),
+                ),
+              ),
             Row(
               children: [
                 AppCard(
@@ -279,7 +373,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('COLOR', style: AppText.label()),
+                      Text(tr('COLOR'), style: AppText.label()),
                       const SizedBox(height: 7),
                       ColorDots(
                         colors: AppColors.accents,
@@ -366,8 +460,8 @@ class _EventFormScreenState extends State<EventFormScreen> {
                 Expanded(
                   child: Text(
                     _guests.isEmpty
-                        ? 'No guests'
-                        : '${_guests.length} guest${_guests.length == 1 ? '' : 's'}',
+                        ? tr('No guests')
+                        : trf(_guests.length == 1 ? '{n} guest' : '{n} guests', {'n': _guests.length}),
                     style: AppText.s(11, color: AppColors.muted),
                   ),
                 ),

@@ -1,5 +1,6 @@
 import 'package:flutter_application/core/data/document_store.dart';
 import 'package:flutter_application/core/data/repository.dart';
+import 'package:flutter_application/features/calendar/domain/event.dart';
 import 'package:flutter_application/features/calendar/domain/habit.dart';
 
 // ---------------------------------------------------------------------------
@@ -67,8 +68,12 @@ class HabitOccurrenceRepository extends Repository<HabitOccurrence> {
   ///
   /// Creates the occurrence record if it does not already exist (BR-02: the
   /// rule is never touched).
-  HabitOccurrence markDone(String habitId, DateTime date) =>
-      _upsert(habitId, date, OccurrenceStatus.done, completedAt: DateTime.now());
+  HabitOccurrence markDone(String habitId, DateTime date) => _upsert(
+    habitId,
+    date,
+    OccurrenceStatus.done,
+    completedAt: DateTime.now(),
+  );
 
   /// Marks [habitId] as [OccurrenceStatus.skipped] on [date].
   ///
@@ -213,7 +218,7 @@ class HabitOccurrenceRepository extends Repository<HabitOccurrence> {
 /// automatically via [updateRepeatRule].
 class HabitRepository extends Repository<Habit> {
   HabitRepository(DocumentStore store, {HabitOccurrenceRepository? occurrences})
-      : super(store, Collections.habits) {
+    : super(store, Collections.habits) {
     _occurrences = occurrences;
   }
 
@@ -254,7 +259,9 @@ class HabitRepository extends Repository<Habit> {
   /// the RRULE engine or a simpler check; this just guards the date range.
   List<Habit> activeOn(DateTime day) => active.where((h) {
     final d = DateTime(day.year, day.month, day.day);
-    if (d.isBefore(DateTime(h.startDate.year, h.startDate.month, h.startDate.day))) {
+    if (d.isBefore(
+      DateTime(h.startDate.year, h.startDate.month, h.startDate.day),
+    )) {
       return false;
     }
     final end = h.endDate;
@@ -310,7 +317,29 @@ class HabitRepository extends Repository<Habit> {
 
   /// Legacy: habits that should appear on [day] (not archived, within date
   /// range).  Prefer [activeOn] for new code.
-  List<Habit> occurrences(DateTime day) => activeOn(day);
+  List<Habit> occurrences(DateTime day) => activeOn(day)
+      .where(
+        (h) =>
+            rruleOccursOn(h.repeatRule, h.startDate, day) &&
+            statusOn(h, day) != OccurrenceStatus.deleted,
+      )
+      .toList();
+
+  /// State of [habit] on [day], read from the occurrence table when attached.
+  OccurrenceStatus statusOn(Habit habit, DateTime day) {
+    final occurrences = _occurrences;
+    if (occurrences != null) return occurrences.statusOn(habit.id, day);
+    if (habit.isDone(day)) return OccurrenceStatus.done;
+    if (habit.isSkipped(day)) return OccurrenceStatus.skipped;
+    if (habit.isRemoved(day)) return OccurrenceStatus.deleted;
+    return OccurrenceStatus.pending;
+  }
+
+  bool isDone(Habit habit, DateTime day) =>
+      statusOn(habit, day) == OccurrenceStatus.done;
+
+  bool isSkipped(Habit habit, DateTime day) =>
+      statusOn(habit, day) == OccurrenceStatus.skipped;
 
   /// Convenience: delegates to [HabitOccurrenceRepository.toggle].
   /// Falls back to the old in-memory flag when the occurrence repo is absent.

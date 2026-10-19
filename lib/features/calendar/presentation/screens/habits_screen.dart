@@ -9,13 +9,30 @@ import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/features/calendar/domain/habit.dart';
 import 'package:flutter_application/features/dashboard/presentation/widgets/home_widgets.dart';
+import 'package:flutter_application/core/utils/strings.dart';
+
+/// Repeat choices offered for a habit, label → RRULE.
+const _habitRules = {
+  'Every day': 'FREQ=DAILY',
+  'Weekdays': 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR',
+  'Mon · Wed · Fri': 'FREQ=WEEKLY;BYDAY=MO,WE,FR',
+  'Weekends': 'FREQ=WEEKLY;BYDAY=SA,SU',
+  'Once a week': 'FREQ=WEEKLY',
+};
+
+String _habitRuleLabel(Habit habit) =>
+    _habitRules.entries
+        .where((e) => e.value == habit.repeatRule)
+        .firstOrNull
+        ?.key ??
+    'Custom';
 
 String _habitSchedule(Habit habit) {
-  final frequency = habit.repeatRule.contains('WEEKLY') ? 'Weekly' : 'Daily';
+  final frequency = _habitRuleLabel(habit);
   final time = habit.time;
   return time == null
-      ? '$frequency · anytime'
-      : '$frequency · ${formatMinutes(time)}';
+      ? '${tr(frequency)} · ${tr('anytime')}'
+      : '${tr(frequency)} · ${formatMinutes(time)}';
 }
 
 class HabitsScreen extends StatefulWidget {
@@ -43,7 +60,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
   Future<void> _addHabit(BuildContext context) async {
     final title = await promptText(
       context,
-      title: 'New ${_kinds[_filter].toLowerCase()} habit',
+      title: tr('New ${_kinds[_filter].toLowerCase()} habit'),
       hint: 'e.g. Drink water',
     );
     if (title == null || title.isEmpty || !context.mounted) return;
@@ -105,13 +122,13 @@ class _HabitsScreenState extends State<HabitsScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    'Today · ${habits.length} occurrences',
+                    trf('Today · {n} occurrences', {'n': habits.length}),
                     style: AppText.cardTitle(),
                   ),
                 ),
                 GestureDetector(
                   onTap: () => Navigator.of(context).maybePop(),
-                  child: Text('Manage habits', style: AppText.action()),
+                  child: Text(tr('Manage habits'), style: AppText.action()),
                 ),
               ],
             ),
@@ -140,8 +157,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
                   Icon(LucideIcons.repeat2, size: 14, color: AppColors.primary),
                   const SizedBox(width: 9),
                   Expanded(
-                    child: Text(
-                      'Future occurrences update when you change a habit’s repetition.',
+                    child: Text(tr('Future occurrences update when you change a habit’s repetition.'),
                       style: AppText.s(10, height: 1.35),
                     ),
                   ),
@@ -157,7 +173,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
   void _showActions(BuildContext context, Habit habit) {
     final app = AppScope.read(context);
     final today = app.today;
-    final done = habit.isDone(today);
+    final done = AppScope.read(context).habits.isDone(habit, today);
     showModalBottomSheet<void>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -204,7 +220,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Today · ${_habitSchedule(habit)}',
+                        '${tr('Today')} · ${_habitSchedule(habit)}',
                         style: AppText.s(10.5, color: AppColors.muted),
                       ),
                     ],
@@ -231,7 +247,25 @@ class _HabitsScreenState extends State<HabitsScreen> {
               onTap: () {
                 Navigator.pop(sheetContext);
                 app.habits.skip(habit, today);
-                showAppSnack(context, '${habit.title} skipped for today');
+                showAppSnack(context, trf('{name} skipped for today', {'name': habit.title}));
+              },
+            ),
+            _SheetAction(
+              icon: LucideIcons.repeat2,
+              title: 'Change repetition',
+              subtitle: 'Applies from today on',
+              color: AppColors.text,
+              onTap: () async {
+                Navigator.pop(sheetContext);
+                final picked = await pickOption(
+                  context,
+                  title: 'Repeat',
+                  options: _habitRules.keys.toList(),
+                  current: _habitRuleLabel(habit),
+                );
+                if (picked == null) return;
+                // BR-17: past occurrences keep their state.
+                app.habits.updateRepeatRule(habit, _habitRules[picked]!, today);
               },
             ),
             _SheetAction(
@@ -242,7 +276,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
               onTap: () {
                 Navigator.pop(sheetContext);
                 app.habits.removeOccurrence(habit, today);
-                showAppSnack(context, '${habit.title} removed from today');
+                showAppSnack(context, trf('{name} removed from today', {'name': habit.title}));
               },
             ),
           ],
@@ -267,7 +301,7 @@ class _HabitCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final done = habit.isDone(today);
+    final done = AppScope.read(context).habits.isDone(habit, today);
     return AppCard(
       color: AppColors.accentSurface(habit.colorIndex),
       shadow: false,
@@ -299,9 +333,9 @@ class _HabitCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  habit.isSkipped(today)
+                  tr(AppScope.read(context).habits.isSkipped(habit, today)
                       ? 'Skipped today'
-                      : _habitSchedule(habit),
+                      : _habitSchedule(habit)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppText.s(9.5, color: AppColors.muted),
@@ -367,9 +401,9 @@ class _SheetAction extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: AppText.s(12.5, color: color)),
+                  Text(tr(title), style: AppText.s(12.5, color: color)),
                   const SizedBox(height: 2),
-                  Text(subtitle, style: AppText.s(9.5, color: AppColors.muted)),
+                  Text(tr(subtitle), style: AppText.s(9.5, color: AppColors.muted)),
                 ],
               ),
             ),

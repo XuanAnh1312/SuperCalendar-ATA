@@ -6,6 +6,7 @@ import 'package:flutter_application/app/theme/app_text.dart';
 import 'package:flutter_application/core/services/app_state.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/features/note/domain/note.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 /// Creates a note, edits [note], or edits the Quick Note when [quick] is set.
 class NoteEditScreen extends StatefulWidget {
@@ -63,15 +64,10 @@ class _NoteEditScreenState extends State<NoteEditScreen> {
   Future<void> _delete() async {
     final note = widget.note;
     if (note == null) return;
-    final ok = await confirm(
-      context,
-      title: 'Delete note?',
-      message: 'This note will be removed from this device.',
-    );
-    if (!ok || !mounted) return;
-    AppScope.read(context).notes.delete(note);
+    final notes = AppScope.read(context).notes;
+    if (notes.delete(note) == null) return;
     Navigator.of(context).pop();
-    showAppSnack(context, 'Note deleted');
+    showUndoSnack(context, 'Note deleted', onUndo: () => notes.restore(note));
   }
 
   @override
@@ -115,8 +111,7 @@ class _NoteEditScreenState extends State<NoteEditScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (!widget.quick) ...[
-                    Text(
-                      'TITLE',
+                    Text(tr('TITLE'),
                       style: AppText.s(10, color: AppColors.primary),
                     ),
                     TextField(
@@ -127,14 +122,14 @@ class _NoteEditScreenState extends State<NoteEditScreen> {
                         isDense: true,
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(vertical: 6),
-                        hintText: 'Note title',
+                        hintText: tr('Note title'),
                         hintStyle: AppText.s(16, color: AppColors.faint),
                       ),
                     ),
                     Divider(height: 16, color: AppColors.border),
                   ],
                   Text(
-                    widget.quick ? 'QUICK NOTE' : 'CONTENT',
+                    tr(widget.quick ? 'QUICK NOTE' : 'CONTENT'),
                     style: AppText.s(10, color: AppColors.primary),
                   ),
                   TextField(
@@ -149,7 +144,7 @@ class _NoteEditScreenState extends State<NoteEditScreen> {
                       isDense: true,
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(vertical: 6),
-                      hintText: 'Start writing…',
+                      hintText: tr('Start writing…'),
                       hintStyle: AppText.s(13, color: AppColors.faint),
                     ),
                   ),

@@ -15,10 +15,12 @@ import 'package:flutter_application/features/calendar/presentation/screens/calen
 import 'package:flutter_application/features/calendar/presentation/screens/event_detail_screen.dart';
 import 'package:flutter_application/features/dashboard/presentation/screens/home_screen.dart';
 import 'package:flutter_application/features/lock_screen/presentation/screens/lock_screen.dart';
+import 'package:flutter_application/features/settings_screen/presentation/screens/onboarding_screen.dart';
 import 'package:flutter_application/features/settings_screen/presentation/screens/settings_screen.dart';
 import 'package:flutter_application/features/todo/presentation/screens/task_detail_screen.dart';
 import 'package:flutter_application/features/todo/presentation/screens/todo_screen.dart';
 import 'package:flutter_application/features/vip/presentation/screens/vip_screen.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 class SuperCalendarApp extends StatefulWidget {
   const SuperCalendarApp({super.key, required this.state});
@@ -124,7 +126,13 @@ class _SuperCalendarAppState extends State<SuperCalendarApp>
         debugShowCheckedModeBanner: false,
         navigatorKey: rootNavigatorKey,
         theme: buildAppTheme(),
-        home: const AppShell(),
+        home: _app.settings.onboarded
+            ? const AppShell()
+            : OnboardingScreen(
+                onDone: () => rootNavigatorKey.currentState?.pushReplacement(
+                  MaterialPageRoute<void>(builder: (_) => const AppShell()),
+                ),
+              ),
       ),
     );
   }
@@ -245,7 +253,7 @@ class _BottomNavigation extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _items[i].$2,
+                          tr(_items[i].$2),
                           style: AppText.s(
                             10,
                             color: i == index

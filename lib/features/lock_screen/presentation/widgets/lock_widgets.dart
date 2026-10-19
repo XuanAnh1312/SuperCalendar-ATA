@@ -8,6 +8,7 @@ import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/features/calendar/domain/event.dart';
 import 'package:flutter_application/features/dashboard/domain/screen_layout.dart';
 import 'package:flutter_application/features/todo/domain/task.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 /// What the lock screen widgets do when touched. Left empty, the widgets are
 /// a non-interactive preview.
@@ -99,8 +100,7 @@ class LockScheduleCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  'Schedule',
+                child: Text(tr('Schedule'),
                   style: AppText.s(12.5, weight: FontWeight.w700),
                 ),
               ),
@@ -113,52 +113,61 @@ class LockScheduleCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 4),
-          if (events.isEmpty)
+          // AC-38: Hide details shows counts only.
+          if (app.settings.lockScreenHideDetails)
             Padding(
               padding: const EdgeInsets.only(top: 10),
               child: Text(
-                'Nothing scheduled today',
+                trf(events.length == 1 ? '{n} event today' : '{n} events today', {'n': events.length}),
+                style: AppText.s(11.5, weight: FontWeight.w600),
+              ),
+            )
+          else if (events.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(tr('Nothing scheduled today'),
                 style: AppText.s(11, color: AppColors.muted),
               ),
             ),
-          for (final event in events)
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: actions.onOpenEvent == null
-                  ? null
-                  : () => actions.onOpenEvent!(event),
-              child: Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 47,
-                      child: Text(
-                        event.startLabel,
-                        style: AppText.s(9.5, color: AppColors.muted),
+          if (!app.settings.lockScreenHideDetails)
+            for (final event in events)
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: actions.onOpenEvent == null
+                    ? null
+                    : () => actions.onOpenEvent!(event),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 47,
+                        child: Text(
+                          event.startLabel,
+                          style: AppText.s(9.5, color: AppColors.muted),
+                        ),
                       ),
-                    ),
-                    Container(
-                      width: 4,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: AppColors.accentSurface(event.colorIndex),
-                        borderRadius: BorderRadius.circular(2),
+                      Container(
+                        width: 4,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: AppColors.accentSurface(event.colorIndex),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 9),
-                    Expanded(
-                      child: Text(
-                        event.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.s(11.5, weight: FontWeight.w600),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: Text(
+                          event.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.s(11.5, weight: FontWeight.w600),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
         ],
       ),
     );
@@ -188,60 +197,67 @@ class LockTodoCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  'To-do',
+                child: Text(tr('To-do'),
                   style: AppText.s(12.5, weight: FontWeight.w700),
                 ),
               ),
-              Text(
-                'Quick actions on',
+              Text(tr('Quick actions on'),
                 style: AppText.s(9.5, color: AppColors.greenStrong),
               ),
             ],
           ),
-          for (final task in tasks)
+          if (app.settings.lockScreenHideDetails)
             Padding(
               padding: const EdgeInsets.only(top: 10),
-              child: Row(
-                children: [
-                  AppCheckbox(
-                    value: task.completed,
-                    onChanged: actions.onToggleTask == null
-                        ? null
-                        : (_) => actions.onToggleTask!(task),
-                  ),
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: Text(
-                      task.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppText.s(
-                        11.5,
-                        color: task.completed
-                            ? AppColors.muted
-                            : AppColors.text,
-                        decoration: task.completed
-                            ? TextDecoration.lineThrough
-                            : null,
-                      ),
-                    ),
-                  ),
-                  if (!task.completed)
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: actions.onRemindTask == null
-                          ? null
-                          : () => actions.onRemindTask!(task),
-                      child: Icon(
-                        LucideIcons.alarmClockPlus,
-                        size: 15,
-                        color: AppColors.muted,
-                      ),
-                    ),
-                ],
+              child: Text(
+                trf('{n} to-dos left', {'n': tasks.where((t) => !t.completed).length}),
+                style: AppText.s(11.5, weight: FontWeight.w600),
               ),
-            ),
+            )
+          else
+            for (final task in tasks)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Row(
+                  children: [
+                    AppCheckbox(
+                      value: task.completed,
+                      onChanged: actions.onToggleTask == null
+                          ? null
+                          : (_) => actions.onToggleTask!(task),
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Text(
+                        task.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.s(
+                          11.5,
+                          color: task.completed
+                              ? AppColors.muted
+                              : AppColors.text,
+                          decoration: task.completed
+                              ? TextDecoration.lineThrough
+                              : null,
+                        ),
+                      ),
+                    ),
+                    if (!task.completed)
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: actions.onRemindTask == null
+                            ? null
+                            : () => actions.onRemindTask!(task),
+                        child: Icon(
+                          LucideIcons.alarmClockPlus,
+                          size: 15,
+                          color: AppColors.muted,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: actions.onAddTask,
@@ -251,7 +267,7 @@ class LockTodoCard extends StatelessWidget {
                 children: [
                   Icon(LucideIcons.plus, size: 14, color: AppColors.primary),
                   const SizedBox(width: 9),
-                  Text('Add Task', style: AppText.action()),
+                  Text(tr('Add Task'), style: AppText.action()),
                 ],
               ),
             ),
@@ -286,13 +302,11 @@ class LockNoteCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  'Quick Note',
+                child: Text(tr('Quick Note'),
                   style: AppText.s(12.5, weight: FontWeight.w700),
                 ),
               ),
-              Text(
-                'Tap to type',
+              Text(tr('Tap to type'),
                 style: AppText.s(
                   10.5,
                   weight: FontWeight.w700,
@@ -305,7 +319,11 @@ class LockNoteCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            text.isEmpty ? 'Tap to write a note' : text,
+            tr(app.settings.lockScreenHideDetails
+                ? 'Hidden on the lock screen'
+                : text.isEmpty
+                ? 'Tap to write a note'
+                : text),
             maxLines: 4,
             overflow: TextOverflow.ellipsis,
             style: AppText.s(11.5, height: 1.35),
@@ -345,7 +363,7 @@ Future<void> showQuickAddTask(BuildContext context) async {
               onSubmitted: (value) => Navigator.pop(sheetContext, value),
               decoration: InputDecoration(
                 border: InputBorder.none,
-                hintText: 'Add a task for today',
+                hintText: tr('Add a task for today'),
                 hintStyle: AppText.s(14, color: AppColors.faint),
               ),
             ),
@@ -367,6 +385,6 @@ Future<void> showQuickAddTask(BuildContext context) async {
   if (title == null || title.trim().isEmpty) return;
   final task = app.quickAddTask(title);
   if (task != null && context.mounted) {
-    showAppSnack(context, 'Added "${task.title}"');
+    showAppSnack(context, trf('Added "{title}"', {'title': task.title}));
   }
 }

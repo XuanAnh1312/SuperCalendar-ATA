@@ -4,6 +4,7 @@ import 'package:flutter_application/app/theme/app_colors.dart';
 import 'package:flutter_application/app/theme/app_palette.dart';
 import 'package:flutter_application/app/theme/app_text.dart';
 import 'package:flutter_application/app/theme/app_theme_data.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 /// Miniature dashboard drawn with [theme]'s colors, radius and spacing, so a
 /// template can be judged before it is applied.
@@ -56,8 +57,7 @@ class ThemePreview extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Today',
+                  Text(tr('Today'),
                     style: AppText.s(
                       10,
                       weight: FontWeight.w700,
@@ -115,7 +115,7 @@ class ThemePreview extends StatelessWidget {
                     borderRadius: BorderRadius.circular(radius),
                   ),
                   child: Text(
-                    theme.typography.split(' · ').last,
+                    tr(theme.typography.split(' · ').last),
                     style: AppText.s(
                       9,
                       weight: FontWeight.w700,

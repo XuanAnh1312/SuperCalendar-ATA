@@ -10,6 +10,7 @@ import 'package:flutter_application/features/vip/domain/template.dart';
 import 'package:flutter_application/features/vip/presentation/screens/template_store_screen.dart';
 import 'package:flutter_application/features/vip/presentation/screens/template_studio_screen.dart';
 import 'package:flutter_application/features/vip/presentation/widgets/vip_gate.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 /// VIP tab. A VIP user gets the Template Studio (the Theme Builder); a Free
 /// user sees what VIP adds and can subscribe through the test payment.
@@ -29,7 +30,7 @@ Future<void> subscribeToVip(BuildContext context) async {
   final result = await showMockPayment(
     context,
     product: 'SuperCalendar VIP',
-    priceLabel: '${AppState.vipPrice ~/ 1000},000đ / month',
+    priceLabel: '${AppState.vipPrice ~/ 1000},000đ / ${tr('month')}',
   );
   app.completeVipPayment(result);
   if (!context.mounted) return;
@@ -91,13 +92,12 @@ class _VipOffer extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          'VIP',
+                        child: Text(tr('VIP'),
                           style: AppText.s(18, weight: FontWeight.w700),
                         ),
                       ),
                       Text(
-                        '${AppState.vipPrice ~/ 1000},000đ / month',
+                        '${AppState.vipPrice ~/ 1000},000đ / ${tr('month')}',
                         style: AppText.s(
                           12.5,
                           weight: FontWeight.w700,
@@ -116,8 +116,7 @@ class _VipOffer extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Center(
-                    child: Text(
-                      'Prototype · test payment only, nothing is charged',
+                    child: Text(tr('Prototype · test payment only, nothing is charged'),
                       style: AppText.s(9.5, color: AppColors.muted),
                     ),
                   ),
@@ -128,7 +127,7 @@ class _VipOffer extends StatelessWidget {
                 lastAttempt.status != PaymentResult.success) ...[
               const SizedBox(height: 10),
               Text(
-                'Last attempt: payment ${lastAttempt.status.name}',
+                trf('Last attempt: payment {status}', {'status': tr(lastAttempt.status.name)}),
                 style: AppText.s(10, color: AppColors.amber),
               ),
             ],
@@ -142,7 +141,7 @@ class _VipOffer extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Expanded(child: Text('Free', style: AppText.cardTitle())),
+                      Expanded(child: Text(tr('Free'), style: AppText.cardTitle())),
                       SoftPill(
                         label: 'Your plan',
                         color: AppColors.green,
@@ -179,7 +178,7 @@ class _VipOffer extends StatelessWidget {
             child: Icon(LucideIcons.check, size: 13, color: color),
           ),
           const SizedBox(width: 8),
-          Expanded(child: Text(text, style: AppText.s(11.5, height: 1.35))),
+          Expanded(child: Text(tr(text), style: AppText.s(11.5, height: 1.35))),
         ],
       ),
     );

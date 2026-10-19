@@ -13,6 +13,7 @@ import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/features/calendar/domain/event.dart';
 import 'package:flutter_application/features/calendar/domain/habit.dart';
 import 'package:flutter_application/features/todo/domain/task.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 /// Port the UI isolate listens on to learn that a notification action changed
 /// the database from the background isolate.
@@ -114,8 +115,8 @@ class LocalNotificationService implements NotificationService {
         category: AndroidNotificationCategory.reminder,
         actions: [
           if (task)
-            const AndroidNotificationAction(NotificationActions.done, 'Done'),
-          const AndroidNotificationAction(NotificationActions.snooze, 'Snooze'),
+            AndroidNotificationAction(NotificationActions.done, tr('Done')),
+          AndroidNotificationAction(NotificationActions.snooze, tr('Snooze')),
         ],
       ),
     );
@@ -152,7 +153,7 @@ class LocalNotificationService implements NotificationService {
       await _schedule(
         id: _stableId('task:${task.id}'),
         at: at,
-        title: 'Task reminder',
+        title: tr('Task reminder'),
         body: _taskBody(task),
         target: NotificationTarget(NotificationTarget.task, task.id),
         details: _reminderDetails(task: true),
@@ -164,7 +165,7 @@ class LocalNotificationService implements NotificationService {
       await _schedule(
         id: _stableId('event:${event.id}'),
         at: at,
-        title: 'Upcoming event',
+        title: tr('Upcoming event'),
         body: _eventBody(event),
         target: NotificationTarget(NotificationTarget.event, event.id),
         details: _reminderDetails(task: false),
@@ -176,7 +177,7 @@ class LocalNotificationService implements NotificationService {
       await _schedule(
         id: _stableId('habit:${habit.id}'),
         at: at,
-        title: 'Habit reminder',
+        title: tr('Habit reminder'),
         body: habit.title,
         target: NotificationTarget(NotificationTarget.habit, habit.id),
         details: _reminderDetails(task: false),
@@ -191,7 +192,10 @@ class LocalNotificationService implements NotificationService {
     required String body,
     required NotificationTarget target,
     required NotificationDetails details,
-  }) {
+  }) async {
+    // AC-36: exact when Android allows it (USE_EXACT_ALARM on 13+,
+    // SCHEDULE_EXACT_ALARM on 12), otherwise inexact (may be a few min late).
+    final exact = await _android?.canScheduleExactNotifications() ?? false;
     return _plugin.zonedSchedule(
       id: id,
       title: title,
@@ -199,9 +203,9 @@ class LocalNotificationService implements NotificationService {
       // An absolute instant, so no time zone database is needed.
       scheduledDate: tz.TZDateTime.from(at, tz.UTC),
       notificationDetails: details,
-      // Inexact alarms need no special permission; Android may deliver them
-      // a few minutes late while the phone is idle.
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      androidScheduleMode: exact
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle,
       payload: target.encode(),
     );
   }
@@ -213,7 +217,7 @@ class LocalNotificationService implements NotificationService {
   Future<void> showTaskReminder(Task task) {
     return _plugin.show(
       id: _stableId('task:${task.id}'),
-      title: 'Task reminder',
+      title: tr('Task reminder'),
       body: _taskBody(task),
       notificationDetails: _reminderDetails(task: true),
       payload: NotificationTarget(NotificationTarget.task, task.id).encode(),
@@ -225,7 +229,7 @@ class LocalNotificationService implements NotificationService {
     return _schedule(
       id: _stableId('snooze:task:${task.id}'),
       at: DateTime.now().add(delay),
-      title: 'Task reminder',
+      title: tr('Task reminder'),
       body: _taskBody(task),
       target: NotificationTarget(
         NotificationTarget.task,
@@ -241,7 +245,7 @@ class LocalNotificationService implements NotificationService {
     return _schedule(
       id: _stableId('snooze:event:${event.id}'),
       at: DateTime.now().add(delay),
-      title: 'Upcoming event',
+      title: tr('Upcoming event'),
       body: _eventBody(event),
       target: NotificationTarget(
         NotificationTarget.event,
@@ -259,14 +263,17 @@ class LocalNotificationService implements NotificationService {
     final events = content.events;
     final tasks = content.tasks;
     final next = tasks.firstOrNull;
+    final hide = content.hideDetails;
     final lines = [
-      for (final event in events) '${event.startLabel}  ${event.title}',
-      if (events.isEmpty) 'Nothing scheduled today',
-      for (final task in tasks) '☐ ${task.title}',
+      if (!hide) ...[
+        for (final event in events) '${event.startLabel}  ${event.title}',
+        if (events.isEmpty) tr('Nothing scheduled today'),
+        for (final task in tasks) '☐ ${task.title}',
+      ],
     ];
     final summary = [
-      '${events.length} event${events.length == 1 ? '' : 's'}',
-      '${tasks.length} to-do${tasks.length == 1 ? '' : 's'}',
+      trf(events.length == 1 ? '{n} event' : '{n} events', {'n': events.length}),
+      trf(tasks.length == 1 ? '{n} to-do' : '{n} to-dos', {'n': tasks.length}),
     ].join(' · ');
     return _plugin.show(
       id: _lockScreenId,
@@ -295,14 +302,14 @@ class LocalNotificationService implements NotificationService {
             if (next != null)
               AndroidNotificationAction(
                 NotificationActions.done,
-                '✓ ${next.title}',
+                hide ? tr('✓ Next to-do') : '✓ ${next.title}',
                 cancelNotification: false,
               ),
-            const AndroidNotificationAction(
+            AndroidNotificationAction(
               NotificationActions.addTask,
-              'Add task',
+              tr('Add task'),
               cancelNotification: false,
-              inputs: [AndroidNotificationActionInput(label: 'New task')],
+              inputs: [AndroidNotificationActionInput(label: tr('New task'))],
             ),
           ],
         ),
@@ -328,7 +335,7 @@ class LocalNotificationService implements NotificationService {
     await _schedule(
       id: _stableId('event:${event.id}'),
       at: at,
-      title: 'Upcoming event',
+      title: tr('Upcoming event'),
       body: _eventBody(event),
       target: NotificationTarget(NotificationTarget.event, event.id),
       details: _reminderDetails(task: false),
@@ -344,7 +351,7 @@ class LocalNotificationService implements NotificationService {
     await _schedule(
       id: _stableId('task:${task.id}'),
       at: at,
-      title: 'Task reminder',
+      title: tr('Task reminder'),
       body: _taskBody(task),
       target: NotificationTarget(NotificationTarget.task, task.id),
       details: _reminderDetails(task: true),
@@ -360,7 +367,7 @@ class LocalNotificationService implements NotificationService {
     await _schedule(
       id: _stableId('habit:${habit.id}'),
       at: at,
-      title: 'Habit reminder',
+      title: tr('Habit reminder'),
       body: habit.title,
       target: NotificationTarget(NotificationTarget.habit, habit.id),
       details: _reminderDetails(task: false),
@@ -381,7 +388,7 @@ class LocalNotificationService implements NotificationService {
   /// and Save / Open app action buttons (FR-20.02, FR-20.03).
   @override
   Future<void> showQuickNoteNotification(String text) {
-    final displayText = text.isEmpty ? 'Tap to write a quick note' : text;
+    final displayText = text.isEmpty ? tr('Tap to write a quick note') : text;
     return _plugin.show(
       id: _quickNoteId,
       title: 'SuperCalendar · Quick Note',
@@ -403,20 +410,18 @@ class LocalNotificationService implements NotificationService {
           styleInformation: BigTextStyleInformation(
             displayText,
             contentTitle: 'SuperCalendar · Quick Note',
-            summaryText: 'Saved',
+            summaryText: tr('Saved'),
           ),
           actions: [
-            const AndroidNotificationAction(
+            AndroidNotificationAction(
               NotificationActions.saveNote,
-              'Save note',
+              tr('Save note'),
               cancelNotification: false,
-              inputs: [
-                AndroidNotificationActionInput(label: 'Type a note…'),
-              ],
+              inputs: [AndroidNotificationActionInput(label: tr('Type a note…'))],
             ),
-            const AndroidNotificationAction(
+            AndroidNotificationAction(
               NotificationActions.openApp,
-              'Open app',
+              tr('Open app'),
               cancelNotification: false,
             ),
           ],
@@ -427,8 +432,7 @@ class LocalNotificationService implements NotificationService {
   }
 
   @override
-  Future<void> hideQuickNoteNotification() =>
-      _plugin.cancel(id: _quickNoteId);
+  Future<void> hideQuickNoteNotification() => _plugin.cancel(id: _quickNoteId);
 
   /// FNV-1a hash: `String.hashCode` differs between isolates, and the id has
   /// to match when a reminder is rescheduled or cancelled later.

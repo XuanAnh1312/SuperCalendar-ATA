@@ -7,6 +7,7 @@ import 'package:flutter_application/app/theme/app_colors.dart';
 import 'package:flutter_application/app/theme/app_text.dart';
 import 'package:flutter_application/app/theme/app_theme_data.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 List<BoxShadow> get softShadow => [
   BoxShadow(
@@ -23,8 +24,25 @@ void showAppSnack(BuildContext context, String message) {
     ..hideCurrentSnackBar()
     ..showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(tr(message)),
         duration: const Duration(milliseconds: 1600),
+      ),
+    );
+}
+
+/// Snack bar with an Undo button, shown for 5 seconds after a delete (BR-13).
+void showUndoSnack(
+  BuildContext context,
+  String message, {
+  required VoidCallback onUndo,
+}) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Text(tr(message)),
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(label: tr('Undo'), onPressed: onUndo),
       ),
     );
 }
@@ -108,7 +126,7 @@ class CardHeader extends StatelessWidget {
       children: [
         Expanded(
           child: Text(
-            title,
+            tr(title),
             style: AppText.cardTitle(),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -118,7 +136,7 @@ class CardHeader extends StatelessWidget {
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: onAction,
-            child: Text(action!, style: AppText.action()),
+            child: Text(tr(action!), style: AppText.action()),
           ),
       ],
     );
@@ -195,7 +213,7 @@ class FilterPill extends StatelessWidget {
         child: Center(
           widthFactor: 1,
           child: Text(
-            label,
+            tr(label),
             style: AppText.s(
               10,
               color: selected ? AppColors.onPrimary : AppColors.muted,
@@ -275,7 +293,7 @@ class SoftPill extends StatelessWidget {
               Icon(icon, size: 11, color: foreground),
               const SizedBox(width: 5),
             ],
-            Text(label, style: AppText.s(10, color: foreground)),
+            Text(tr(label), style: AppText.s(10, color: foreground)),
           ],
         ),
       ),
@@ -323,7 +341,7 @@ class SegmentedToggle extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Text(
-                  labels[i],
+                  tr(labels[i]),
                   style: AppText.s(
                     11,
                     weight: FontWeight.w600,
@@ -432,7 +450,7 @@ class PrimaryButton extends StatelessWidget {
               ],
               Flexible(
                 child: Text(
-                  label,
+                  tr(label),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppText.s(
@@ -489,7 +507,7 @@ class OutlinedActionButton extends StatelessWidget {
               ],
               Flexible(
                 child: Text(
-                  label,
+                  tr(label),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppText.s(
@@ -537,7 +555,7 @@ class PageHeader extends StatelessWidget {
                   if (leading != null) ...[leading!, const SizedBox(width: 8)],
                   Flexible(
                     child: Text(
-                      title,
+                      tr(title),
                       style: AppText.title(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -547,7 +565,7 @@ class PageHeader extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                subtitle,
+                tr(subtitle),
                 style: AppText.subtitle(),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -588,7 +606,7 @@ class TopBar extends StatelessWidget {
         Expanded(
           child: Center(
             child: Text(
-              title,
+              tr(title),
               style: AppText.s(18),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -617,7 +635,7 @@ class TopBarAction extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Text(
-          label,
+          tr(label),
           style: AppText.s(
             13,
             weight: FontWeight.w700,
@@ -704,7 +722,7 @@ class SavedStatus extends StatelessWidget {
           color: AppColors.greenStrong,
         ),
         SizedBox(width: size * 0.5),
-        Text(label, style: AppText.s(size, color: AppColors.greenStrong)),
+        Text(tr(label), style: AppText.s(size, color: AppColors.greenStrong)),
       ],
     );
   }
@@ -793,9 +811,9 @@ class FieldTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label.toUpperCase(), style: AppText.label()),
+                  Text(tr(label).toUpperCase(), style: AppText.label()),
                   const SizedBox(height: 3),
-                  Text(value, style: AppText.s(13, height: 1.35)),
+                  Text(tr(value), style: AppText.s(13, height: 1.35)),
                 ],
               ),
             ),
@@ -840,7 +858,7 @@ class InlineField extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label.toUpperCase(), style: AppText.label()),
+                Text(tr(label).toUpperCase(), style: AppText.label()),
                 TextField(
                   controller: controller,
                   maxLines: multiline ? null : 1,
@@ -849,7 +867,7 @@ class InlineField extends StatelessWidget {
                     isDense: true,
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.only(top: 3),
-                    hintText: hint,
+                    hintText: tr(hint),
                     hintStyle: AppText.s(13, color: AppColors.faint),
                   ),
                 ),
@@ -907,11 +925,14 @@ class SettingsRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: AppText.s(12.5, weight: FontWeight.w600)),
+                  Text(
+                    tr(title),
+                    style: AppText.s(12.5, weight: FontWeight.w600),
+                  ),
                   if (subtitle != null) ...[
                     const SizedBox(height: 2),
                     Text(
-                      subtitle!,
+                      tr(subtitle!),
                       style: AppText.s(
                         9.5,
                         color: AppColors.muted,
@@ -924,7 +945,7 @@ class SettingsRow extends StatelessWidget {
             ),
             if (value != null) ...[
               const SizedBox(width: 8),
-              Text(value!, style: AppText.s(10.5, color: AppColors.muted)),
+              Text(tr(value!), style: AppText.s(10.5, color: AppColors.muted)),
             ],
             const SizedBox(width: 10),
             trailing ??
@@ -1012,7 +1033,7 @@ class EmptyState extends StatelessWidget {
           Icon(icon, size: 22, color: AppColors.faint),
           const SizedBox(height: 8),
           Text(
-            message,
+            tr(message),
             textAlign: TextAlign.center,
             style: AppText.s(11, color: AppColors.muted, height: 1.4),
           ),
@@ -1041,13 +1062,13 @@ Future<String?> pickOption(
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Text(title, style: AppText.cardTitle()),
+              child: Text(tr(title), style: AppText.cardTitle()),
             ),
             for (final option in options)
               ListTile(
                 dense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-                title: Text(option, style: AppText.s(13)),
+                title: Text(tr(option), style: AppText.s(13)),
                 trailing: option == current
                     ? Icon(
                         LucideIcons.check,
@@ -1076,22 +1097,22 @@ Future<String?> promptText(
   return showDialog<String>(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text(title, style: AppText.cardTitle()),
+      title: Text(tr(title), style: AppText.cardTitle()),
       content: TextField(
         controller: controller,
         autofocus: true,
         style: AppText.s(13),
-        decoration: InputDecoration(hintText: hint),
+        decoration: InputDecoration(hintText: tr(hint)),
         onSubmitted: (value) => Navigator.pop(context, value.trim()),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(tr('Cancel')),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, controller.text.trim()),
-          child: const Text('OK'),
+          child: Text(tr('OK')),
         ),
       ],
     ),
@@ -1109,16 +1130,16 @@ Future<bool> confirm(
   final result = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text(title, style: AppText.cardTitle()),
-      content: Text(message, style: AppText.s(12.5, height: 1.4)),
+      title: Text(tr(title), style: AppText.cardTitle()),
+      content: Text(tr(message), style: AppText.s(12.5, height: 1.4)),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: Text(cancelLabel),
+          child: Text(tr(cancelLabel)),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, true),
-          child: Text(confirmLabel),
+          child: Text(tr(confirmLabel)),
         ),
       ],
     ),

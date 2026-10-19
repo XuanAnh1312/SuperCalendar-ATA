@@ -11,6 +11,7 @@ import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/features/lock_screen/presentation/screens/lock_screen.dart';
 import 'package:flutter_application/features/note/presentation/screens/quick_note_notification_screen.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 /// Settings → Notifications: reminders on/off, default timing and the lock
 /// screen notification. The system permission is requested only when the
@@ -45,6 +46,13 @@ class NotificationSettingsScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _toggleQuickNote(BuildContext context, bool value) async {
+    final ok = await AppScope.read(context).setQuickNoteNotification(value);
+    if (!ok && context.mounted) {
+      showAppSnack(context, 'Allow notifications first');
+    }
+  }
+
   Future<void> _sendTest(BuildContext context) async {
     final app = AppScope.read(context);
     if (!app.settings.notificationsEnabled) {
@@ -58,7 +66,7 @@ class NotificationSettingsScreen extends StatelessWidget {
     }
     await app.notifications.showTaskReminder(task);
     if (!context.mounted) return;
-    showAppSnack(context, 'Test reminder sent for "${task.title}"');
+    showAppSnack(context, trf('Test reminder sent for "{title}"', {'title': task.title}));
   }
 
   @override
@@ -115,20 +123,59 @@ class NotificationSettingsScreen extends StatelessWidget {
                   onTap: () =>
                       _toggleLockScreen(context, !settings.lockScreenEnabled),
                 ),
+                SettingsRow(
+                  icon: LucideIcons.eyeOff,
+                  color: AppColors.pink,
+                  title: 'Hide details',
+                  subtitle: 'Lock screen shows only how many events and to-dos',
+                  trailing: AppSwitch(
+                    value: settings.lockScreenHideDetails,
+                    onChanged: app.setLockScreenHideDetails,
+                  ),
+                  onTap: () => app.setLockScreenHideDetails(
+                    !settings.lockScreenHideDetails,
+                  ),
+                ),
               ],
             ),
+            if (!enabled && settings.notificationPermissionAsked) ...[
+              const SizedBox(height: 10),
+              AppCard(
+                color: AppColors.pink,
+                shadow: false,
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Icon(
+                      LucideIcons.triangleAlert,
+                      size: 16,
+                      color: AppColors.danger,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        tr('Notifications are off, so reminders will not fire. '
+                        'Turn Reminders on, or allow notifications for '
+                        'SuperCalendar in Android settings.'),
+                        style: AppText.s(11, height: 1.4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
             Text(
-              enabled
+              tr(enabled
                   ? 'Android shows reminders on the lock screen. Opening an '
                         'event from there asks for your screen lock first; '
                         'SuperCalendar never sees your PIN.'
                   : 'SuperCalendar only asks Android for notification access '
-                        'when you turn reminders on.',
+                        'when you turn reminders on.'),
               style: AppText.s(10, color: AppColors.muted, height: 1.45),
             ),
             const SizedBox(height: 16),
-            Text('TRY IT', style: AppText.label()),
+            Text(tr('TRY IT'), style: AppText.label()),
             const SizedBox(height: 8),
             SettingsGroup(
               children: [
@@ -146,6 +193,41 @@ class NotificationSettingsScreen extends StatelessWidget {
                   subtitle: 'The in-app version of your lock screen layout',
                   onTap: () => pushFullScreen(context, const LockScreen()),
                 ),
+                SettingsRow(
+                  icon: LucideIcons.stickyNote,
+                  color: AppColors.yellow,
+                  title: 'Quick Note in notifications',
+                  subtitle: 'Write a note straight from the notification shade',
+                  trailing: AppSwitch(
+                    value: settings.quickNoteNotification,
+                    onChanged: (v) => _toggleQuickNote(context, v),
+                  ),
+                  onTap: () => _toggleQuickNote(
+                    context,
+                    !settings.quickNoteNotification,
+                  ),
+                ),
+                if (settings.quickNoteNotification)
+                  SettingsRow(
+                    icon: LucideIcons.listPlus,
+                    color: AppColors.green,
+                    title: 'Saving from the notification',
+                    value: settings.quickNoteAppend ? 'Append' : 'Replace',
+                    onTap: () async {
+                      final picked = await pickOption(
+                        context,
+                        title: 'Saving from the notification',
+                        options: const ['Append', 'Replace'],
+                        current: settings.quickNoteAppend
+                            ? 'Append'
+                            : 'Replace',
+                      );
+                      if (picked == null) return;
+                      app.account.updateSettings(
+                        (s) => s.quickNoteAppend = picked == 'Append',
+                      );
+                    },
+                  ),
                 SettingsRow(
                   icon: LucideIcons.notebookPen,
                   color: AppColors.yellow,

@@ -9,6 +9,7 @@ import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/features/todo/domain/task.dart';
 import 'package:flutter_application/features/todo/presentation/screens/task_detail_screen.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 class TodoScreen extends StatefulWidget {
   const TodoScreen({super.key});
@@ -68,7 +69,7 @@ class _TodoScreenState extends State<TodoScreen> {
             PageHeader(
               title: 'TO-DO LIST',
               subtitle:
-                  '${longDate(app.today)} · ${app.tasks.remaining} remaining',
+                  '${longDate(app.today)} · ${trf('{n} remaining', {'n': app.tasks.remaining})}',
               trailing: RoundIconButton(
                 icon: LucideIcons.listFilter,
                 iconColor: _hideCompleted ? AppColors.primary : AppColors.text,
@@ -86,8 +87,8 @@ class _TodoScreenState extends State<TodoScreen> {
             const SizedBox(height: 10),
             FilterPillRow(
               labels: [
-                'All ${all.length}',
-                'Today ${today.length}',
+                '${tr('All')} ${all.length}',
+                '${tr('Today')} ${today.length}',
                 'Upcoming',
               ],
               index: _filter,
@@ -119,7 +120,7 @@ class _TodoScreenState extends State<TodoScreen> {
                       onSubmitted: (_) => _submit(app),
                       decoration: InputDecoration(
                         border: InputBorder.none,
-                        hintText: 'Add a new task',
+                        hintText: tr('Add a new task'),
                         hintStyle: AppText.s(13, color: AppColors.faint),
                       ),
                     ),
@@ -160,8 +161,7 @@ class _TodoScreenState extends State<TodoScreen> {
             ),
             const SizedBox(height: 12),
             Center(
-              child: Text(
-                'Tap + to add another row · drag tasks to reorder',
+              child: Text(tr('Tap + to add another row · drag tasks to reorder'),
                 style: AppText.s(10, color: AppColors.muted),
               ),
             ),
@@ -238,8 +238,7 @@ class _TodoScreenState extends State<TodoScreen> {
                 color: AppColors.background,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(
-                'Edit',
+              child: Text(tr('Edit'),
                 style: AppText.s(10, color: AppColors.primary),
               ),
             ),

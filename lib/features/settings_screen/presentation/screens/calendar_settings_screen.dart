@@ -6,7 +6,9 @@ import 'package:flutter_application/app/theme/app_colors.dart';
 import 'package:flutter_application/app/theme/app_text.dart';
 import 'package:flutter_application/core/services/app_state.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
+import 'package:flutter_application/features/settings_screen/domain/app_settings.dart';
 import 'package:flutter_application/features/calendar/presentation/widgets/system_calendar_prompt.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 /// Settings → Calendar: system calendar permission and the default calendar.
 class CalendarSettingsScreen extends StatelessWidget {
@@ -18,8 +20,12 @@ class CalendarSettingsScreen extends StatelessWidget {
     final settings = app.settings;
     final connected = settings.useSystemCalendar;
     final status = connected
-        ? '${app.events.systemEvents.length} event'
-              '${app.events.systemEvents.length == 1 ? '' : 's'} read from this phone'
+        ? trf(
+            app.events.systemEvents.length == 1
+                ? '{n} event read from this phone'
+                : '{n} events read from this phone',
+            {'n': app.events.systemEvents.length},
+          )
         : settings.calendarPermissionAsked
         ? 'Not connected · using local events'
         : 'Not connected';
@@ -69,6 +75,30 @@ class CalendarSettingsScreen extends StatelessWidget {
                   },
                 ),
                 SettingsRow(
+                  icon: LucideIcons.calendarRange,
+                  color: AppColors.yellow,
+                  title: 'Week starts on',
+                  value: settings.weekStart == WeekStartSetting.sunday
+                      ? 'Sunday'
+                      : 'Monday',
+                  onTap: () async {
+                    final picked = await pickOption(
+                      context,
+                      title: 'Week starts on',
+                      options: const ['Monday', 'Sunday'],
+                      current: settings.weekStart == WeekStartSetting.sunday
+                          ? 'Sunday'
+                          : 'Monday',
+                    );
+                    if (picked == null) return;
+                    app.setWeekStart(
+                      picked == 'Sunday'
+                          ? WeekStartSetting.sunday
+                          : WeekStartSetting.monday,
+                    );
+                  },
+                ),
+                SettingsRow(
                   icon: LucideIcons.calendar,
                   color: AppColors.green,
                   title: 'Open calendar',
@@ -78,10 +108,10 @@ class CalendarSettingsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Why the permission? With calendar access SuperCalendar can '
+              tr('Why the permission? With calendar access SuperCalendar can '
               'show the events already on this phone next to yours. They are '
               'read-only and are not copied or uploaded. Without it, the app '
-              'works the same with the events you create here.',
+              'works the same with the events you create here.'),
               style: AppText.s(10, color: AppColors.muted, height: 1.45),
             ),
           ],

@@ -53,9 +53,13 @@ class LockScreenContent {
     required this.events,
     required this.tasks,
     required this.day,
+    this.hideDetails = false,
   });
 
   final List<CalendarEvent> events;
+
+  /// AC-38: show only how many events and to-dos there are.
+  final bool hideDetails;
 
   /// Incomplete tasks, most relevant first.
   final List<Task> tasks;
@@ -254,8 +258,22 @@ DateTime? taskReminderTime(Task task, DateTime now) {
 DateTime? eventReminderTime(CalendarEvent event, DateTime now) {
   final minutes = event.reminderMinutes;
   if (minutes == null) return null;
-  final at = event.startTime.subtract(Duration(minutes: minutes));
-  return at.isAfter(now) ? at : null;
+  if (!event.isRecurring) {
+    final at = event.startTime.subtract(Duration(minutes: minutes));
+    return at.isAfter(now) ? at : null;
+  }
+  // shortcut: ignores single deleted repeats (EventException); the app
+  // re-syncs reminders on every change, so a skipped day is rare to hit.
+  for (var i = 0; i <= 366; i++) {
+    final day = DateTime(now.year, now.month, now.day + i);
+    if (!event.isOn(day)) continue;
+    final at = event
+        .occurrenceOn(day)
+        .startTime
+        .subtract(Duration(minutes: minutes));
+    if (at.isAfter(now)) return at;
+  }
+  return null;
 }
 
 /// When to remind about [habit] today; null if it has no reminder configured,

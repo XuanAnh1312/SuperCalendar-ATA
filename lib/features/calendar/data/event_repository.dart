@@ -100,9 +100,7 @@ class EventExceptionRepository extends Repository<EventException> {
   /// Whether [date] (date-only) has been deleted for [eventId].
   bool isDeleted(String eventId, DateTime date) => items.any(
     (e) =>
-        e.eventId == eventId &&
-        _sameDate(e.originalDate, date) &&
-        e.isDeleted,
+        e.eventId == eventId && _sameDate(e.originalDate, date) && e.isDeleted,
   );
 
   /// Override data (if any) for a specific occurrence of [eventId] on [date].
@@ -230,7 +228,7 @@ class EventExceptionRepository extends Repository<EventException> {
 /// - [DeleteScope.all]: deletes the event and all its exceptions.
 class EventRepository extends Repository<CalendarEvent> {
   EventRepository(DocumentStore store, {EventExceptionRepository? exceptions})
-      : super(store, Collections.events) {
+    : super(store, Collections.events) {
     _exceptions = exceptions;
   }
 
@@ -277,11 +275,14 @@ class EventRepository extends Repository<CalendarEvent> {
   List<CalendarEvent> on(DateTime day) {
     final exc = _exceptions;
     final list = [
-      ...items.where(
-        (e) =>
-            e.isOn(day) &&
-            (exc == null || !exc.isDeleted(e.id, day)),
-      ),
+      for (final e in items)
+        if (e.isOn(day) && (exc == null || !exc.isDeleted(e.id, day)))
+          if (!e.isRecurring)
+            e
+          else if (exc?.overrideFor(e.id, day) case final data?)
+            CalendarEvent.fromJson(data)
+          else
+            e.occurrenceOn(day),
       ..._systemEvents.where((e) => e.isOn(day)),
     ];
     list.sort((a, b) => a.startTime.compareTo(b.startTime));
@@ -312,6 +313,12 @@ class EventRepository extends Repository<CalendarEvent> {
     notifyListeners();
   }
 
+  /// Puts back an event removed by [delete] (BR-13 undo).
+  void restore(CalendarEvent event) {
+    if (byId(event.id) != null) return;
+    add(event);
+  }
+
   // ── Recurring-event mutations (BR-10) ─────────────────────────────────────
 
   /// Deletes an event according to [scope] (BR-10).
@@ -340,6 +347,11 @@ class EventRepository extends Repository<CalendarEvent> {
 
       case DeleteScope.fromThis:
         final date = occurrenceDate ?? event.startTime;
+        // From the very first repeat on means the whole series.
+        if (!dateOnlyOf(date).isAfter(dateOnlyOf(event.startTime))) {
+          deleteScope(event, DeleteScope.all);
+          return;
+        }
         // Shorten the RRULE so the series ends before this occurrence.
         final until = date.subtract(const Duration(days: 1));
         event.repeatRule = _addUntil(event.repeatRule ?? '', until);
@@ -389,6 +401,8 @@ class EventRepository extends Repository<CalendarEvent> {
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────
+
+  static DateTime dateOnlyOf(DateTime d) => DateTime(d.year, d.month, d.day);
 
   /// Returns the attached exceptions repo, or creates a transient one.
   EventExceptionRepository _ensureExceptions() {

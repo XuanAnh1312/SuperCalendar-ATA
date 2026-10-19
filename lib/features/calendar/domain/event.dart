@@ -119,8 +119,8 @@ class CalendarEvent {
 
   bool get isSystem => source == sourceSystem;
   bool get isRecurring => repeatRule != null && repeatRule!.isNotEmpty;
-  String get repeatLabel => switch (repeatRule) {
-    null => 'Never',
+  String get repeatLabel => switch (rruleWithoutUntil(repeatRule)) {
+    null || '' => 'Never',
     'FREQ=DAILY' => 'Every day',
     'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR' => 'Weekdays',
     'FREQ=WEEKLY' => 'Every week',
@@ -137,7 +137,27 @@ class CalendarEvent {
   String get startLabel => formatMinutes(startMinutes);
   String get timeRange => '$startLabel–${formatMinutes(endMinutes)}';
 
-  bool isOn(DateTime day) => sameDay(startTime, day);
+  /// True when this event (or one of its repeats) falls on [day].
+  bool isOn(DateTime day) => isRecurring
+      ? rruleOccursOn(repeatRule!, startTime, day)
+      : sameDay(startTime, day);
+
+  /// A copy of this event moved to [day], keeping its time of day. Used to
+  /// show one repeat of a recurring event; it shares the series' [id].
+  CalendarEvent occurrenceOn(DateTime day) {
+    final start = DateTime(
+      day.year,
+      day.month,
+      day.day,
+      startTime.hour,
+      startTime.minute,
+    );
+    return CalendarEvent.fromJson({
+      ...toJson(),
+      'startTime': start.toIso8601String(),
+      'endTime': start.add(endTime.difference(startTime)).toIso8601String(),
+    });
+  }
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -164,4 +184,50 @@ class CalendarEvent {
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Minimal RRULE support (shared by events and habits).
+
+const _rruleDays = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+
+/// [rule] with any `UNTIL=` part removed; null stays null.
+String? rruleWithoutUntil(String? rule) => rule
+    ?.split(';')
+    .where((p) => p.isNotEmpty && !p.startsWith('UNTIL='))
+    .join(';');
+
+/// True when a series that starts on [start] and repeats by [rule] has an
+/// occurrence on [day].
+///
+/// shortcut: supports FREQ=DAILY/WEEKLY/MONTHLY, BYDAY and UNTIL only
+/// (no INTERVAL/COUNT); use a full RRULE package if richer rules are needed.
+bool rruleOccursOn(String rule, DateTime start, DateTime day) {
+  final d = dateOnly(day);
+  if (d.isBefore(dateOnly(start))) return false;
+  final parts = {
+    for (final p in rule.split(';'))
+      if (p.contains('=')) p.split('=')[0]: p.split('=')[1],
+  };
+  final until = parts['UNTIL'];
+  if (until != null && until.length >= 8) {
+    final end = DateTime(
+      int.parse(until.substring(0, 4)),
+      int.parse(until.substring(4, 6)),
+      int.parse(until.substring(6, 8)),
+    );
+    if (d.isAfter(end)) return false;
+  }
+  final byDay = parts['BYDAY'];
+  switch (parts['FREQ']) {
+    case 'DAILY':
+      return true;
+    case 'WEEKLY':
+      if (byDay == null) return d.weekday == start.weekday;
+      return byDay.split(',').contains(_rruleDays[d.weekday - 1]);
+    case 'MONTHLY':
+      return d.day == start.day;
+    default:
+      return sameDay(start, d);
+  }
 }

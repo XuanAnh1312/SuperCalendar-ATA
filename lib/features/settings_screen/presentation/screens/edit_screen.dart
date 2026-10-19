@@ -19,6 +19,7 @@ import 'package:flutter_application/features/lock_screen/presentation/widgets/lo
 import 'package:flutter_application/features/settings_screen/presentation/screens/appearance_screen.dart';
 import 'package:flutter_application/features/vip/presentation/screens/template_store_screen.dart';
 import 'package:flutter_application/features/vip/presentation/widgets/vip_gate.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 /// "Edit Your Screen": arranges the widgets of the lock screen and the home
 /// dashboard. Every change is saved and shows up on the real screens at once.
@@ -37,14 +38,15 @@ class _EditScreenState extends State<EditScreen> {
   int _target = 0;
 
   String get _layoutId => _target == 0 ? ScreenLayout.lock : ScreenLayout.home;
-  String get _targetName => _target == 0 ? 'lock screen' : 'home screen';
+  String get _targetName =>
+      tr(_target == 0 ? 'lock screen' : 'home screen');
 
   // ---- Actions ------------------------------------------------------------
 
   /// Shows or hides a widget (VIP: free-form layout).
   Future<void> _toggleWidget(String type, {bool? visible}) async {
     final app = AppScope.read(context);
-    if (!await requireVip(context, feature: 'Free-form layout')) return;
+    if (!await requireVip(context, feature: VipFeature.freeFormLayout)) return;
     final layout = app.layouts.of(_layoutId);
     final show = visible ?? !layout.shows(type);
     if (layout.shows(type) == show) return;
@@ -52,7 +54,7 @@ class _EditScreenState extends State<EditScreen> {
     if (!mounted) return;
     showAppSnack(
       context,
-      '${WidgetType.labels[type]} ${show ? 'added to' : 'removed from'} the $_targetName',
+      trf(show ? '{widget} added to the {target}' : '{widget} removed from the {target}', {'widget': tr(WidgetType.labels[type] ?? type), 'target': _targetName}),
     );
   }
 
@@ -61,18 +63,18 @@ class _EditScreenState extends State<EditScreen> {
     final app = AppScope.read(context);
     final picked = await pickOption(
       context,
-      title: 'Layouts for the $_targetName',
+      title: trf('Layouts for the {target}', {'target': _targetName}),
       options: ScreenLayout.presets,
       current: app.layouts.of(_layoutId).preset,
     );
     if (picked == null) return;
     app.layouts.applyPreset(_layoutId, picked);
-    if (mounted) showAppSnack(context, '$picked layout applied');
+    if (mounted) showAppSnack(context, trf('{name} layout applied', {'name': tr(picked)}));
   }
 
   /// Free-form arranging: order, visibility and size of every widget (VIP).
   Future<void> _arrange() async {
-    if (!await requireVip(context, feature: 'Free-form layout')) return;
+    if (!await requireVip(context, feature: VipFeature.freeFormLayout)) return;
     if (!mounted) return;
     final id = _layoutId;
     final resizable = id == ScreenLayout.home;
@@ -91,15 +93,18 @@ class _EditScreenState extends State<EditScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
                 child: Text(
-                  'Arrange the $_targetName',
+                  trf('Arrange the {target}', {'target': _targetName}),
                   style: AppText.s(15, weight: FontWeight.w700),
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                 child: Text(
-                  'Drag to reorder · switch to show or hide'
-                  '${resizable ? ' · tap the size to resize' : ''}',
+                  tr(
+                    resizable
+                        ? 'Drag to reorder · switch to show or hide · tap the size to resize'
+                        : 'Drag to reorder · switch to show or hide',
+                  ),
                   style: AppText.s(10.5, color: AppColors.muted),
                 ),
               ),
@@ -117,7 +122,7 @@ class _EditScreenState extends State<EditScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            WidgetType.labels[item.type] ?? item.type,
+                            tr(WidgetType.labels[item.type] ?? item.type),
                             style: AppText.s(
                               13,
                               color: item.visible
@@ -158,7 +163,9 @@ class _EditScreenState extends State<EditScreen> {
   /// Background image for the current screen (VIP).
   Future<void> _pickBackground() async {
     final app = AppScope.read(context);
-    if (!await requireVip(context, feature: 'Background images')) return;
+    if (!await requireVip(context, feature: VipFeature.backgroundImages)) {
+      return;
+    }
     final id = _layoutId;
     final picked = await ImagePicker().pickImage(
       source: ImageSource.gallery,
@@ -174,7 +181,7 @@ class _EditScreenState extends State<EditScreen> {
     final previous = app.layouts.of(id).backgroundPath;
     app.layouts.setBackground(id, saved.path);
     if (previous != null) await _deleteQuietly(previous);
-    if (mounted) showAppSnack(context, 'Background set for the $_targetName');
+    if (mounted) showAppSnack(context, trf('Background set for the {target}', {'target': _targetName}));
   }
 
   Future<void> _removeBackground() async {
@@ -259,8 +266,8 @@ class _EditScreenState extends State<EditScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Press and hold any widget, then drag it '
-                                  'onto the screen. Tap one to add or remove.',
+                                  tr('Press and hold any widget, then drag it '
+                                  'onto the screen. Tap one to add or remove.'),
                                   style: AppText.s(
                                     10,
                                     color: AppColors.primaryTint,
@@ -296,8 +303,7 @@ class _EditScreenState extends State<EditScreen> {
                           icon: LucideIcons.plus,
                           label: 'LET MAKE YOURS',
                           background: AppColors.border,
-                          trailing: Text(
-                            '✨VIP',
+                          trailing: Text(tr('✨VIP'),
                             style: AppText.s(
                               12,
                               weight: FontWeight.w700,
@@ -320,7 +326,7 @@ class _EditScreenState extends State<EditScreen> {
                         title: 'BACKGROUND',
                         value: layout.backgroundPath == null
                             ? 'Theme background'
-                            : 'Custom image on the $_targetName',
+                            : trf('Custom image on the {target}', {'target': _targetName}),
                         action: layout.backgroundPath == null
                             ? '🖼️ ADD IMAGE'
                             : 'REMOVE',
@@ -342,7 +348,7 @@ class _EditScreenState extends State<EditScreen> {
                       _OptionCard(
                         title: 'TEMPLATE',
                         value:
-                            '${app.selectedTheme.name} · ${layout.preset} layout',
+                            trf('{theme} · {preset} layout', {'theme': app.selectedTheme.name, 'preset': tr(layout.preset)}),
                         action: 'EDIT',
                         onAction: () =>
                             pushInTab(context, const TemplateStoreScreen()),
@@ -572,7 +578,7 @@ class _OptionCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: AppText.s(13, weight: FontWeight.w700)),
+                  Text(tr(title), style: AppText.s(13, weight: FontWeight.w700)),
                   const SizedBox(height: 6),
                   Text(
                     value,
@@ -645,8 +651,7 @@ class _LockPreview extends StatelessWidget {
                         color: AppColors.muted,
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        'Swipe up to unlock',
+                      Text(tr('Swipe up to unlock'),
                         style: AppText.s(10.5, color: AppColors.muted),
                       ),
                     ],
@@ -693,7 +698,7 @@ class _HomePreview extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Hello, ${app.user.firstName}',
+                        trf('Hello, {name}', {'name': app.user.firstName}),
                         style: AppText.s(18, weight: FontWeight.w700),
                       ),
                       const SizedBox(height: 14),

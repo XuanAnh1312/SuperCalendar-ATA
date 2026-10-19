@@ -20,6 +20,7 @@ class AppSettings {
     this.lockScreenEnabled = false,
     this.lockScreenHideDetails = false,
     this.quickNoteNotification = false,
+    this.quickNoteAppend = true,
     this.useSystemCalendar = false,
     this.calendarPermissionAsked = false,
     this.calendarBannerDismissed = false,
@@ -29,6 +30,7 @@ class AppSettings {
     this.accentIndex,
     this.typography,
     this.seeded = false,
+    this.onboarded = false,
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
@@ -58,17 +60,18 @@ class AppSettings {
     lockScreenEnabled: json['lockScreenEnabled'] as bool? ?? false,
     lockScreenHideDetails: json['lockScreenHideDetails'] as bool? ?? false,
     quickNoteNotification: json['quickNoteNotification'] as bool? ?? false,
+    quickNoteAppend: json['quickNoteAppend'] as bool? ?? true,
     useSystemCalendar: json['useSystemCalendar'] as bool? ?? false,
-    calendarPermissionAsked:
-        json['calendarPermissionAsked'] as bool? ?? false,
-    calendarBannerDismissed:
-        json['calendarBannerDismissed'] as bool? ?? false,
+    calendarPermissionAsked: json['calendarPermissionAsked'] as bool? ?? false,
+    calendarBannerDismissed: json['calendarBannerDismissed'] as bool? ?? false,
     defaultCalendar: json['defaultCalendar'] as String? ?? 'Personal',
     // Legacy
     darkMode: json['darkMode'] as bool? ?? false,
     accentIndex: json['accentIndex'] as int?,
     typography: json['typography'] as String?,
     seeded: json['seeded'] as bool? ?? false,
+    // Installs from before onboarding existed skip it.
+    onboarded: json['onboarded'] as bool? ?? json['seeded'] as bool? ?? false,
   );
 
   /// Key used to store the single settings document in [Collections.settings].
@@ -124,6 +127,10 @@ class AppSettings {
   /// Keeps an ongoing notification with Quick Note editing (FR-20).
   bool quickNoteNotification;
 
+  /// FR-20.03: text typed in the notification is appended to the Quick Note
+  /// (default) instead of replacing it.
+  bool quickNoteAppend;
+
   // ── System Calendar ───────────────────────────────────────────────────────
 
   bool useSystemCalendar;
@@ -135,6 +142,9 @@ class AppSettings {
 
   /// True once the first-run sample data has been written.
   bool seeded;
+
+  /// True once the first-run onboarding (FR-01) is finished.
+  bool onboarded;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -153,6 +163,7 @@ class AppSettings {
     'lockScreenEnabled': lockScreenEnabled,
     'lockScreenHideDetails': lockScreenHideDetails,
     'quickNoteNotification': quickNoteNotification,
+    'quickNoteAppend': quickNoteAppend,
     'useSystemCalendar': useSystemCalendar,
     'calendarPermissionAsked': calendarPermissionAsked,
     'calendarBannerDismissed': calendarBannerDismissed,
@@ -162,6 +173,7 @@ class AppSettings {
     'accentIndex': accentIndex,
     'typography': typography,
     'seeded': seeded,
+    'onboarded': onboarded,
   };
 }
 

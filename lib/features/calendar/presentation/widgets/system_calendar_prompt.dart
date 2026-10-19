@@ -5,6 +5,7 @@ import 'package:flutter_application/app/theme/app_colors.dart';
 import 'package:flutter_application/app/theme/app_text.dart';
 import 'package:flutter_application/core/services/app_state.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 /// Runs the "connect the phone calendar" flow: the system permission prompt
 /// is only shown from here, after the user asked for the feature.
@@ -15,7 +16,7 @@ Future<void> connectSystemCalendar(BuildContext context) async {
   showAppSnack(
     context,
     granted
-        ? 'Phone calendar connected · ${app.events.systemEvents.length} events'
+        ? trf('Phone calendar connected · {n} events', {'n': app.events.systemEvents.length})
         : 'Permission not granted · using your SuperCalendar events only',
   );
 }
@@ -39,8 +40,7 @@ class SystemCalendarPrompt extends StatelessWidget {
               Icon(LucideIcons.smartphone, size: 14, color: AppColors.primary),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  'Show your phone calendar here',
+                child: Text(tr('Show your phone calendar here'),
                   style: AppText.s(12.5, weight: FontWeight.w700),
                 ),
               ),
@@ -48,9 +48,9 @@ class SystemCalendarPrompt extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'SuperCalendar can read the events already on this phone and show '
+            tr('SuperCalendar can read the events already on this phone and show '
             'them next to yours. They stay read-only and never leave the '
-            'device. Android will ask for calendar access.',
+            'device. Android will ask for calendar access.'),
             style: AppText.s(10.5, color: AppColors.muted, height: 1.4),
           ),
           const SizedBox(height: 10),

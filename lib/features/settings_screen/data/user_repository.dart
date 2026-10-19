@@ -45,8 +45,10 @@ class UserRepository extends ChangeNotifier {
   }
 
   void rename(String name) {
-    if (name.trim().isEmpty) return;
-    user.name = name.trim();
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+    // Display names are at most 30 characters (§5.1).
+    user.name = trimmed.length > 30 ? trimmed.substring(0, 30) : trimmed;
     _saveUser();
   }
 

@@ -18,15 +18,25 @@ class EventDetailScreen extends StatelessWidget {
   final CalendarEvent event;
 
   Future<void> _delete(BuildContext context) async {
-    final ok = await confirm(
-      context,
-      title: 'Delete event?',
-      message: '"${event.title}" will be removed from your calendar.',
-    );
-    if (!ok || !context.mounted) return;
-    AppScope.read(context).events.delete(event);
+    final events = AppScope.read(context).events;
+    // [event] may be one repeat of a series; edits go through the series.
+    final series = events.byId(event.id);
+    if (series == null) return;
+    if (series.isRecurring) {
+      final scope = await pickEventScope(context, title: 'Delete event');
+      if (scope == null || !context.mounted) return;
+      events.deleteScope(series, scope, occurrenceDate: event.date);
+      Navigator.of(context).pop();
+      showAppSnack(context, 'Event deleted');
+      return;
+    }
+    events.delete(series);
     Navigator.of(context).pop();
-    showAppSnack(context, 'Event deleted');
+    showUndoSnack(
+      context,
+      'Event deleted',
+      onUndo: () => events.restore(series),
+    );
   }
 
   @override

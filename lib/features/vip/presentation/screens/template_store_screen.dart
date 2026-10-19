@@ -9,6 +9,7 @@ import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/features/vip/domain/template.dart';
 import 'package:flutter_application/features/vip/presentation/widgets/theme_preview.dart';
 import 'package:flutter_application/features/vip/presentation/widgets/vip_gate.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 /// Label of a template's state for the current user.
 String templateStatus(AppState app, Template template) {
@@ -239,9 +240,9 @@ class TemplateDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              template.description.isEmpty
+              tr(template.description.isEmpty
                   ? 'No description.'
-                  : template.description,
+                  : template.description),
               style: AppText.s(12, color: AppColors.muted, height: 1.45),
             ),
             const SizedBox(height: 6),
@@ -258,7 +259,7 @@ class TemplateDetailScreen extends StatelessWidget {
             FieldTile(
               icon: LucideIcons.squareRoundCorner,
               label: 'Corners',
-              value: 'Radius ${template.themeData.radius.round()}',
+              value: '${tr('Radius')} ${template.themeData.radius.round()}',
             ),
             FieldTile(
               icon: LucideIcons.lockKeyhole,
@@ -268,7 +269,7 @@ class TemplateDetailScreen extends StatelessWidget {
             const SizedBox(height: 12),
             if (!owned)
               PrimaryButton(
-                label: 'Buy · ${template.priceLabel}',
+                label: '${tr('Buy')} · ${template.priceLabel}',
                 icon: LucideIcons.shoppingBag,
                 onTap: () => _buy(context, template),
               )
@@ -285,7 +286,7 @@ class TemplateDetailScreen extends StatelessWidget {
                 icon: LucideIcons.wandSparkles,
                 onTap: () {
                   app.applyTemplate(template);
-                  showAppSnack(context, '${template.name} applied');
+                  showAppSnack(context, trf('{name} applied', {'name': template.name}));
                 },
               ),
             if (owned && !mine && template.price > 0) ...[
@@ -307,7 +308,7 @@ class TemplateDetailScreen extends StatelessWidget {
                 onTap: () async {
                   if (!await requireVip(
                     context,
-                    feature: 'Publishing templates',
+                    feature: VipFeature.publishTemplates,
                   )) {
                     return;
                   }
@@ -317,8 +318,8 @@ class TemplateDetailScreen extends StatelessWidget {
                   showAppSnack(
                     context,
                     published
-                        ? '${template.name} is now in the store'
-                        : '${template.name} removed from the store',
+                        ? trf('{name} is now in the store', {'name': template.name})
+                        : trf('{name} removed from the store', {'name': template.name}),
                   );
                 },
               ),

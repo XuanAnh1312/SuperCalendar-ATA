@@ -35,8 +35,7 @@ class Goal {
       color: json['color'] as String?,
       target: json['target'] as int?,
       current: json['current'] as int? ?? 0,
-      periodStart:
-          parseDate(json['periodStart']) ?? DateTime.now(),
+      periodStart: parseDate(json['periodStart']) ?? DateTime.now(),
       periodEnd:
           parseDate(json['periodEnd']) ??
           DateTime.now().add(const Duration(days: 7)),
@@ -106,7 +105,11 @@ class Goal {
       final t = target;
       if (t != null && current >= t) {
         status = GoalStatus.completed;
-      } else if (today.isAfter(periodEnd)) {
+      } else if (DateTime(
+        today.year,
+        today.month,
+        today.day,
+      ).isAfter(periodEnd)) {
         status = GoalStatus.missed;
       }
     }

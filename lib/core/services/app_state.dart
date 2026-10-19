@@ -11,11 +11,13 @@ import 'package:flutter_application/core/services/notification_service.dart';
 import 'package:flutter_application/core/services/seed_data.dart';
 import 'package:flutter_application/core/services/system_calendar_service.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 import 'package:flutter_application/features/calendar/data/event_repository.dart';
 import 'package:flutter_application/features/calendar/data/goal_repository.dart';
 import 'package:flutter_application/features/calendar/data/habit_repository.dart';
 import 'package:flutter_application/features/calendar/domain/goal.dart';
 import 'package:flutter_application/features/dashboard/data/layout_repository.dart';
+import 'package:flutter_application/features/dashboard/domain/screen_layout.dart';
 import 'package:flutter_application/features/note/data/note_repository.dart';
 import 'package:flutter_application/features/note/domain/note.dart';
 import 'package:flutter_application/features/settings_screen/data/user_repository.dart';
@@ -38,7 +40,8 @@ class AppState extends ChangeNotifier {
        systemCalendar = systemCalendar ?? FakeSystemCalendarService(),
        clock = clock ?? DateTime.now {
     tasks = TaskRepository(store, clock: this.clock);
-    events = EventRepository(store);
+    eventExceptions = EventExceptionRepository(store);
+    events = EventRepository(store, exceptions: eventExceptions);
     habits = HabitRepository(store);
     habitOccurrences = HabitOccurrenceRepository(store);
     goals = GoalRepository(store, clock: this.clock);
@@ -47,7 +50,6 @@ class AppState extends ChangeNotifier {
     templates = TemplateRepository(store, clock: this.clock);
     layouts = LayoutRepository(store);
     // Wire companions so deleteScope / updateRepeatRule enforce BR-10 / BR-17.
-    events.attachExceptions(EventExceptionRepository(store));
     habits.attachOccurrences(habitOccurrences);
     selectedDay = today;
     for (final repository in _repositories) {
@@ -65,6 +67,7 @@ class AppState extends ChangeNotifier {
 
   late final TaskRepository tasks;
   late final EventRepository events;
+  late final EventExceptionRepository eventExceptions;
   late final HabitRepository habits;
   late final HabitOccurrenceRepository habitOccurrences;
   late final GoalRepository goals;
@@ -76,6 +79,7 @@ class AppState extends ChangeNotifier {
   List<ChangeNotifier> get _repositories => [
     tasks,
     events,
+    eventExceptions,
     habits,
     habitOccurrences,
     goals,
@@ -100,6 +104,14 @@ class AppState extends ChangeNotifier {
   /// First day of the week for the Calendar widgets.
   WeekStartSetting get weekStart => settings.weekStart;
 
+  /// [DateTime.monday] or [DateTime.sunday], from [weekStart].
+  int get firstWeekday =>
+      weekStart == WeekStartSetting.sunday ? DateTime.sunday : DateTime.monday;
+
+  /// First day of the week that contains [day].
+  DateTime weekStartOf(DateTime day) =>
+      DateTime(day.year, day.month, day.day - (day.weekday - firstWeekday) % 7);
+
   void setWeekStart(WeekStartSetting value) =>
       account.updateSettings((s) => s.weekStart = value);
 
@@ -114,6 +126,7 @@ class AppState extends ChangeNotifier {
       await flush();
     }
     selectedDay = today;
+    AppStrings.vi = settings.language == AppStrings.vietnamese;
     applyTheme();
     loaded = true;
     notifyListeners();
@@ -135,6 +148,7 @@ class AppState extends ChangeNotifier {
     await layouts.load();
     await tasks.load();
     await events.load();
+    await eventExceptions.load();
     await habits.load();
     await habitOccurrences.load();
     await goals.load();
@@ -146,6 +160,7 @@ class AppState extends ChangeNotifier {
     await Future.wait([
       tasks.flush(),
       events.flush(),
+      eventExceptions.flush(),
       habits.flush(),
       habitOccurrences.flush(),
       goals.flush(),
@@ -167,6 +182,14 @@ class AppState extends ChangeNotifier {
       repository.removeListener(_onDataChanged);
     }
     super.dispose();
+  }
+
+  // ---- Onboarding (FR-01) -------------------------------------------------
+
+  /// Saves the name typed on first run (AC-04) and marks onboarding done.
+  void finishOnboarding(String name) {
+    account.rename(name);
+    account.updateSettings((s) => s.onboarded = true);
   }
 
   // ---- Navigation ---------------------------------------------------------
@@ -236,6 +259,13 @@ class AppState extends ChangeNotifier {
     themeRevision.value++;
   }
 
+  /// Switches the UI language at once (AC-41); every screen is rebuilt.
+  void setLanguage(String language) {
+    account.updateSettings((s) => s.language = language);
+    AppStrings.vi = language == AppStrings.vietnamese;
+    themeRevision.value++;
+  }
+
   void setThemeMode(ThemeModeSetting mode) {
     account.updateSettings((s) => s.themeMode = mode);
     applyTheme();
@@ -283,15 +313,34 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// Back to Free, so the gating can be tested again.
+  /// Back to Free, so the gating can be tested again. VIP-only looks fall
+  /// back to the free defaults (AC-34).
   void cancelVip() {
     account.setVip(false);
+    final themeId = user.selectedThemeId;
+    final allowed =
+        builtInThemes.any((t) => t.id == themeId) ||
+        templates.templates.any(
+          (t) => t.themeData.id == themeId && ownsTemplate(t),
+        );
+    if (!allowed) account.selectTheme(builtInThemes.first.id);
+    for (final id in [ScreenLayout.home, ScreenLayout.lock]) {
+      final layout = layouts.of(id);
+      if (layout.preset == ScreenLayout.presetCustom) {
+        layouts.applyPreset(id, ScreenLayout.presetDefault);
+      }
+      if (layout.backgroundPath != null) layouts.setBackground(id, null);
+    }
     applyTheme();
   }
 
   // ---- Templates ----------------------------------------------------------
 
-  bool ownsTemplate(Template template) => templates.owns(user.id, template);
+  /// A user's own templates need VIP (Template Studio); others need to be
+  /// free or bought.
+  bool ownsTemplate(Template template) => template.creatorId == user.id
+      ? canAccess(VipFeature.themeBuilder)
+      : templates.owns(user.id, template);
 
   /// Finishes the test payment for [template]; success unlocks it.
   void completeTemplatePayment(Template template, PaymentResult result) {
@@ -401,10 +450,14 @@ class AppState extends ChangeNotifier {
     return true;
   }
 
+  void setLockScreenHideDetails(bool value) =>
+      account.updateSettings((s) => s.lockScreenHideDetails = value);
+
   LockScreenContent get lockScreenContent => LockScreenContent(
     events: events.on(today),
     tasks: tasks.pending(today),
     day: today,
+    hideDetails: settings.lockScreenHideDetails,
   );
 
   /// Toggles the ongoing Quick Note notification (FR-20).

@@ -12,6 +12,7 @@ import 'package:flutter_application/features/settings_screen/presentation/screen
 import 'package:flutter_application/features/settings_screen/presentation/screens/edit_screen.dart';
 import 'package:flutter_application/features/settings_screen/presentation/screens/notification_settings_screen.dart';
 import 'package:flutter_application/features/vip/presentation/screens/template_store_screen.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -106,9 +107,9 @@ class SettingsScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 3),
                             Text(
-                              app.isVip
+                              tr(app.isVip
                                   ? 'All customization unlocked'
-                                  : 'Upgrade to unlock the Theme Builder',
+                                  : 'Upgrade to unlock the Theme Builder'),
                               style: AppText.s(
                                 9.5,
                                 color: AppColors.onPrimary.withValues(
@@ -131,8 +132,7 @@ class SettingsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Center(
-              child: Text(
-                'Designed for calmer, more personal days.',
+              child: Text(tr('Designed for calmer, more personal days.'),
                 style: AppText.s(9.5, color: AppColors.muted),
               ),
             ),
@@ -163,7 +163,7 @@ class SettingsScreen extends StatelessWidget {
                     'Language',
                     const ['English', 'Tiếng Việt'],
                     settings.language,
-                    (v) => app.account.updateSettings((s) => s.language = v),
+                    app.setLanguage,
                   ),
                 ),
                 SettingsRow(
@@ -227,7 +227,7 @@ class SettingsScreen extends StatelessWidget {
                   icon: LucideIcons.store,
                   color: AppColors.pink,
                   title: 'Template Store',
-                  value: owned == 0 ? 'Browse' : '$owned owned',
+                  value: owned == 0 ? 'Browse' : trf('{n} owned', {'n': owned}),
                   onTap: () => pushInTab(context, const TemplateStoreScreen()),
                 ),
                 SettingsRow(

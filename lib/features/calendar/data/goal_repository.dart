@@ -121,6 +121,14 @@ class GoalRepository extends Repository<Goal> {
     notifyListeners();
   }
 
+  /// Puts back a goal removed by [delete] (BR-13 undo).
+  void restore(Goal goal) {
+    if (items.contains(goal)) return;
+    items.add(goal);
+    persist(goal);
+    notifyListeners();
+  }
+
   /// Re-evaluates all goals against today's date.  Call on app start and
   /// when the date changes (BR-11).
   void recalculate() {

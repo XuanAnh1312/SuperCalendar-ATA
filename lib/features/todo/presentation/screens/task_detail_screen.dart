@@ -9,6 +9,7 @@ import 'package:flutter_application/core/services/app_state.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/features/todo/domain/task.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 /// Editor for one task. Changes are applied when "Save changes" is pressed.
 class TaskDetailScreen extends StatefulWidget {
@@ -158,15 +159,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   Future<void> _delete() async {
-    final ok = await confirm(
-      context,
-      title: 'Delete task?',
-      message: '"${widget.task.title}" will be removed.',
-    );
-    if (!ok || !mounted) return;
-    AppScope.read(context).tasks.delete(widget.task);
+    final tasks = AppScope.read(context).tasks;
+    final task = tasks.delete(widget.task);
+    if (task == null) return;
     Navigator.of(context).pop();
-    showAppSnack(context, 'Task deleted');
+    showUndoSnack(context, 'Task deleted', onUndo: () => tasks.restore(task));
   }
 
   @override
@@ -212,8 +209,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'TASK',
+                        Text(tr('TASK'),
                           style: AppText.s(9, color: AppColors.primary),
                         ),
                         TextField(
@@ -226,7 +222,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             contentPadding: const EdgeInsets.symmetric(
                               vertical: 5,
                             ),
-                            hintText: 'Task title',
+                            hintText: tr('Task title'),
                             hintStyle: AppText.s(16, color: AppColors.faint),
                           ),
                         ),
@@ -313,7 +309,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('COLOR', style: AppText.label()),
+                        Text(tr('COLOR'), style: AppText.label()),
                         const SizedBox(height: 9),
                         ColorDots(
                           colors: AppColors.accents,
@@ -334,7 +330,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('TAGS', style: AppText.label()),
+                          Text(tr('TAGS'), style: AppText.label()),
                           const SizedBox(height: 6),
                           Wrap(
                             spacing: 5,
@@ -387,7 +383,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               child: Column(
                 children: [
                   CardHeader(
-                    title: 'Subtasks · $doneCount/${_subtasks.length}',
+                    title: '${tr('Subtasks')} · $doneCount/${_subtasks.length}',
                     action: '+ Add',
                     onAction: _addSubtask,
                   ),

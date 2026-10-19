@@ -129,7 +129,9 @@ class NoteRepository extends Repository<Note> {
 
   /// Restores a previously [delete]d [note] (BR-13 undo).
   void restore(Note note) {
+    if (items.contains(note)) return;
     items.add(note);
+    persist(note);
     notifyListeners();
   }
 
