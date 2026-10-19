@@ -20,7 +20,10 @@ void main() {
   final now = DateTime(2026, 10, 14, 10);
 
   Future<AppState> loadedApp([DocumentStore? store]) async {
-    final app = AppState(store: store ?? MemoryDocumentStore(), clock: () => now);
+    final app = AppState(
+      store: store ?? MemoryDocumentStore(),
+      clock: () => now,
+    );
     await app.load();
     return app;
   }
@@ -36,7 +39,10 @@ void main() {
   test('RRULE matching', () {
     final start = DateTime(2026, 10, 5);
     expect(rruleOccursOn('FREQ=WEEKLY', start, DateTime(2026, 10, 12)), isTrue);
-    expect(rruleOccursOn('FREQ=WEEKLY', start, DateTime(2026, 10, 13)), isFalse);
+    expect(
+      rruleOccursOn('FREQ=WEEKLY', start, DateTime(2026, 10, 13)),
+      isFalse,
+    );
     expect(rruleOccursOn('FREQ=DAILY', start, DateTime(2026, 10, 4)), isFalse);
     const weekdays = 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR';
     expect(rruleOccursOn(weekdays, start, DateTime(2026, 10, 10)), isFalse);
@@ -46,25 +52,28 @@ void main() {
     expect(rruleOccursOn(until, start, DateTime(2026, 10, 8)), isFalse);
   });
 
-  test('AC-15: deleting one repeat keeps the others, and survives restart', () async {
-    final store = MemoryDocumentStore();
-    final app = await loadedApp(store);
-    app.events.add(mondayStandup());
-    final repeat = app.events.on(DateTime(2026, 10, 12)).single;
-    expect(repeat.startTime, DateTime(2026, 10, 12, 9));
+  test(
+    'AC-15: deleting one repeat keeps the others, and survives restart',
+    () async {
+      final store = MemoryDocumentStore();
+      final app = await loadedApp(store);
+      app.events.add(mondayStandup());
+      final repeat = app.events.on(DateTime(2026, 10, 12)).single;
+      expect(repeat.startTime, DateTime(2026, 10, 12, 9));
 
-    app.events.deleteScope(
-      app.events.byId('standup')!,
-      DeleteScope.one,
-      occurrenceDate: repeat.date,
-    );
-    await app.flush();
+      app.events.deleteScope(
+        app.events.byId('standup')!,
+        DeleteScope.one,
+        occurrenceDate: repeat.date,
+      );
+      await app.flush();
 
-    final reopened = await loadedApp(store);
-    expect(reopened.events.on(DateTime(2026, 10, 12)), isEmpty);
-    expect(reopened.events.on(DateTime(2026, 10, 19)), hasLength(1));
-    expect(reopened.events.on(DateTime(2026, 10, 5)), hasLength(1));
-  });
+      final reopened = await loadedApp(store);
+      expect(reopened.events.on(DateTime(2026, 10, 12)), isEmpty);
+      expect(reopened.events.on(DateTime(2026, 10, 19)), hasLength(1));
+      expect(reopened.events.on(DateTime(2026, 10, 5)), hasLength(1));
+    },
+  );
 
   test('BR-10: delete from this repeat on ends the series', () async {
     final app = await loadedApp();
@@ -84,26 +93,32 @@ void main() {
     expect(eventReminderTime(event, now), DateTime(2026, 10, 19, 8, 45));
   });
 
-  test('habit ticks and skips read from the occurrence table (AC-19)', () async {
-    final app = await loadedApp();
-    final habit = Habit(
-      id: 'read',
-      title: 'Read',
-      shortTitle: 'Read',
-      startDate: DateTime(2026, 10, 1),
-      repeatRule: 'FREQ=DAILY',
-      createdAt: now,
-    );
-    app.habits.add(habit);
-    final today = app.today;
-    app.habits.toggle(habit, today);
-    expect(app.habits.isDone(habit, today), isTrue);
-    app.habits.skip(habit, today);
-    expect(app.habits.isSkipped(habit, today), isTrue);
-    expect(app.habits.isSkipped(habit, today.add(const Duration(days: 1))), isFalse);
-    app.habits.removeOccurrence(habit, today);
-    expect(app.habits.occurrences(today), isNot(contains(habit)));
-  });
+  test(
+    'habit ticks and skips read from the occurrence table (AC-19)',
+    () async {
+      final app = await loadedApp();
+      final habit = Habit(
+        id: 'read',
+        title: 'Read',
+        shortTitle: 'Read',
+        startDate: DateTime(2026, 10, 1),
+        repeatRule: 'FREQ=DAILY',
+        createdAt: now,
+      );
+      app.habits.add(habit);
+      final today = app.today;
+      app.habits.toggle(habit, today);
+      expect(app.habits.isDone(habit, today), isTrue);
+      app.habits.skip(habit, today);
+      expect(app.habits.isSkipped(habit, today), isTrue);
+      expect(
+        app.habits.isSkipped(habit, today.add(const Duration(days: 1))),
+        isFalse,
+      );
+      app.habits.removeOccurrence(habit, today);
+      expect(app.habits.occurrences(today), isNot(contains(habit)));
+    },
+  );
 
   test('AC-20: a weekday rule hides the habit on weekends', () async {
     final app = await loadedApp();
@@ -118,7 +133,11 @@ void main() {
     app.habits.add(habit);
     final saturday = DateTime(2026, 10, 17);
     expect(app.habits.occurrences(saturday), contains(habit));
-    app.habits.updateRepeatRule(habit, 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', app.today);
+    app.habits.updateRepeatRule(
+      habit,
+      'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR',
+      app.today,
+    );
     expect(app.habits.occurrences(saturday), isNot(contains(habit)));
   });
 
@@ -138,7 +157,10 @@ void main() {
     app.goals.increment(goal);
     expect(goal.status, GoalStatus.completed);
     // AC-18 / BR-03: monthly goals never show as weekly ones.
-    expect(app.goals.activeOn(app.today, GoalType.weekly), isNot(contains(goal)));
+    expect(
+      app.goals.activeOn(app.today, GoalType.weekly),
+      isNot(contains(goal)),
+    );
   });
 
   test('a goal is still active on the last day of its period', () {
@@ -218,7 +240,10 @@ void main() {
     app.setLanguage(AppStrings.vietnamese);
     expect(tr('Settings'), 'Cài đặt');
     expect(trf('{n} remaining', {'n': 3}), 'còn 3 việc');
-    expect(tr('Some text with no translation'), 'Some text with no translation');
+    expect(
+      tr('Some text with no translation'),
+      'Some text with no translation',
+    );
     app.setLanguage('English');
     expect(tr('Settings'), 'Settings');
   });

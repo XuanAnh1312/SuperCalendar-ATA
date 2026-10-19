@@ -32,6 +32,11 @@ String weekRangeLabel(DateTime today, {bool longMonth = false}) {
   final end = sunday.month == monday.month
       ? '${sunday.day}'
       : '${monthShort(sunday.month)} ${sunday.day}';
+  if (AppStrings.vi) {
+    return sunday.month == monday.month
+        ? '${monday.day}–${sunday.day}/${sunday.month}'
+        : '${monday.day}/${monday.month}–${sunday.day}/${sunday.month}';
+  }
   return '$month ${monday.day}–$end';
 }
 

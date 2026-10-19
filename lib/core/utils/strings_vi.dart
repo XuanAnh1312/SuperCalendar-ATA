@@ -26,6 +26,7 @@ const viStrings = <String, String>{
   'Saved & synced just now': 'Vừa lưu xong',
   'Not saved yet': 'Chưa lưu',
   'Undo': 'Hoàn tác',
+  'done': 'xong',
   'Untitled': 'Không tiêu đề',
   'Not now': 'Để sau',
   'None': 'Không',
@@ -58,8 +59,7 @@ const viStrings = <String, String>{
 
   // ── Onboarding ───────────────────────────────────────────────────────────
   'Welcome to SuperCalendar': 'Chào mừng đến với SuperCalendar',
-  'Your calendar, to-dos, habits and notes in one place. Everything stays on this phone.':
-      'Lịch, việc cần làm, thói quen và ghi chú ở cùng một nơi. Mọi dữ liệu nằm trên điện thoại này.',
+  'Your calendar, to-dos, habits and notes in one place. Everything stays on this phone.': 'Lịch, việc cần làm, thói quen và ghi chú ở cùng một nơi. Mọi dữ liệu nằm trên điện thoại này.',
   'What should we call you?': 'Chúng tôi nên gọi bạn là gì?',
   'Your name': 'Tên của bạn',
   'Remind me about events and tasks': 'Nhắc tôi về sự kiện và công việc',
@@ -115,8 +115,7 @@ const viStrings = <String, String>{
       'Đã kết nối lịch điện thoại · {n} sự kiện',
   'Permission not granted · using your SuperCalendar events only':
       'Chưa cấp quyền · chỉ dùng sự kiện của SuperCalendar',
-  'SuperCalendar can read the events already on this phone and show them next to yours. They stay read-only and never leave the device. Android will ask for calendar access.':
-      'SuperCalendar có thể đọc các sự kiện sẵn có trên điện thoại và hiện cạnh sự kiện của bạn. Chúng chỉ để xem và không rời khỏi máy. Android sẽ hỏi quyền truy cập lịch.',
+  'SuperCalendar can read the events already on this phone and show them next to yours. They stay read-only and never leave the device. Android will ask for calendar access.': 'SuperCalendar có thể đọc các sự kiện sẵn có trên điện thoại và hiện cạnh sự kiện của bạn. Chúng chỉ để xem và không rời khỏi máy. Android sẽ hỏi quyền truy cập lịch.',
 
   // ── Event ────────────────────────────────────────────────────────────────
   'Event': 'Sự kiện',
@@ -135,8 +134,7 @@ const viStrings = <String, String>{
   'Time': 'Giờ',
   'Start time': 'Giờ bắt đầu',
   'End time': 'Giờ kết thúc',
-  'End time must be after the start time':
-      'Giờ kết thúc phải sau giờ bắt đầu',
+  'End time must be after the start time': 'Giờ kết thúc phải sau giờ bắt đầu',
   'Location': 'Địa điểm',
   'Add location': 'Thêm địa điểm',
   'Reminder': 'Nhắc nhở',
@@ -332,8 +330,7 @@ const viStrings = <String, String>{
       'Tự tạo giao diện trong Template Studio',
   'More control with VIP · Theme Builder':
       'Tuỳ chỉnh nhiều hơn với VIP · Trình tạo giao diện',
-  'Upgrade to unlock the Theme Builder':
-      'Nâng cấp để mở Trình tạo giao diện',
+  'Upgrade to unlock the Theme Builder': 'Nâng cấp để mở Trình tạo giao diện',
 
   // Calendar settings
   'Phone calendar': 'Lịch điện thoại',
@@ -344,12 +341,10 @@ const viStrings = <String, String>{
   'Monday': 'Thứ Hai',
   'Sunday': 'Chủ Nhật',
   'Not connected': 'Chưa kết nối',
-  'Not connected · using local events':
-      'Chưa kết nối · dùng sự kiện trên máy',
+  'Not connected · using local events': 'Chưa kết nối · dùng sự kiện trên máy',
   '{n} event read from this phone': 'Đã đọc {n} sự kiện từ điện thoại',
   '{n} events read from this phone': 'Đã đọc {n} sự kiện từ điện thoại',
-  'Why the permission? With calendar access SuperCalendar can show the events already on this phone next to yours. They are read-only and are not copied or uploaded. Without it, the app works the same with the events you create here.':
-      'Vì sao cần quyền này? Khi được truy cập lịch, SuperCalendar hiện các sự kiện có sẵn trên điện thoại cạnh sự kiện của bạn. Chúng chỉ để xem, không bị sao chép hay tải lên. Không cấp quyền thì ứng dụng vẫn hoạt động bình thường với sự kiện bạn tạo.',
+  'Why the permission? With calendar access SuperCalendar can show the events already on this phone next to yours. They are read-only and are not copied or uploaded. Without it, the app works the same with the events you create here.': 'Vì sao cần quyền này? Khi được truy cập lịch, SuperCalendar hiện các sự kiện có sẵn trên điện thoại cạnh sự kiện của bạn. Chúng chỉ để xem, không bị sao chép hay tải lên. Không cấp quyền thì ứng dụng vẫn hoạt động bình thường với sự kiện bạn tạo.',
 
   // Notification settings
   'Notification settings': 'Cài đặt thông báo',
@@ -383,12 +378,9 @@ const viStrings = <String, String>{
   'Turn on reminders first': 'Hãy bật nhắc nhở trước',
   'Add a task first': 'Hãy thêm một công việc trước',
   'Test reminder sent for "{title}"': 'Đã gửi nhắc thử cho "{title}"',
-  'Lock your phone to see today’s schedule':
-      'Khoá máy để xem lịch hôm nay',
-  'Notifications are off, so reminders will not fire. Turn Reminders on, or allow notifications for SuperCalendar in Android settings.':
-      'Thông báo đang tắt nên nhắc nhở sẽ không hiện. Hãy bật Nhắc nhở, hoặc cho phép thông báo của SuperCalendar trong cài đặt Android.',
-  'Android shows reminders on the lock screen. Opening an event from there asks for your screen lock first; SuperCalendar never sees your PIN.':
-      'Android hiện nhắc nhở trên màn hình khoá. Mở sự kiện từ đó sẽ cần mở khoá máy trước; SuperCalendar không bao giờ thấy mã PIN của bạn.',
+  'Lock your phone to see today’s schedule': 'Khoá máy để xem lịch hôm nay',
+  'Notifications are off, so reminders will not fire. Turn Reminders on, or allow notifications for SuperCalendar in Android settings.': 'Thông báo đang tắt nên nhắc nhở sẽ không hiện. Hãy bật Nhắc nhở, hoặc cho phép thông báo của SuperCalendar trong cài đặt Android.',
+  'Android shows reminders on the lock screen. Opening an event from there asks for your screen lock first; SuperCalendar never sees your PIN.': 'Android hiện nhắc nhở trên màn hình khoá. Mở sự kiện từ đó sẽ cần mở khoá máy trước; SuperCalendar không bao giờ thấy mã PIN của bạn.',
   'SuperCalendar only asks Android for notification access when you turn reminders on.':
       'SuperCalendar chỉ xin quyền thông báo khi bạn bật nhắc nhở.',
 
@@ -458,12 +450,10 @@ const viStrings = <String, String>{
   'Custom typography': 'Kiểu chữ tuỳ chỉnh',
   'Publishing templates': 'Đăng mẫu',
   '{name} is a VIP feature': '{name} là tính năng VIP',
-  'Free includes the default theme, the built-in layouts and templates you buy. VIP adds the Theme Builder, free-form layouts, custom fonts, background images and template publishing.':
-      'Gói miễn phí gồm giao diện mặc định, các bố cục có sẵn và mẫu bạn mua. VIP thêm Trình tạo giao diện, bố cục tự do, phông chữ riêng, ảnh nền và đăng mẫu.',
+  'Free includes the default theme, the built-in layouts and templates you buy. VIP adds the Theme Builder, free-form layouts, custom fonts, background images and template publishing.': 'Gói miễn phí gồm giao diện mặc định, các bố cục có sẵn và mẫu bạn mua. VIP thêm Trình tạo giao diện, bố cục tự do, phông chữ riêng, ảnh nền và đăng mẫu.',
   'See VIP': 'Xem VIP',
   'Test payment': 'Thanh toán thử',
-  'Prototype checkout. No card is asked for and no money moves; choose the result to simulate.':
-      'Thanh toán thử nghiệm. Không cần thẻ và không trừ tiền; hãy chọn kết quả muốn giả lập.',
+  'Prototype checkout. No card is asked for and no money moves; choose the result to simulate.': 'Thanh toán thử nghiệm. Không cần thẻ và không trừ tiền; hãy chọn kết quả muốn giả lập.',
   'Simulate successful payment': 'Giả lập thanh toán thành công',
   'Simulate failed payment': 'Giả lập thanh toán thất bại',
   'Payment successful · {product} unlocked':
@@ -538,8 +528,7 @@ const viStrings = <String, String>{
   'Cancel VIP (test)': 'Huỷ VIP (thử)',
   'Switch back to Free?': 'Quay về gói miễn phí?',
   'Switch to Free': 'Chuyển sang miễn phí',
-  'For testing the Free plan. Your templates are kept; VIP features lock again.':
-      'Để thử gói miễn phí. Mẫu của bạn vẫn được giữ; các tính năng VIP sẽ bị khoá lại.',
+  'For testing the Free plan. Your templates are kept; VIP features lock again.': 'Để thử gói miễn phí. Mẫu của bạn vẫn được giữ; các tính năng VIP sẽ bị khoá lại.',
   'My Calm Week': 'Tuần bình yên của tôi',
   'My own SuperCalendar look.': 'Giao diện SuperCalendar của riêng tôi.',
 };

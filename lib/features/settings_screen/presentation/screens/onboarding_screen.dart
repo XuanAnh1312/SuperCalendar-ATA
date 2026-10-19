@@ -64,13 +64,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            Text(tr('Welcome to SuperCalendar'),
+            Text(
+              tr('Welcome to SuperCalendar'),
               style: AppText.s(24, weight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             Text(
-              tr('Your calendar, to-dos, habits and notes in one place. '
-              'Everything stays on this phone.'),
+              tr(
+                'Your calendar, to-dos, habits and notes in one place. '
+                'Everything stays on this phone.',
+              ),
               style: AppText.s(13, color: AppColors.muted, height: 1.45),
             ),
             const SizedBox(height: 28),

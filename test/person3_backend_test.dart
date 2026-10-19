@@ -17,7 +17,10 @@ void main() {
     expect(app.canAccess(VipFeature.themeBuilder), isFalse);
     app.completeVipPayment(PaymentResult.success);
     expect(app.canAccess(VipFeature.themeBuilder), isTrue);
-    expect(app.templates.hasPurchased(app.user.id, Purchase.vipProductId), isTrue);
+    expect(
+      app.templates.hasPurchased(app.user.id, Purchase.vipProductId),
+      isTrue,
+    );
   });
 
   test('theme mode and settings persist across reload', () async {
