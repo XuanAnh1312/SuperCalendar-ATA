@@ -16,6 +16,7 @@ import 'package:flutter_application/features/calendar/data/habit_repository.dart
 import 'package:flutter_application/features/calendar/domain/goal.dart';
 import 'package:flutter_application/features/dashboard/data/layout_repository.dart';
 import 'package:flutter_application/features/note/data/note_repository.dart';
+import 'package:flutter_application/features/note/domain/note.dart';
 import 'package:flutter_application/features/settings_screen/data/user_repository.dart';
 import 'package:flutter_application/features/settings_screen/domain/user.dart';
 import 'package:flutter_application/features/todo/domain/task.dart';
@@ -365,6 +366,29 @@ class AppState extends ChangeNotifier {
     day: today,
   );
 
+  /// Toggles the ongoing Quick Note notification (FR-20).
+  ///
+  /// When enabled, shows the current Quick Note text in the notification shade
+  /// with a RemoteInput field.  Needs notifications to be on.
+  Future<bool> setQuickNoteNotification(bool value) async {
+    if (value && !settings.notificationsEnabled) {
+      if (!await enableNotifications()) return false;
+    }
+    account.updateSettings((s) => s.quickNoteNotification = value);
+    if (value) {
+      await notifications.showQuickNoteNotification(notes.quickText);
+    } else {
+      await notifications.hideQuickNoteNotification();
+    }
+    return true;
+  }
+
+  /// Updates the Quick Note notification when its text changes (FR-20, AC-39).
+  Future<void> updateQuickNoteNotification() async {
+    if (!settings.quickNoteNotification) return;
+    await notifications.showQuickNoteNotification(notes.quickText);
+  }
+
   void _queueSync() {
     if (_syncQueued || !loaded) return;
     _syncQueued = true;
@@ -375,15 +399,20 @@ class AppState extends ChangeNotifier {
   }
 
   /// Reschedules reminders and refreshes the lock screen notification.
+  /// Also updates the Quick Note notification when enabled (FR-20).
   Future<void> syncNotifications() async {
     if (!settings.notificationsEnabled) return;
     await notifications.syncReminders(
       tasks: tasks.items,
       events: events.items,
       now: now,
+      habits: habits.active,
     );
     if (settings.lockScreenEnabled) {
       await notifications.showLockScreen(lockScreenContent);
+    }
+    if (settings.quickNoteNotification) {
+      await notifications.showQuickNoteNotification(notes.quickText);
     }
   }
 
@@ -433,6 +462,48 @@ class AppState extends ChangeNotifier {
 
   /// Quick Add from the lock screen or notification: a task due today.
   Task? quickAddTask(String title) => tasks.add(title, dueDate: today);
+
+  // ---- Task convenience methods (BR-13, AC-25) ----------------------------
+
+  /// Completes [task] and, for recurring tasks, generates the next occurrence.
+  ///
+  /// Returns the new recurring task when one was created, null otherwise.
+  Task? completeTask(Task task) => tasks.completeAndReschedule(task);
+
+  /// Deletes [task] and returns it so the presenter can offer undo (BR-13).
+  Task? deleteTask(Task task) => tasks.delete(task);
+
+  /// Restores a [deleteTask]'d task (BR-13 undo).
+  void undoDeleteTask(Task task) => tasks.restore(task);
+
+  /// Adds [tag] to [task] (creates tag if new) and persists.
+  void addTagToTask(Task task, String tag) => tasks.addTag(task, tag);
+
+  /// Removes [tag] from [task] and persists.
+  void removeTagFromTask(Task task, String tag) => tasks.removeTag(task, tag);
+
+  // ---- Note convenience methods (BR-13, AC-26, FR-20) ---------------------
+
+  /// Pins [note] to the top of the notes list.
+  void pinNote(Note note) => notes.pin(note);
+
+  /// Unpins [note].
+  void unpinNote(Note note) => notes.unpin(note);
+
+  /// Toggles the pin state of [note].
+  void togglePinNote(Note note) => notes.togglePin(note);
+
+  /// Deletes [note] and returns it for undo (BR-13).
+  Note? deleteNote(Note note) => notes.delete(note);
+
+  /// Restores a [deleteNote]'d note (BR-13 undo).
+  void undoDeleteNote(Note note) => notes.restore(note);
+
+  /// Updates the Quick Note text and refreshes the notification (FR-20, AC-39).
+  void saveQuickNote(String text) {
+    notes.setQuick(text);
+    unawaited(updateQuickNoteNotification());
+  }
 
   // ---- Goals ---------------------------------------------------------------
 

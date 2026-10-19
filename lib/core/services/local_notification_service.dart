@@ -11,6 +11,7 @@ import 'package:flutter_application/core/services/notification_actions.dart';
 import 'package:flutter_application/core/services/notification_service.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/features/calendar/domain/event.dart';
+import 'package:flutter_application/features/calendar/domain/habit.dart';
 import 'package:flutter_application/features/todo/domain/task.dart';
 
 /// Port the UI isolate listens on to learn that a notification action changed
@@ -48,6 +49,7 @@ Future<void> _handleBackgroundResponse(NotificationResponse response) async {
 /// lock screen notification with today's schedule and to-do quick actions.
 class LocalNotificationService implements NotificationService {
   static const _lockScreenId = 1;
+  static const _quickNoteId = 2;
 
   final _plugin = FlutterLocalNotificationsPlugin();
   ReceivePort? _refreshPort;
@@ -135,6 +137,7 @@ class LocalNotificationService implements NotificationService {
     required List<Task> tasks,
     required List<CalendarEvent> events,
     required DateTime now,
+    List<Habit> habits = const [],
   }) async {
     // Drop what was scheduled before, except reminders the user snoozed.
     for (final pending in await _plugin.pendingNotificationRequests()) {
@@ -164,6 +167,18 @@ class LocalNotificationService implements NotificationService {
         title: 'Upcoming event',
         body: _eventBody(event),
         target: NotificationTarget(NotificationTarget.event, event.id),
+        details: _reminderDetails(task: false),
+      );
+    }
+    for (final habit in habits) {
+      final at = habitReminderTime(habit, now);
+      if (at == null) continue;
+      await _schedule(
+        id: _stableId('habit:${habit.id}'),
+        at: at,
+        title: 'Habit reminder',
+        body: habit.title,
+        target: NotificationTarget(NotificationTarget.habit, habit.id),
         details: _reminderDetails(task: false),
       );
     }
@@ -302,6 +317,118 @@ class LocalNotificationService implements NotificationService {
 
   @override
   Future<void> hideLockScreen() => _plugin.cancel(id: _lockScreenId);
+
+  // ---- Individual scheduling (FR-18) ──────────────────────────────────────
+
+  @override
+  Future<DateTime?> scheduleForEvent(CalendarEvent event) async {
+    final now = DateTime.now();
+    final at = eventReminderTime(event, now);
+    if (at == null) return null;
+    await _schedule(
+      id: _stableId('event:${event.id}'),
+      at: at,
+      title: 'Upcoming event',
+      body: _eventBody(event),
+      target: NotificationTarget(NotificationTarget.event, event.id),
+      details: _reminderDetails(task: false),
+    );
+    return at;
+  }
+
+  @override
+  Future<DateTime?> scheduleForTask(Task task) async {
+    final now = DateTime.now();
+    final at = taskReminderTime(task, now);
+    if (at == null) return null;
+    await _schedule(
+      id: _stableId('task:${task.id}'),
+      at: at,
+      title: 'Task reminder',
+      body: _taskBody(task),
+      target: NotificationTarget(NotificationTarget.task, task.id),
+      details: _reminderDetails(task: true),
+    );
+    return at;
+  }
+
+  @override
+  Future<DateTime?> scheduleForHabit(Habit habit) async {
+    final now = DateTime.now();
+    final at = habitReminderTime(habit, now);
+    if (at == null) return null;
+    await _schedule(
+      id: _stableId('habit:${habit.id}'),
+      at: at,
+      title: 'Habit reminder',
+      body: habit.title,
+      target: NotificationTarget(NotificationTarget.habit, habit.id),
+      details: _reminderDetails(task: false),
+    );
+    return at;
+  }
+
+  @override
+  Future<void> cancel(String sourceType, String sourceId) async {
+    await _plugin.cancel(id: _stableId('$sourceType:$sourceId'));
+  }
+
+  // ---- Quick Note notification (FR-20) ────────────────────────────────────
+
+  /// The ongoing Quick Note notification (FR-20).
+  ///
+  /// Shows the current Quick Note text, with a RemoteInput field for editing
+  /// and Save / Open app action buttons (FR-20.02, FR-20.03).
+  @override
+  Future<void> showQuickNoteNotification(String text) {
+    final displayText = text.isEmpty ? 'Tap to write a quick note' : text;
+    return _plugin.show(
+      id: _quickNoteId,
+      title: 'SuperCalendar · Quick Note',
+      body: displayText,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          'quick_note',
+          'Quick Note',
+          channelDescription: 'Quick Note for fast capture from the shade',
+          importance: Importance.low,
+          priority: Priority.low,
+          visibility: NotificationVisibility.public,
+          ongoing: true,
+          autoCancel: false,
+          onlyAlertOnce: true,
+          playSound: false,
+          enableVibration: false,
+          category: AndroidNotificationCategory.status,
+          styleInformation: BigTextStyleInformation(
+            displayText,
+            contentTitle: 'SuperCalendar · Quick Note',
+            summaryText: 'Saved',
+          ),
+          actions: [
+            const AndroidNotificationAction(
+              NotificationActions.saveNote,
+              'Save note',
+              cancelNotification: false,
+              inputs: [
+                AndroidNotificationActionInput(label: 'Type a note…'),
+              ],
+            ),
+            const AndroidNotificationAction(
+              NotificationActions.openApp,
+              'Open app',
+              cancelNotification: false,
+            ),
+          ],
+        ),
+      ),
+      payload: NotificationTarget(NotificationTarget.quickNote, '').encode(),
+    );
+  }
+
+  @override
+  Future<void> hideQuickNoteNotification() =>
+      _plugin.cancel(id: _quickNoteId);
 
   /// FNV-1a hash: `String.hashCode` differs between isolates, and the id has
   /// to match when a reminder is rescheduled or cancelled later.

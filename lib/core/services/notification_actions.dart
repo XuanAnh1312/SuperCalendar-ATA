@@ -2,6 +2,8 @@ import 'package:flutter_application/core/data/document_store.dart';
 import 'package:flutter_application/core/services/notification_service.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/features/calendar/data/event_repository.dart';
+import 'package:flutter_application/features/calendar/data/habit_repository.dart';
+import 'package:flutter_application/features/note/data/note_repository.dart';
 import 'package:flutter_application/features/settings_screen/data/user_repository.dart';
 import 'package:flutter_application/features/todo/data/task_repository.dart';
 
@@ -13,7 +15,8 @@ const snoozeDelay = Duration(minutes: 10);
 /// This runs without the UI (the user may be on the lock screen), so it works
 /// straight on the [store] the app itself uses: `Done` completes the task,
 /// `Snooze` re-schedules the reminder, `Add task` creates a task from the
-/// typed [input]. Returns true when it changed stored data.
+/// typed [input], `Save note` updates the Quick Note (AC-39).
+/// Returns true when it changed stored data.
 Future<bool> handleNotificationAction({
   required DocumentStore store,
   required NotificationService notifications,
@@ -37,12 +40,23 @@ Future<bool> handleNotificationAction({
       }
     case NotificationActions.addTask:
       changed = tasks.add(input ?? '', dueDate: dateOnly(now())) != null;
+    case NotificationActions.saveNote:
+      // AC-39: Save Quick Note content from the notification's RemoteInput.
+      if (input != null && input.trim().isNotEmpty) {
+        final notes = NoteRepository(store, clock: now);
+        await notes.load();
+        notes.setQuick(input);
+        await notes.flush();
+        changed = true;
+      }
     case NotificationActions.snooze:
       if (target?.type == NotificationTarget.event) {
         final events = EventRepository(store);
         await events.load();
         final event = events.byId(target!.id);
         if (event != null) await notifications.snoozeEvent(event, snoozeDelay);
+      } else if (target?.type == NotificationTarget.habit) {
+        // Habits don't snooze in the same way; skip for now.
       } else {
         final task = target == null ? null : tasks.byId(target.id);
         if (task != null && !task.completed) {
@@ -69,10 +83,13 @@ Future<void> _refreshNotifications(
   if (!account.settings.notificationsEnabled) return;
   final events = EventRepository(store);
   await events.load();
+  final habits = HabitRepository(store);
+  await habits.load();
   await notifications.syncReminders(
     tasks: tasks.items,
     events: events.items,
     now: now(),
+    habits: habits.active,
   );
   if (account.settings.lockScreenEnabled) {
     final today = dateOnly(now());

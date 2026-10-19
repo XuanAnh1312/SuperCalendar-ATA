@@ -10,6 +10,104 @@ class TaskRepository extends Repository<Task> {
 
   final DateTime Function() _clock;
 
+  // ── Recurring tasks (AC-25) ───────────────────────────────────────────────
+
+  /// Returns the next [dueDate] for a recurring [task] after [completedOn].
+  ///
+  /// Supported repeat values (case-insensitive):
+  ///   `'Daily'`    → +1 day
+  ///   `'Weekdays'` → skip to Mon when completing on Fri/Sat/Sun
+  ///   `'Weekly'`   → +7 days
+  ///   `'Monthly'`  → same day next month (clamped to last day of month)
+  ///   `'Never'`    → null (not recurring)
+  ///
+  /// (AC-25) Completing a 'Weekdays' task on Friday → next is Monday.
+  static DateTime? nextOccurrence(Task task, {DateTime? completedOn}) {
+    final base = completedOn ?? task.dueDate;
+    if (base == null) return null;
+
+    switch (task.repeat.trim().toLowerCase()) {
+      case 'daily':
+        return dateOnly(base.add(const Duration(days: 1)));
+
+      case 'weekdays':
+        // Skip Sat (6) and Sun (7) — next weekday after base.
+        var next = dateOnly(base.add(const Duration(days: 1)));
+        while (next.weekday == DateTime.saturday ||
+            next.weekday == DateTime.sunday) {
+          next = next.add(const Duration(days: 1));
+        }
+        return next;
+
+      case 'weekly':
+        return dateOnly(base.add(const Duration(days: 7)));
+
+      case 'monthly':
+        // Same day next month, clamped to the last day of that month.
+        final targetMonth = base.month + 1;
+        final targetYear = base.year + (targetMonth > 12 ? 1 : 0);
+        final month = targetMonth > 12 ? targetMonth - 12 : targetMonth;
+        final lastDay = DateTime(targetYear, month + 1, 0).day;
+        return DateTime(targetYear, month, base.day.clamp(1, lastDay));
+
+      default:
+        // 'Never' or unknown — not recurring.
+        return null;
+    }
+  }
+
+  /// Completes [task] and, when it is recurring, creates the next occurrence.
+  ///
+  /// Returns the newly created recurring task, or null when the task is not
+  /// recurring or was already completed.
+  Task? completeAndReschedule(Task task) {
+    if (task.completed) return null;
+    final completedOn = task.dueDate;
+    setCompleted(task, true);
+
+    final next = nextOccurrence(task, completedOn: completedOn);
+    if (next == null) return null;
+
+    final newTask = Task(
+      id: newId('task'),
+      title: task.title,
+      description: task.description,
+      dueDate: next,
+      dueTime: task.dueTime,
+      priority: task.priority,
+      createdAt: _clock(),
+      reminderMinutes: task.reminderMinutes,
+      repeat: task.repeat,
+      category: task.category,
+      estimateMinutes: task.estimateMinutes,
+      colorIndex: task.colorIndex,
+      tags: List<String>.from(task.tags),
+      subtasks: [],
+    );
+    insert(newTask);
+    return newTask;
+  }
+
+  // ── Tag management (BR-13) ────────────────────────────────────────────────
+
+  /// Adds [tag] to [task]'s tag list and persists.
+  ///
+  /// Does nothing when [tag] is blank or already present.
+  void addTag(Task task, String tag) {
+    final clean = tag.trim();
+    if (clean.isEmpty || task.tags.contains(clean)) return;
+    task.tags.add(clean);
+    save(task);
+  }
+
+  /// Removes [tag] from [task]'s tag list and persists.
+  ///
+  /// Does nothing when the tag is not found.
+  void removeTag(Task task, String tag) {
+    if (!task.tags.remove(tag.trim())) return;
+    save(task);
+  }
+
   @override
   Task decode(Map<String, dynamic> json) => Task.fromJson(json);
 
@@ -97,9 +195,21 @@ class TaskRepository extends Repository<Task> {
     notifyListeners();
   }
 
-  void delete(Task task) {
-    if (!items.remove(task)) return;
+  /// Removes [task] from the repository and storage.
+  ///
+  /// Returns the deleted task so the caller can offer an undo (BR-13);
+  /// null when the task was not in the list.
+  Task? delete(Task task) {
+    if (!items.remove(task)) return null;
     erase(task);
+    notifyListeners();
+    return task;
+  }
+
+  /// Restores a previously [delete]d [task] at the top of the list (BR-13 undo).
+  void restore(Task task) {
+    items.insert(0, task);
+    _renumber();
     notifyListeners();
   }
 
