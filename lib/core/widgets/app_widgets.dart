@@ -1016,26 +1016,46 @@ class AppSwitch extends StatelessWidget {
   }
 }
 
-/// Centered hint shown when a list has nothing in it.
+/// Centered hint shown when a list has nothing in it (UI-11).
+///
+/// Every screen uses this widget for its empty state so the icon, spacing and
+/// wording stay consistent across the app. [compact] is the tight variant for
+/// small dashboard cards and mini previews.
 class EmptyState extends StatelessWidget {
-  const EmptyState({super.key, required this.icon, required this.message});
+  const EmptyState({
+    super.key,
+    required this.icon,
+    required this.message,
+    this.compact = false,
+  });
 
   final IconData icon;
+
+  /// Already translated when it carries placeholders — [tr] falls back to the
+  /// given text.
   final String message;
+
+  /// Smaller icon, text and padding for cards with little room.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    final iconSize = compact ? 14.0 : 22.0;
+    final textSize = compact ? 9.5 : 11.0;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+      padding: EdgeInsets.symmetric(
+        vertical: compact ? 6 : 28,
+        horizontal: compact ? 4 : 16,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 22, color: AppColors.faint),
-          const SizedBox(height: 8),
+          Icon(icon, size: iconSize, color: AppColors.faint),
+          SizedBox(height: compact ? 5 : 8),
           Text(
             tr(message),
             textAlign: TextAlign.center,
-            style: AppText.s(11, color: AppColors.muted, height: 1.4),
+            style: AppText.s(textSize, color: AppColors.muted, height: 1.4),
           ),
         ],
       ),
