@@ -123,11 +123,10 @@ class LockScheduleCard extends StatelessWidget {
               ),
             )
           else if (events.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Text(tr('Nothing scheduled today'),
-                style: AppText.s(11, color: AppColors.muted),
-              ),
+            const EmptyState(
+              compact: true,
+              icon: LucideIcons.calendarDays,
+              message: 'Nothing scheduled today',
             ),
           if (!app.settings.lockScreenHideDetails)
             for (final event in events)
@@ -213,6 +212,12 @@ class LockTodoCard extends StatelessWidget {
                 trf('{n} to-dos left', {'n': tasks.where((t) => !t.completed).length}),
                 style: AppText.s(11.5, weight: FontWeight.w600),
               ),
+            )
+          else if (tasks.isEmpty)
+            const EmptyState(
+              compact: true,
+              icon: LucideIcons.circleCheckBig,
+              message: 'Nothing to do today',
             )
           else
             for (final task in tasks)

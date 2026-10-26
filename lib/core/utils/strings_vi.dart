@@ -531,4 +531,13 @@ const viStrings = <String, String>{
   'For testing the Free plan. Your templates are kept; VIP features lock again.': 'Để thử gói miễn phí. Mẫu của bạn vẫn được giữ; các tính năng VIP sẽ bị khoá lại.',
   'My Calm Week': 'Tuần bình yên của tôi',
   'My own SuperCalendar look.': 'Giao diện SuperCalendar của riêng tôi.',
+
+  // ── Startup: loading / error states (UI-11) ─────────────────────────────
+  'Opening SuperCalendar…': 'Đang mở SuperCalendar…',
+  'Could not open your data': 'Không thể mở dữ liệu của bạn',
+  'SuperCalendar could not open its local database. Your existing data has not been changed.':
+      'SuperCalendar không thể mở cơ sở dữ liệu trên máy. Dữ liệu hiện có của bạn không bị thay đổi.',
+  'Try again': 'Thử lại',
+  'Technical details': 'Chi tiết kỹ thuật',
+  'No subtasks yet · tap + Add': 'Chưa có công việc con · chạm + Thêm',
 };
