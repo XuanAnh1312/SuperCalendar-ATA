@@ -29,7 +29,7 @@ class LayoutRepository extends Repository<ScreenLayout> {
       layout.items.removeWhere((item) => !types.contains(item.type));
       for (final type in types) {
         if (!layout.items.any((item) => item.type == type)) {
-          layout.items.add(LayoutItem(type, visible: false));
+          layout.items.add(LayoutItem.sized(type, visible: false));
         }
       }
     }
@@ -38,6 +38,7 @@ class LayoutRepository extends Repository<ScreenLayout> {
   ScreenLayout _fresh(String id) => ScreenLayout(
     id: id,
     items: ScreenLayout.presetItems(id, ScreenLayout.presetDefault),
+    wallpaper: Wallpaper.defaultFor(id),
   );
 
   ScreenLayout get home => of(ScreenLayout.home);
@@ -53,32 +54,30 @@ class LayoutRepository extends Repository<ScreenLayout> {
   }
 
   void applyPreset(String id, String preset) {
-    of(id)
-      ..items = ScreenLayout.presetItems(id, preset)
-      ..preset = preset;
+    of(id).applyPreset(preset);
     _save(id);
   }
 
   void setVisible(String id, String type, bool visible) {
     final layout = of(id);
-    layout.items.firstWhere((item) => item.type == type).visible = visible;
-    layout.preset = ScreenLayout.presetCustom;
+    if (visible) {
+      final item = layout.item(type);
+      layout.place(type, item.x, item.y);
+    } else {
+      layout.hide(type);
+    }
     _save(id);
   }
 
-  void setWide(String id, String type, bool wide) {
-    final layout = of(id);
-    layout.items.firstWhere((item) => item.type == type).wide = wide;
-    layout.preset = ScreenLayout.presetCustom;
-    _save(id);
-  }
-
-  /// [newIndex] is the position after the item at [oldIndex] is removed.
-  void reorder(String id, int oldIndex, int newIndex) {
-    final layout = of(id);
-    layout.items.insert(newIndex, layout.items.removeAt(oldIndex));
-    layout.preset = ScreenLayout.presetCustom;
-    _save(id);
+  /// FR-04: stores the draft edited in Edit Your Screen when Done is pressed.
+  void save(ScreenLayout layout) {
+    final index = items.indexWhere((l) => l.id == layout.id);
+    if (index < 0) {
+      items.add(layout);
+    } else {
+      items[index] = layout;
+    }
+    _save(layout.id);
   }
 
   void setBackground(String id, String? path) {

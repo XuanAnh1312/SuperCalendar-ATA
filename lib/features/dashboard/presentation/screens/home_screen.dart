@@ -9,6 +9,7 @@ import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/features/calendar/presentation/screens/habits_screen.dart';
 import 'package:flutter_application/features/dashboard/presentation/widgets/home_widgets.dart';
+import 'package:flutter_application/features/dashboard/presentation/widgets/widget_grid.dart';
 import 'package:flutter_application/features/note/presentation/screens/note_list_screen.dart';
 import 'package:flutter_application/features/settings_screen/presentation/screens/edit_screen.dart';
 import 'package:flutter_application/core/utils/strings.dart';
@@ -30,8 +31,8 @@ class HomeScreen extends StatelessWidget {
     final app = AppScope.of(context);
     final layout = app.layouts.home;
     return Scaffold(
-      body: ScreenBackground(
-        imagePath: layout.backgroundPath,
+      body: LayoutBackground(
+        layout: layout,
         child: SafeArea(
           bottom: false,
           child: ListView(

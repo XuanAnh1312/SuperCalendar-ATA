@@ -11,6 +11,7 @@ import 'package:flutter_application/core/services/app_state.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/features/dashboard/domain/screen_layout.dart';
+import 'package:flutter_application/features/dashboard/presentation/widgets/widget_grid.dart';
 import 'package:flutter_application/core/utils/strings.dart';
 
 /// Labels `M 5 … S 11` for the week containing [today].
@@ -80,12 +81,12 @@ Widget buildHomeWidget(
     WidgetType.goals => const GoalsWidget(),
     WidgetType.quickNote => QuickNoteWidget(onEdit: actions.onEditNote),
     WidgetType.snapshot => MonthSnapshotWidget(onSave: actions.onSaveSnapshot),
+    WidgetType.weather => const WeatherWidget(),
     _ => const SizedBox.shrink(),
   };
 }
 
-/// The dashboard widgets arranged according to a [ScreenLayout]: wide items
-/// take a full row, the others pair up two per row.
+/// The dashboard widgets placed on the grid of a [ScreenLayout].
 class HomeWidgetGrid extends StatelessWidget {
   const HomeWidgetGrid({
     super.key,
@@ -98,42 +99,23 @@ class HomeWidgetGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = layout.visibleItems;
-    final rows = <Widget>[];
-    for (var i = 0; i < items.length; i++) {
-      final item = items[i];
-      if (rows.isNotEmpty) rows.add(const SizedBox(height: 12));
-      if (item.wide) {
-        rows.add(buildHomeWidget(item.type, actions: actions));
-        continue;
-      }
-      final next = i + 1 < items.length && !items[i + 1].wide
-          ? items[i + 1]
-          : null;
-      rows.add(
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: buildHomeWidget(item.type, actions: actions)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: next == null
-                  ? const SizedBox.shrink()
-                  : buildHomeWidget(next.type, actions: actions),
-            ),
-          ],
-        ),
-      );
-      if (next != null) i++;
-    }
-    if (rows.isEmpty) {
+    if (layout.visibleItems.isEmpty) {
       return const EmptyState(
         icon: LucideIcons.layoutGrid,
         message:
             'No widgets on this screen yet.\nAdd some in Edit Your Screen.',
       );
     }
-    return Column(mainAxisSize: MainAxisSize.min, children: rows);
+    return WidgetGrid(
+      layout: layout,
+      cellBuilder: (item, size, _) => GridCell(
+        size: size,
+        color: item.color,
+        textSize: item.textSize,
+        surface: item.surface,
+        child: buildHomeWidget(item.type, actions: actions),
+      ),
+    );
   }
 }
 
@@ -147,6 +129,8 @@ class TodoWidget extends StatelessWidget {
     final app = AppScope.of(context);
     final tasks = app.tasks.dashboard(app.today);
     return AppCard(
+      color: CardTint.fill(context, null),
+      borderColor: CardTint.border(context),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,7 +195,8 @@ class HabitsWidget extends StatelessWidget {
     final app = AppScope.of(context);
     final habits = app.habits.occurrences(app.today);
     return AppCard(
-      color: AppColors.green,
+      color: CardTint.fill(context, AppColors.green),
+      borderColor: CardTint.border(context),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -279,6 +264,8 @@ class WeekWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
     return AppCard(
+      color: CardTint.fill(context, null),
+      borderColor: CardTint.border(context),
       onTap: onOpen,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -313,7 +300,8 @@ class GoalsWidget extends StatelessWidget {
     final title = goal?.title ?? 'No active goals';
     final pct = '${(progress * 100).round()}%';
     return AppCard(
-      color: AppColors.purple,
+      color: CardTint.fill(context, AppColors.purple),
+      borderColor: CardTint.border(context),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -356,7 +344,8 @@ class QuickNoteWidget extends StatelessWidget {
     final app = AppScope.of(context);
     final text = app.notes.quickText;
     return AppCard(
-      color: AppColors.yellow,
+      color: CardTint.fill(context, AppColors.yellow),
+      borderColor: CardTint.border(context),
       onTap: onEdit,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -429,7 +418,8 @@ class _MonthSnapshotWidgetState extends State<MonthSnapshotWidget> {
 
   Widget _card(AppState app, DateTime first) {
     return AppCard(
-      color: AppColors.blue,
+      color: CardTint.fill(context, AppColors.blue),
+      borderColor: CardTint.border(context),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -489,6 +479,42 @@ class _MonthSnapshotWidgetState extends State<MonthSnapshotWidget> {
           decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
         ),
       ],
+    );
+  }
+}
+
+/// Weather card. The prototype has no internet access (README 10), so it
+/// shows clearly labelled sample data.
+class WeatherWidget extends StatelessWidget {
+  const WeatherWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      color: CardTint.fill(context, AppColors.yellow),
+      borderColor: CardTint.border(context),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CardHeader(title: 'Weather', action: 'Sample'),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(LucideIcons.sun, size: 24, color: AppColors.yellowText),
+              const SizedBox(width: 8),
+              Text('18°', style: AppText.s(26, height: 1)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(tr('Mostly sunny'), style: AppText.s(11)),
+          const SizedBox(height: 3),
+          Text(
+            'H: 21°   L: 14°',
+            style: AppText.s(10, color: AppColors.muted),
+          ),
+        ],
+      ),
     );
   }
 }

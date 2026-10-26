@@ -1,11 +1,14 @@
 package com.example.flutter_application
 
 import android.Manifest
+import android.app.WallpaperManager
 import android.content.ContentUris
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.provider.CalendarContract
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import java.io.IOException
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -30,6 +33,10 @@ import io.flutter.plugin.common.MethodChannel
  *   calendar    String? display name of the owning calendar
  *   calendarId  Long    _ID of the owning calendar
  *   color       Int?    ARGB event colour (may be null)
+ *
+ * Also sets the wallpaper exported by Edit Your Screen over the
+ * `supercalendar/wallpaper` channel (FR-04):
+ *   setWallpaper(bytes: ByteArray PNG, target: "lock" | "home") → Boolean
  */
 class MainActivity : FlutterActivity() {
     private var pendingPermissionResult: MethodChannel.Result? = null
@@ -53,6 +60,37 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WALLPAPER_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                if (call.method != "setWallpaper") {
+                    result.notImplemented()
+                    return@setMethodCallHandler
+                }
+                val bytes = call.argument<ByteArray>("bytes")
+                val target = call.argument<String>("target")
+                if (bytes == null || (target != "lock" && target != "home")) {
+                    result.error("bad_args", "bytes and target are required", null)
+                    return@setMethodCallHandler
+                }
+                // Decoding and writing a full-screen bitmap is slow; keep it
+                // off the UI thread.
+                Thread {
+                    val ok = setWallpaper(bytes, target == "lock")
+                    runOnUiThread { result.success(ok) }
+                }.start()
+            }
+    }
+
+    private fun setWallpaper(bytes: ByteArray, lockScreen: Boolean): Boolean {
+        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return false
+        val flag = if (lockScreen) WallpaperManager.FLAG_LOCK else WallpaperManager.FLAG_SYSTEM
+        return try {
+            WallpaperManager.getInstance(this).setBitmap(bitmap, null, true, flag) != 0
+        } catch (e: IOException) {
+            false
+        } catch (e: SecurityException) {
+            false
+        }
     }
 
     private fun hasCalendarPermission(): Boolean =
@@ -152,6 +190,7 @@ class MainActivity : FlutterActivity() {
 
     private companion object {
         const val CHANNEL = "supercalendar/system_calendar"
+        const val WALLPAPER_CHANNEL = "supercalendar/wallpaper"
         const val CALENDAR_REQUEST = 4107
     }
 }

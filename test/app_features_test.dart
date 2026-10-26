@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_application/core/data/document_store.dart';
@@ -10,6 +14,9 @@ import 'package:flutter_application/features/calendar/domain/event.dart';
 import 'package:flutter_application/features/calendar/domain/goal.dart';
 import 'package:flutter_application/features/calendar/domain/habit.dart';
 import 'package:flutter_application/features/dashboard/domain/screen_layout.dart';
+import 'package:flutter_application/features/settings_screen/presentation/screens/edit_screen.dart';
+import 'package:flutter_application/features/settings_screen/presentation/screens/layout_gallery_screen.dart';
+import 'package:flutter_application/features/settings_screen/presentation/screens/widget_style_screen.dart';
 import 'package:flutter_application/features/settings_screen/domain/user.dart';
 import 'package:flutter_application/features/vip/domain/purchase.dart';
 
@@ -247,4 +254,231 @@ void main() {
     app.setLanguage('English');
     expect(tr('Settings'), 'Settings');
   });
+
+  test('AC-08: a placed widget keeps its spot after reopening', () async {
+    final store = MemoryDocumentStore();
+    final app = await loadedApp(store);
+    final draft = app.layouts.home.copy();
+    expect(draft.place(WidgetType.weather, 7, 8), PlaceResult.exact);
+    app.layouts.save(draft);
+    await app.flush();
+
+    final weather = (await loadedApp(store)).layouts.home.item(
+      WidgetType.weather,
+    );
+    expect(weather.visible, isTrue);
+    expect((weather.x, weather.y), (7, 8));
+  });
+
+  test('AC-09: the clock or another widget snaps to the nearest free spot', () {
+    final layout = ScreenLayout(
+      id: ScreenLayout.home,
+      items: ScreenLayout.presetItems(
+        ScreenLayout.home,
+        ScreenLayout.presetDefault,
+      ),
+    );
+    // Above the grid is the clock / greeting.
+    expect(layout.place(WidgetType.weather, 0, -2), PlaceResult.snapped);
+    final weather = layout.item(WidgetType.weather);
+    expect((weather.x, weather.y), (7, 7));
+    // On top of the to-do widget.
+    layout.hide(WidgetType.goals);
+    expect(layout.place(WidgetType.goals, 0, 0), PlaceResult.snapped);
+    final goals = layout.item(WidgetType.goals);
+    expect(goals.overlaps(0, 0, 7, 5), isFalse);
+  });
+
+  test('FR-04: the lock screen starts like the design and stays tidy', () {
+    final lock = ScreenLayout(
+      id: ScreenLayout.lock,
+      items: ScreenLayout.presetItems(
+        ScreenLayout.lock,
+        ScreenLayout.presetDefault,
+      ),
+    );
+    (int, int, int, int) area(String type) {
+      final item = lock.item(type);
+      return (item.x, item.y, item.w, item.h);
+    }
+
+    // Calendar, weather, mini note and habits, as in Personalize 23.
+    expect(area(WidgetType.week), (0, 0, 7, 4));
+    expect(area(WidgetType.weather), (7, 0, 5, 4));
+    expect(area(WidgetType.quickNote), (0, 4, 7, 4));
+    expect(area(WidgetType.habits), (7, 4, 5, 4));
+    // Full: no room for another big widget, and no overlapping resize.
+    expect(lock.place(WidgetType.todo, 0, 0), PlaceResult.full);
+    expect(lock.shows(WidgetType.todo), isFalse);
+    expect(lock.resize(WidgetType.quickNote, 0, 4, 12, 4), isFalse);
+    expect(lock.item(WidgetType.quickNote).w, 7);
+  });
+
+  test('FR-04: layouts saved before the grid keep every widget', () {
+    final home = ScreenLayout.fromJson({
+      'id': ScreenLayout.home,
+      'preset': ScreenLayout.presetCustom,
+      'items': [
+        for (final type in [
+          WidgetType.todo,
+          WidgetType.habits,
+          WidgetType.week,
+          WidgetType.goals,
+          WidgetType.quickNote,
+          WidgetType.snapshot,
+        ])
+          {'type': type, 'visible': true, 'wide': false},
+      ],
+    });
+    expect(home.visibleItems, hasLength(6));
+    final todo = home.item(WidgetType.todo);
+    final week = home.item(WidgetType.week);
+    expect((todo.x, todo.y, todo.w, todo.h), (0, 0, 7, 5));
+    expect((week.x, week.y, week.w, week.h), (0, 5, 7, 4));
+
+    final lock = ScreenLayout.fromJson({
+      'id': ScreenLayout.lock,
+      'preset': ScreenLayout.presetCustom,
+      'items': [
+        for (final type in [
+          WidgetType.schedule,
+          WidgetType.todo,
+          WidgetType.quickNote,
+        ])
+          {'type': type, 'visible': true, 'wide': true},
+      ],
+    });
+    expect(lock.visibleItems, hasLength(3));
+  });
+
+  test('FR-04: old layout names become the names of the design', () {
+    final layout = ScreenLayout.fromJson({
+      'id': ScreenLayout.home,
+      'preset': 'Balanced',
+      'grid': ScreenLayout.columns,
+      'items': <Map<String, dynamic>>[],
+    });
+    expect(layout.preset, ScreenLayout.presetDefault);
+    expect(ScreenLayout.presetDefault, 'Calm Week');
+  });
+
+  test('FR-04: a widget keeps its style after reopening', () async {
+    final store = MemoryDocumentStore();
+    final app = await loadedApp(store);
+    final draft = app.layouts.lock.copy()
+      ..setStyle(
+        WidgetType.weather,
+        color: 2,
+        textSize: 16,
+        surface: CardSurface.outline,
+      );
+    app.layouts.save(draft);
+    await app.flush();
+
+    final weather = (await loadedApp(store)).layouts.lock.item(
+      WidgetType.weather,
+    );
+    expect(
+      (weather.color, weather.textSize, weather.surface),
+      (2, 16, CardSurface.outline),
+    );
+  });
+
+  test('AC-34: a VIP layout goes back to the free default', () async {
+    final app = await loadedApp();
+    app.completeVipPayment(PaymentResult.success);
+    app.layouts.applyPreset(ScreenLayout.lock, ScreenLayout.presetDailyReset);
+    app.cancelVip();
+    expect(app.layouts.lock.preset, ScreenLayout.presetDefault);
+  });
+
+  testWidgets('FR-04: Find your calm and Style your widget render', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    final app = await loadedApp();
+    Future<void> show(Widget screen) async {
+      await tester.pumpWidget(
+        AppScope(state: app, child: MaterialApp(home: screen)),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await show(const LayoutGalleryScreen(current: ScreenLayout.presetDefault));
+    expect(find.text('Calm Week'), findsOneWidget);
+    expect(find.text('Free · Current layout'), findsOneWidget);
+    expect(find.text('Daily Reset'), findsOneWidget);
+
+    await show(
+      WidgetStyleScreen(
+        type: WidgetType.week,
+        lock: true,
+        item: app.layouts.lock.item(WidgetType.week),
+        layoutName: ScreenLayout.presetDefault,
+      ),
+    );
+    expect(find.text('Text size'), findsOneWidget);
+    expect(find.text('Two columns'), findsOneWidget);
+    expect(find.text('Soft cards'), findsOneWidget);
+  });
+
+  testWidgets(
+    'AC-08/AC-09: drag out with Undo, drag in, saved on leaving',
+    (tester) async {
+      tester.view.physicalSize = const Size(1170, 3300);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      final app = await loadedApp();
+      // Free user: arranging must not ask for VIP.
+      expect(app.isVip, isFalse);
+      final navigator = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        AppScope(
+          state: app,
+          child: MaterialApp(navigatorKey: navigator, home: const SizedBox()),
+        ),
+      );
+      unawaited(
+        navigator.currentState!.push(
+          MaterialPageRoute<void>(builder: (_) => const EditScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      Future<void> dragTo(Finder from, Offset to) async {
+        final gesture = await tester.startGesture(tester.getCenter(from));
+        await tester.pump(const Duration(seconds: 1));
+        await gesture.moveTo(to);
+        await tester.pump();
+        await gesture.up();
+        await tester.pumpAndSettle();
+      }
+
+      // The lock screen starts with the weather widget of the design.
+      expect(find.text('Mostly sunny'), findsOneWidget);
+
+      // Canvas → outside the frame: removed, with Undo (BR-13).
+      await dragTo(find.text('Mostly sunny'), const Offset(4, 4));
+      expect(find.text('Mostly sunny'), findsNothing);
+      await tester.tap(find.text('Undo'));
+      await tester.pumpAndSettle();
+      expect(find.text('Mostly sunny'), findsOneWidget);
+
+      // Removed again, then dragged from the library onto the clock: not a
+      // valid spot, so it snaps (AC-09).
+      await dragTo(find.text('Mostly sunny'), const Offset(4, 4));
+      await dragTo(find.text('Weather'), tester.getCenter(find.text('10:00')));
+      expect(find.text('Moved to the nearest free spot'), findsOneWidget);
+      expect(find.text('Mostly sunny'), findsOneWidget);
+
+      // Removed once more: only the draft changes until the user leaves.
+      await dragTo(find.text('Mostly sunny'), const Offset(4, 4));
+      expect(app.layouts.lock.shows(WidgetType.weather), isTrue);
+      await tester.tap(find.byIcon(LucideIcons.arrowLeft));
+      await tester.pumpAndSettle();
+      expect(app.layouts.lock.shows(WidgetType.weather), isFalse);
+    },
+  );
 }
