@@ -167,9 +167,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
       const SizedBox(height: 14),
       if (agenda.isEmpty)
-        Text(
-          trf('No events on {date} · tap the date again to add one', {'date': shortDate(selected)}),
-          style: AppText.s(10, color: AppColors.muted),
+        EmptyState(
+          icon: LucideIcons.calendarPlus,
+          message: trf(
+            'No events on {date} · tap the date again to add one',
+            {'date': shortDate(selected)},
+          ),
         )
       else
         for (final event in agenda)

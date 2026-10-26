@@ -153,11 +153,10 @@ class TodoWidget extends StatelessWidget {
         children: [
           CardHeader(title: 'To-do', action: 'Edit', onAction: onEdit),
           if (tasks.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 9),
-              child: Text(tr('Nothing to do today'),
-                style: AppText.s(11, color: AppColors.muted),
-              ),
+            const EmptyState(
+              compact: true,
+              icon: LucideIcons.circleCheckBig,
+              message: 'Nothing to do today',
             ),
           for (final task in tasks)
             Padding(
@@ -218,11 +217,10 @@ class HabitsWidget extends StatelessWidget {
         children: [
           CardHeader(title: 'Habits', action: 'Edit', onAction: onEdit),
           if (habits.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 9),
-              child: Text(tr('All done for today'),
-                style: AppText.s(11, color: AppColors.muted),
-              ),
+            const EmptyState(
+              compact: true,
+              icon: LucideIcons.checkCheck,
+              message: 'All done for today',
             ),
           for (final habit in habits)
             Padding(
