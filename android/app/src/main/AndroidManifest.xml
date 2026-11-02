@@ -17,6 +17,9 @@
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29"/>
+    <!-- "Set Wallpaper" in Edit Your Screen (FR-04). A normal permission:
+         granted at install, no prompt. -->
+    <uses-permission android:name="android.permission.SET_WALLPAPER"/>
     <application
         android:label="SuperCalendar"
         android:name="${applicationName}"

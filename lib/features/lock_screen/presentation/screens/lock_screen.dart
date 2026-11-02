@@ -11,6 +11,7 @@ import 'package:flutter_application/core/services/app_state.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/features/calendar/presentation/screens/event_detail_screen.dart';
+import 'package:flutter_application/features/dashboard/presentation/widgets/widget_grid.dart';
 import 'package:flutter_application/features/lock_screen/presentation/widgets/lock_widgets.dart';
 import 'package:flutter_application/features/note/presentation/screens/quick_note_notification_screen.dart';
 import 'package:flutter_application/core/utils/strings.dart';
@@ -49,10 +50,9 @@ class LockScreen extends StatelessWidget {
         onVerticalDragEnd: (details) {
           if ((details.primaryVelocity ?? 0) < -250) _unlock(context);
         },
-        child: DecoratedBox(
-          decoration: lockScreenDecoration(),
-          child: ScreenBackground(
-            imagePath: layout.backgroundPath,
+        child: LayoutBackground(
+          layout: layout,
+          fallback: lockScreenDecoration(),
             child: SafeArea(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(19, 20, 19, 24),
@@ -133,7 +133,6 @@ class LockScreen extends StatelessWidget {
                 ],
               ),
             ),
-          ),
         ),
       ),
     );

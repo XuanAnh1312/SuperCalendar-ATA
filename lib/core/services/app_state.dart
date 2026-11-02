@@ -326,7 +326,8 @@ class AppState extends ChangeNotifier {
     if (!allowed) account.selectTheme(builtInThemes.first.id);
     for (final id in [ScreenLayout.home, ScreenLayout.lock]) {
       final layout = layouts.of(id);
-      if (layout.preset == ScreenLayout.presetCustom) {
+      if (layout.preset == ScreenLayout.presetCustom ||
+          ScreenLayout.vipPresets.contains(layout.preset)) {
         layouts.applyPreset(id, ScreenLayout.presetDefault);
       }
       if (layout.backgroundPath != null) layouts.setBackground(id, null);
@@ -615,6 +616,9 @@ enum VipFeature {
   customTypography,
   backgroundImages,
   publishTemplates,
+
+  /// The VIP layouts of "Find your calm" (Focused Work, Daily Reset).
+  premiumLayouts,
 }
 
 /// Exposes [AppState] to the widget tree and rebuilds dependents on change.

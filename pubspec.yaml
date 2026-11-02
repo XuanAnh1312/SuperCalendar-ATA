@@ -65,6 +65,10 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # Built-in wallpapers of Edit Your Screen (Personalize design artwork).
+  assets:
+    - assets/wallpapers/
+
   fonts:
     - family: Inter
       fonts:

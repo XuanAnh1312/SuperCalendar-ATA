@@ -16,6 +16,7 @@ const vipFeatureNames = {
   VipFeature.customTypography: 'Custom typography',
   VipFeature.backgroundImages: 'Background images',
   VipFeature.publishTemplates: 'Publishing templates',
+  VipFeature.premiumLayouts: 'VIP layouts',
 };
 
 /// Feature gate (BR-06): true when [AppState.canAccess] allows [feature]. A
