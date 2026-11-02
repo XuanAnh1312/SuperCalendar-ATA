@@ -432,11 +432,10 @@ class _TemplateStudioScreenState extends State<TemplateStudioScreen> {
                         style: AppText.s(11, weight: FontWeight.w700),
                       ),
                       if (events.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 7),
-                          child: Text(tr('No events today'),
-                            style: AppText.s(8.5, color: AppColors.muted),
-                          ),
+                        const EmptyState(
+                          compact: true,
+                          icon: LucideIcons.calendarDays,
+                          message: 'No events today',
                         ),
                       for (final event in events.take(3))
                         Container(

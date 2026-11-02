@@ -387,6 +387,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     action: '+ Add',
                     onAction: _addSubtask,
                   ),
+                  if (_subtasks.isEmpty)
+                    const EmptyState(
+                      compact: true,
+                      icon: LucideIcons.listChecks,
+                      message: 'No subtasks yet · tap + Add',
+                    ),
                   for (final subtask in _subtasks)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
