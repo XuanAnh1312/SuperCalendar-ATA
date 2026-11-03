@@ -17,6 +17,11 @@ class AppSettings {
     this.hideCompletedTasks = false,
     this.notificationsEnabled = false,
     this.notificationPermissionAsked = false,
+    this.eventReminders = true,
+    this.taskReminders = true,
+    this.habitReminders = true,
+    this.taskReminderMinutes = 30,
+    this.habitReminderMinutes,
     this.lockScreenEnabled = false,
     this.lockScreenHideDetails = false,
     this.quickNoteNotification = false,
@@ -25,13 +30,14 @@ class AppSettings {
     this.calendarPermissionAsked = false,
     this.calendarBannerDismissed = false,
     this.defaultCalendar = 'Personal',
+    List<String>? visibleCalendarIds,
     // Legacy / convenience flags
     this.darkMode = false,
     this.accentIndex,
     this.typography,
     this.seeded = false,
     this.onboarded = false,
-  });
+  }) : visibleCalendarIds = visibleCalendarIds ?? [];
 
   factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
     themeMode: ThemeModeSetting.values.firstWhere(
@@ -57,6 +63,13 @@ class AppSettings {
     notificationsEnabled: json['notificationsEnabled'] as bool? ?? false,
     notificationPermissionAsked:
         json['notificationPermissionAsked'] as bool? ?? false,
+    eventReminders: json['eventReminders'] as bool? ?? true,
+    taskReminders: json['taskReminders'] as bool? ?? true,
+    habitReminders: json['habitReminders'] as bool? ?? true,
+    taskReminderMinutes: json.containsKey('taskReminderMinutes')
+        ? json['taskReminderMinutes'] as int?
+        : 30,
+    habitReminderMinutes: json['habitReminderMinutes'] as int?,
     lockScreenEnabled: json['lockScreenEnabled'] as bool? ?? false,
     lockScreenHideDetails: json['lockScreenHideDetails'] as bool? ?? false,
     quickNoteNotification: json['quickNoteNotification'] as bool? ?? false,
@@ -65,6 +78,9 @@ class AppSettings {
     calendarPermissionAsked: json['calendarPermissionAsked'] as bool? ?? false,
     calendarBannerDismissed: json['calendarBannerDismissed'] as bool? ?? false,
     defaultCalendar: json['defaultCalendar'] as String? ?? 'Personal',
+    visibleCalendarIds: [
+      ...?(json['visibleCalendarIds'] as List?)?.cast<String>(),
+    ],
     // Legacy
     darkMode: json['darkMode'] as bool? ?? false,
     accentIndex: json['accentIndex'] as int?,
@@ -117,6 +133,17 @@ class AppSettings {
   bool notificationsEnabled;
   bool notificationPermissionAsked;
 
+  /// §5.2 NotificationConfig: reminders on/off per type (Notifications 28).
+  bool eventReminders;
+  bool taskReminders;
+  bool habitReminders;
+
+  /// Default lead time of new task reminders; null means at the due time.
+  int? taskReminderMinutes;
+
+  /// Default lead time of habit reminders; null means at the scheduled time.
+  int? habitReminderMinutes;
+
   // ── Lock Screen ───────────────────────────────────────────────────────────
 
   bool lockScreenEnabled;
@@ -137,6 +164,9 @@ class AppSettings {
   bool calendarPermissionAsked;
   bool calendarBannerDismissed;
   String defaultCalendar;
+
+  /// FR-22 step 6: ids of the device calendars to show. Empty shows them all.
+  List<String> visibleCalendarIds;
 
   // ── Internal ──────────────────────────────────────────────────────────────
 
@@ -160,6 +190,11 @@ class AppSettings {
     'hideCompletedTasks': hideCompletedTasks,
     'notificationsEnabled': notificationsEnabled,
     'notificationPermissionAsked': notificationPermissionAsked,
+    'eventReminders': eventReminders,
+    'taskReminders': taskReminders,
+    'habitReminders': habitReminders,
+    'taskReminderMinutes': taskReminderMinutes,
+    'habitReminderMinutes': habitReminderMinutes,
     'lockScreenEnabled': lockScreenEnabled,
     'lockScreenHideDetails': lockScreenHideDetails,
     'quickNoteNotification': quickNoteNotification,
@@ -168,6 +203,7 @@ class AppSettings {
     'calendarPermissionAsked': calendarPermissionAsked,
     'calendarBannerDismissed': calendarBannerDismissed,
     'defaultCalendar': defaultCalendar,
+    'visibleCalendarIds': visibleCalendarIds,
     // Legacy
     'darkMode': darkMode,
     'accentIndex': accentIndex,

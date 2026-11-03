@@ -517,6 +517,87 @@ const viStrings = <String, String>{
   'NARROW': 'HẸP',
   'WIDE': 'RỘNG',
   'FULL WIDTH': 'TOÀN CHIỀU RỘNG',
+  'Hide completed tasks': 'Ẩn task đã hoàn thành',
+  'Data': 'Dữ liệu',
+  'On this device': 'Trên thiết bị',
+  'Privacy & Terms': 'Quyền riêng tư & Điều khoản',
+  'SuperCalendar keeps all your data on this device. There is no account, '
+          'no server and no cloud sync. The app never asks for or stores your '
+          'PIN, password or biometrics. Calendar and notification access are '
+          'only used for the features you turn on. VIP and template purchases '
+          'in this prototype are simulated; no real payment is made.':
+      'SuperCalendar lưu toàn bộ dữ liệu trên thiết bị này. Không có tài '
+      'khoản, máy chủ hay đồng bộ đám mây. Ứng dụng không bao giờ yêu cầu hay '
+      'lưu mã PIN, mật khẩu hoặc sinh trắc học. Quyền Lịch và Thông báo chỉ '
+      'dùng cho tính năng bạn bật. Mua VIP và template trong bản thử nghiệm '
+      'này là mô phỏng, không trừ tiền thật.',
+  // Settings 26-29 (Figma refresh).
+  'Preferences': 'Tuỳ chọn',
+  'Lock Screen': 'Màn hình khoá',
+  'Add your email': 'Thêm email của bạn',
+  'Synced across 3 devices': 'Đã đồng bộ trên 3 thiết bị',
+  'Profile & account': 'Hồ sơ & tài khoản',
+  'Change photo': 'Đổi ảnh',
+  'VIP member': 'Thành viên VIP',
+  'Email': 'Email',
+  'Connected devices': 'Thiết bị đã kết nối',
+  '3 devices': '3 thiết bị',
+  'Your calendar, tasks and notes are synced across your connected devices.':
+      'Lịch, công việc và ghi chú được đồng bộ trên các thiết bị đã kết nối.',
+  'Up to date': 'Đã cập nhật',
+  'VIP membership': 'Gói VIP',
+  'Manage plan': 'Quản lý gói',
+  'Upgrade': 'Nâng cấp',
+  'Premium templates and personal styles are available on your account.':
+      'Template Premium và phong cách riêng đã có trong tài khoản của bạn.',
+  'Save profile': 'Lưu hồ sơ',
+  'Profile saved': 'Đã lưu hồ sơ',
+  'Sync status': 'Trạng thái đồng bộ',
+  'Couldn’t sync yet': 'Chưa đồng bộ được',
+  'Your latest changes are saved on this device. Connect to the internet to '
+          'sync them.':
+      'Thay đổi mới nhất đã được lưu trên thiết bị này. Hãy kết nối Internet '
+      'để đồng bộ.',
+  'Connection': 'Kết nối',
+  'Offline · Waiting to reconnect': 'Ngoại tuyến · Đang chờ kết nối lại',
+  'Last successful sync': 'Lần đồng bộ thành công gần nhất',
+  'Not synced yet': 'Chưa đồng bộ',
+  'Your local data remains saved': 'Dữ liệu trên máy vẫn được lưu',
+  'You can keep planning. Your changes haven’t reached your other devices '
+          'yet.':
+      'Bạn vẫn có thể tiếp tục lên kế hoạch. Thay đổi chưa đến các thiết bị '
+      'khác của bạn.',
+  'Still offline · your changes are saved on this device':
+      'Vẫn ngoại tuyến · thay đổi đã được lưu trên thiết bị này',
+  'Waiting for a connection · Not synced yet':
+      'Đang chờ kết nối · Chưa đồng bộ',
+  'A nudge, when you need it': 'Nhắc khẽ, đúng lúc bạn cần',
+  'Stay gently in the loop': 'Luôn nắm nhịp một cách nhẹ nhàng',
+  'Default reminders can be changed on each event, task or habit.':
+      'Nhắc nhở mặc định có thể đổi riêng cho từng sự kiện, công việc hoặc '
+      'thói quen.',
+  'Events': 'Sự kiện',
+  'Tasks': 'Công việc',
+  'At the due time': 'Đúng hạn',
+  'At the scheduled time': 'Đúng giờ đã đặt',
+  'Quick Note on your lock screen': 'Quick Note trên màn hình khoá',
+  'Allow SuperCalendar notifications in Android settings to see Quick Note. '
+          'Lock-screen visibility also depends on your device’s '
+          'notification privacy settings.':
+      'Cho phép thông báo của SuperCalendar trong cài đặt Android để xem Quick '
+      'Note. Việc hiển thị trên màn hình khoá còn tuỳ vào cài đặt quyền riêng '
+      'tư thông báo của thiết bị.',
+  'Open Android notification settings': 'Mở cài đặt thông báo Android',
+  'Allow notifications': 'Cho phép thông báo',
+  'Schedule, quick tasks and Quick Note': 'Lịch trình, việc nhanh và Quick Note',
+  'Time format': 'Định dạng giờ',
+  'Date format': 'Định dạng ngày',
+  'Day/Month': 'Ngày/Tháng',
+  'Month/Day': 'Tháng/Ngày',
+  'Default priority': 'Ưu tiên mặc định',
+  'Low': 'Thấp',
+  'Medium': 'Trung bình',
+  'High': 'Cao',
 
   // ── VIP & templates ──────────────────────────────────────────────────────
   'Make SuperCalendar yours': 'Biến SuperCalendar thành của bạn',
@@ -629,6 +710,33 @@ const viStrings = <String, String>{
   'For testing the Free plan. Your templates are kept; VIP features lock again.': 'Để thử gói miễn phí. Mẫu của bạn vẫn được giữ; các tính năng VIP sẽ bị khoá lại.',
   'My Calm Week': 'Tuần bình yên của tôi',
   'My own SuperCalendar look.': 'Giao diện SuperCalendar của riêng tôi.',
+
+  // VIP 25 (Figma refresh).
+  'Make it yours': 'Theo cách của bạn',
+  'You’re a VIP, {name}': '{name}, bạn là thành viên VIP',
+  'Your membership is active': 'Gói thành viên đang hoạt động',
+  'More room for personal layouts, colors and typography.':
+      'Thêm không gian cho bố cục, màu sắc và kiểu chữ của riêng bạn.',
+  'Free & VIP, at a glance': 'Free & VIP, nhìn nhanh',
+  'Personalization': 'Cá nhân hoá',
+  'VIP · Yours': 'VIP · Của bạn',
+  'Ready-made layouts': 'Bố cục có sẵn',
+  '3 free': '3 miễn phí',
+  'More styles': 'Thêm kiểu',
+  'Template saving': 'Lưu template',
+  'Free layouts': 'Bố cục miễn phí',
+  'Unlimited': 'Không giới hạn',
+  'Colors & typography': 'Màu & kiểu chữ',
+  'Standard': 'Tiêu chuẩn',
+  'Premium': 'Cao cấp',
+  'Widget styling': 'Kiểu widget',
+  'Basic': 'Cơ bản',
+  'Personalized': 'Cá nhân hoá',
+  'Calendar & tasks': 'Lịch & công việc',
+  'Included': 'Có sẵn',
+  'Explore styles': 'Khám phá phong cách',
+  'Core planning stays available with Free.':
+      'Các tính năng lập kế hoạch chính vẫn dùng được với gói Free.',
 
   // ── Startup: loading / error states (UI-11) ─────────────────────────────
   'Opening SuperCalendar…': 'Đang mở SuperCalendar…',

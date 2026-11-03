@@ -38,7 +38,11 @@ class _TodoScreenState extends State<TodoScreen> {
       _inputFocus.requestFocus();
       return;
     }
-    app.tasks.add(_input.text, dueDate: app.today);
+    app.tasks.add(
+      _input.text,
+      dueDate: app.today,
+      priority: app.settings.defaultPriority,
+    );
     _input.clear();
   }
 

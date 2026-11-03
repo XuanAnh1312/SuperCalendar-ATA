@@ -195,11 +195,13 @@ class _TemplateStudioScreenState extends State<TemplateStudioScreen> {
             PageHeader(
               title: 'Template Studio',
               subtitle: 'Build a dashboard that feels like you',
-              leading: Icon(
-                LucideIcons.gem,
-                size: 20,
-                color: AppColors.primary,
-              ),
+              // Opened from the VIP membership page, so it needs a way back.
+              leading: Navigator.of(context).canPop()
+                  ? RoundIconButton(
+                      icon: LucideIcons.arrowLeft,
+                      onTap: () => Navigator.of(context).pop(),
+                    )
+                  : Icon(LucideIcons.gem, size: 20, color: AppColors.primary),
               trailing: SizedBox(
                 width: 55,
                 child: PrimaryButton(

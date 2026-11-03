@@ -27,7 +27,7 @@ class AppearanceScreen extends StatelessWidget {
         if (!builtInThemes.any((t) => t.id == template.themeData.id))
           template.themeData,
     ];
-    final typography = app.isVip
+    final typography = app.canAccess(VipFeature.customTypography)
         ? settings.typography ?? app.selectedTheme.typography
         : app.selectedTheme.typography;
 
@@ -152,9 +152,11 @@ class AppearanceScreen extends StatelessWidget {
                   icon: LucideIcons.type,
                   color: AppColors.purple,
                   title: 'Font style',
-                  subtitle: app.isVip ? null : 'VIP · Theme Builder',
+                  subtitle: app.canAccess(VipFeature.customTypography)
+                      ? null
+                      : 'VIP · Theme Builder',
                   value: typography,
-                  trailing: app.isVip
+                  trailing: app.canAccess(VipFeature.customTypography)
                       ? null
                       : Icon(
                           LucideIcons.lockKeyhole,
@@ -170,7 +172,7 @@ class AppearanceScreen extends StatelessWidget {
               child: GestureDetector(
                 onTap: () => goToTab(context, AppTab.vip),
                 child: Text(
-                  tr(app.isVip
+                  tr(app.canAccess(VipFeature.themeBuilder)
                       ? 'Build your own theme in the Template Studio'
                       : 'More control with VIP · Theme Builder'),
                   style: AppText.s(10, color: AppColors.primary),

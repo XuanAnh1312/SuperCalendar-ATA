@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:flutter_application/core/data/document_store.dart';
+import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/features/settings_screen/domain/user.dart';
 
 /// The single local user and the device settings.
@@ -29,6 +30,7 @@ class UserRepository extends ChangeNotifier {
     user = users.isEmpty ? _defaultUser() : User.fromJson(users.first);
     final docs = await store.readAll(Collections.settings);
     settings = docs.isEmpty ? AppSettings() : AppSettings.fromJson(docs.first);
+    _applyDateFormat();
     notifyListeners();
   }
 
@@ -64,12 +66,16 @@ class UserRepository extends ChangeNotifier {
   /// [AppSettings] (theme mode, week start, time format, ...).
   void updateSettings(void Function(AppSettings settings) change) {
     change(settings);
+    _applyDateFormat();
     final data = settings.toJson();
     _pending = _pending.then(
       (_) => store.put(Collections.settings, AppSettings.id, data),
     );
     notifyListeners();
   }
+
+  void _applyDateFormat() =>
+      DateFormatPrefs.monthFirst = settings.dateFormat.startsWith('MM');
 
   void _saveUser() {
     user.updatedAt = _clock();

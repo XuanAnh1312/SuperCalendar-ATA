@@ -2,10 +2,14 @@ package com.example.flutter_application
 
 import android.Manifest
 import android.app.WallpaperManager
+import android.content.ActivityNotFoundException
 import android.content.ContentUris
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.provider.CalendarContract
+import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.io.IOException
@@ -37,6 +41,11 @@ import io.flutter.plugin.common.MethodChannel
  * Also sets the wallpaper exported by Edit Your Screen over the
  * `supercalendar/wallpaper` channel (FR-04):
  *   setWallpaper(bytes: ByteArray PNG, target: "lock" | "home") → Boolean
+ *
+ * Opens this app's notification settings over the
+ * `supercalendar/app_settings` channel (Settings 28, AC-05, NFR-11):
+ *   openNotificationSettings → Boolean (false if no settings screen opened)
+ * No permission is needed; the user decides in Android's own screen.
  */
 class MainActivity : FlutterActivity() {
     private var pendingPermissionResult: MethodChannel.Result? = null
@@ -60,6 +69,14 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, APP_SETTINGS_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                if (call.method == "openNotificationSettings") {
+                    result.success(openNotificationSettings())
+                } else {
+                    result.notImplemented()
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WALLPAPER_CHANNEL)
             .setMethodCallHandler { call, result ->
                 if (call.method != "setWallpaper") {
@@ -79,6 +96,26 @@ class MainActivity : FlutterActivity() {
                     runOnUiThread { result.success(ok) }
                 }.start()
             }
+    }
+
+    /** App notification settings (API 26+), else the app details screen. */
+    private fun openNotificationSettings(): Boolean {
+        val notifications = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+        val details = Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.fromParts("package", packageName, null),
+        )
+        for (intent in listOf(notifications, details)) {
+            try {
+                startActivity(intent)
+                return true
+            } catch (e: ActivityNotFoundException) {
+                // Some builds hide one of these screens; try the next.
+                continue
+            }
+        }
+        return false
     }
 
     private fun setWallpaper(bytes: ByteArray, lockScreen: Boolean): Boolean {
@@ -191,6 +228,7 @@ class MainActivity : FlutterActivity() {
     private companion object {
         const val CHANNEL = "supercalendar/system_calendar"
         const val WALLPAPER_CHANNEL = "supercalendar/wallpaper"
+        const val APP_SETTINGS_CHANNEL = "supercalendar/app_settings"
         const val CALENDAR_REQUEST = 4107
     }
 }

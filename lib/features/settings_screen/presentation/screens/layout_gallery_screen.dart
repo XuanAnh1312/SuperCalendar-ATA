@@ -79,7 +79,9 @@ class _LayoutGalleryScreenState extends State<LayoutGalleryScreen> {
                           if (_filter != 1)
                             SizedBox(
                               width: column,
-                              child: _VipNote(vip: app.isVip),
+                              child: _VipNote(
+                                vip: app.canAccess(VipFeature.premiumLayouts),
+                              ),
                             ),
                         ],
                       ),
