@@ -11,6 +11,32 @@ Mục tiêu: Xây dựng một ứng dụng productivity kết hợp Calendar, T
 
 ---
 
+ 0. CÀI ĐẶT VÀ CHẠY ỨNG DỤNG
+
+Yêu cầu:
+
+ Flutter SDK có Dart `^3.13.4` (xem `pubspec.yaml`).
+ Android SDK, thiết bị hoặc emulator Android 8.0 (API 26) trở lên.
+ Không cần backend, tài khoản hay kết nối mạng: dữ liệu lưu trong SQLite trên máy (`supercalendar.db`).
+
+Các lệnh:
+
+```bash
+flutter pub get                 # cài package
+flutter run                     # chạy trên thiết bị/emulator đang kết nối
+flutter analyze                 # kiểm tra lint
+flutter test test/<file>.dart   # chạy test (nên chạy từng file)
+flutter build apk --release     # build APK release
+```
+
+Ký bản release: tạo `android/key.properties` trỏ tới file keystore (cả hai không được commit). Thiếu file này thì bản release tự ký bằng debug key.
+
+Lần mở đầu tiên, ứng dụng hiện Onboarding (FR-01) và ghi dữ liệu mẫu (`core/services/seed_data.dart`). Thanh điều hướng có 5 tab: Home, Calendar, To-do, VIP, Settings (AC-01).
+
+Test nằm trong `test/`, dùng `MemoryDocumentStore` và service giả, không cần thiết bị. Tên mỗi test ghi mã FR/AC mà nó kiểm tra.
+
+---
+
  1. TỔNG QUAN SẢN PHẨM
 
  1.1. Ý tưởng
@@ -928,34 +954,38 @@ Purchase
 
  25. ĐIỀU HƯỚNG APP
 
-Navigation cơ bản:
+Navigation cơ bản (thống nhất với AC-01 và `AppTab`; Notes không phải tab chính, xem OI-01):
 
 
 Home
 │
-├── Calendar
+├── Calendar (Month / Week, Event, Goal, Habits)
 │
-├── Tasks
+├── To-do (Task Details, Subtask)
 │
-├── Notes
+├── VIP (Template Studio hoặc Paywall)
 │
 └── Settings
      │
-     ├── Appearance
-     ├── VIP
-     └── Template Store
+     ├── Profile & account · Sync status
+     ├── Appearance · Language · Date & Time
+     ├── Calendar · Notifications · Lock Screen
+     └── Hide completed tasks · Data · Privacy & Terms
+
+Notes và Quick Note mở từ widget Quick Note trên Home. Edit Your Screen mở từ Home; Template Store mở từ tab VIP và Edit Your Screen.
+Sync status, "Synced across 3 devices" và "Connected devices" là màn mô phỏng theo Figma (Settings 26–29); Prototype không có Cloud Sync (mục 10).
 
 
-Có thể dùng Bottom Navigation:
+Bottom Navigation:
 
 
-┌─────────────────────────────┐
-│                             │
-│         CONTENT             │
-│                             │
-├─────────────────────────────┤
-│ Calendar │ Tasks │ Notes │ + │
-└─────────────────────────────┘
+┌──────────────────────────────────────────┐
+│                                          │
+│                 CONTENT                  │
+│                                          │
+├──────────────────────────────────────────┤
+│ Home │ Calendar │ To-do │ VIP │ Settings │
+└──────────────────────────────────────────┘
 
 
 ---
@@ -1088,6 +1118,34 @@ Grant entitlement
 
 
 Không tự xử lý thông tin thẻ từ đầu.
+
+---
+
+## FR-01 → FR-19 – MÔ TẢ TRIỂN KHAI
+
+Mỗi FR dưới đây ghi: chức năng chính trong Prototype, nơi triển khai (đường dẫn trong `lib/features/` hoặc `lib/`) và AC dùng để nghiệm thu. Ưu tiên và màn hình xem mục 12.2.
+
+| FR | Chức năng trong Prototype | Triển khai | AC |
+|---|---|---|---|
+| FR-01 Onboarding & Permission | Lần mở đầu nhập tên, tạo local account, chọn có nhận nhắc nhở hay không; quyền Notification chỉ xin khi người dùng bật. | `settings_screen/presentation/screens/onboarding_screen.dart`, `app/app.dart` | AC-04, AC-05 |
+| FR-02 Account & Profile | Đổi Display Name, xem VIP Status; lời chào trên Home cập nhật ngay. | `settings_screen/data/user_repository.dart`, `settings_screen.dart`, `profile_screen.dart` | AC-06 |
+| FR-03 Home Dashboard | Lời chào, widget trong ngày (event, task, habit, goal, Quick Note); tick task trên Home ghi thẳng vào database chung. | `dashboard/presentation/` | AC-07 |
+| FR-04 Edit Your Screen | Kéo thả, đổi kích thước, ẩn/hiện widget; nền, phông; chuyển Home / Lock Screen (OI-08); widget không đè vùng đồng hồ. | `settings_screen/presentation/screens/edit_screen.dart`, `layout_gallery_screen.dart`, `widget_style_screen.dart`, `dashboard/data/layout_repository.dart` | AC-08, AC-09, AC-10 |
+| FR-05 Calendar | Month View và Week View, số tuần ISO (BR-15), ngày bắt đầu tuần theo Settings; chạm lần hai vào ngày đang chọn mở form New event. | `calendar/presentation/screens/calendar_screen.dart` | AC-11, AC-12, AC-13 |
+| FR-06 Event Management | Tạo/sửa/xóa event, kiểm tra End sau Start, reminder, lặp theo RRULE; xóa event lặp chọn phạm vi (BR-10). | `event_form_screen.dart`, `event_detail_screen.dart`, `calendar/data/event_repository.dart` | AC-14, AC-15, AC-16 |
+| FR-07 Goal Management | Goal Weekly/Monthly tách riêng (BR-03); chạm chip tăng Current, đạt Target thì Completed, hết kỳ thì Missed (BR-11). | `calendar/domain/goal.dart`, `calendar/data/goal_repository.dart` | AC-17, AC-18 |
+| FR-08 Habit Management | Habit Rule và Habit Occurrence riêng (BR-02); Done/Skip từng ngày; đổi Repeat Rule chỉ áp dụng từ hôm nay (BR-17). | `calendar/presentation/screens/habits_screen.dart`, `calendar/data/habit_repository.dart` | AC-19, AC-20 |
+| FR-09 To-do List | Quick Add (Enter giữ focus), lọc All/Today/Upcoming, kéo thả sắp xếp và lưu thứ tự. | `todo/presentation/screens/todo_screen.dart`, `todo/data/task_repository.dart` | AC-21, AC-22, AC-23 |
+| FR-10 Task Details & Subtask | Sửa chi tiết task, subtask, tag, reminder, lặp (Weekdays bỏ qua cuối tuần); xóa task xóa luôn subtask và hủy reminder. | `todo/presentation/screens/task_detail_screen.dart` | AC-24, AC-25 |
+| FR-11 Notes & Quick Note | Danh sách Note, ghim; một Quick Note dùng chung bảng Note (BR-09), tối đa 500 ký tự. | `note/` | AC-26, AC-27 |
+| FR-12 Month Snapshot & Save Image | Xuất lịch tháng / màn hình thành ảnh PNG và lưu vào thư viện ảnh (`gal`). | `dashboard/presentation/widgets/home_widgets.dart`, `edit_screen.dart` | AC-28 |
+| FR-13 Theme & Appearance | Theme, Light/Dark/System, màu nhấn; màu lấy từ `AppColors` nên đổi theme áp dụng ngay (BR-04). | `app/theme/`, `appearance_screen.dart` | AC-29 |
+| FR-14 Widget Template | 3 Free Template dùng được ngay, template khác có khóa; sở hữu khác với đang áp dụng (BR-07). | `vip/data/template_repository.dart`, `template_store_screen.dart` | AC-30 |
+| FR-15 VIP & Paywall | VIP giả lập; mọi chức năng Premium kiểm tra qua `canAccess(feature)` (BR-06) và hiện Paywall bằng `requireVip`; Mock Purchase ghi bản ghi Purchase; Downgrade khóa lại chức năng VIP. | `vip/presentation/widgets/vip_gate.dart`, `vip_screen.dart`, `core/services/app_state.dart` | AC-31, AC-34 |
+| FR-16 Template Studio | VIP chỉnh màu, kích thước widget, kiểu thẻ, phông với bản xem trước trực tiếp; lưu vào Presets và áp dụng. | `vip/presentation/screens/template_studio_screen.dart` | AC-32, AC-33 |
+| FR-17 Template Marketplace & Publish | (P3) Store giả lập có Preview/Buy bằng Mock Purchase; VIP có thể đánh dấu publish template của mình trong database cục bộ. Không có marketplace thật (mục 10). | `template_store_screen.dart` | — |
+| FR-18 Notification & Reminder | Reminder cho Event/Task/Habit qua `flutter_local_notifications`; action Done/Snooze ghi thẳng vào database; đặt lại reminder sau khi khởi động máy. | `core/services/notification_service.dart`, `local_notification_service.dart`, `notification_actions.dart`, `BootReceiver.kt` | AC-16, AC-35, AC-36 |
+| FR-19 Lock Screen | Ongoing notification và màn Lock Screen: Schedule chỉ xem, To-do tick và Add Task; chế độ Hide details chỉ hiện số lượng; mở app dựa vào cơ chế mở khóa của Android (BR-14). | `lock_screen/`, `local_notification_service.dart` | AC-37, AC-38 |
 
 ---
 
@@ -1543,6 +1601,20 @@ DashboardLayout 1 ─ N  WidgetPlacement
 Event | Task | Habit | Goal  1 ─ N  Reminder
 ```
 
+## 5.22 Đơn giản hóa trong Prototype
+
+Prototype lưu dữ liệu dạng JSON trong `DocumentStore` (mỗi bảng: `id`, `data`). Một số thực thể ở trên chưa có bảng riêng:
+
+| Thực thể | Cách lưu trong Prototype |
+|---|---|
+| Category | Không có bảng; màu nhãn lưu bằng chỉ số của `AppColors.accents` trong Event/Task. |
+| CalendarSource | Không có bảng; event có `source` (`local` / `system_calendar`) và `calendarId`; lịch thiết bị được chọn lưu trong `AppSettings.visibleCalendarIds`. |
+| EventGuest | Danh sách tên `guests` nằm trong Event (OI-03: chỉ là nhãn tên, không gửi lời mời). |
+| EventException | Bảng `event_exceptions`. |
+| Tag / TaskTag | Danh sách tên `tags` nằm trong Task. |
+| Reminder | Không có bảng; reminder được tính từ `reminderMinutes` của Event/Task/Habit và đặt lịch qua notification của Android. |
+| UserSettings | Một tài liệu `AppSettings` trong bảng `settings`. |
+
 ---
 
 # 6. FUNCTIONAL RELATIONSHIP
@@ -1900,8 +1972,8 @@ ACCEPTANCE TEST
 | UI-07 | SCR-06 | "Custom · sunset" ngụ ý nhắc theo giờ mặt trời lặn, cần quyền vị trí. | Đổi thành giờ cố định. |
 | UI-08 | SCR-12 | Ô nhập hiển thị sẵn nội dung cũ để sửa; RemoteInput của Android không hỗ trợ điền sẵn văn bản. Dòng "notification access" không rõ nghĩa. | Hiển thị nội dung cũ dạng text phía trên ô nhập; bỏ dòng "notification access". |
 | UI-09 | SCR-10 | Thiếu nhóm Tasks, Data và Privacy/Terms. | Bổ sung theo FR-21. |
-| UI-10 | General | Chưa có thiết kế cho SCR-13 → SCR-21. | Thiết kế bổ sung theo mục 3.5. |
-| UI-11 | General | Chưa có trạng thái Empty/Loading/Error và Dark Mode. | Bổ sung theo mục 3.4 và FR-13. |
+| UI-10 | General | Chưa có thiết kế cho SCR-13 → SCR-21. | Thiết kế bổ sung theo FR tương ứng ở mục 12.2. |
+| UI-11 | General | Chưa có trạng thái Empty/Loading/Error và Dark Mode. | Bổ sung theo FR-13; Prototype dùng `EmptyState` (`core/widgets/app_widgets.dart`) và `app/startup_screens.dart`. |
 
 ---
 
