@@ -62,13 +62,13 @@ class StudioHeader extends StatelessWidget {
   const StudioHeader({
     super.key,
     required this.title,
-    required this.subtitle,
+    this.subtitle,
     required this.onBack,
     this.trailing,
   });
 
   final String title;
-  final String subtitle;
+  final String? subtitle;
   final VoidCallback onBack;
   final Widget? trailing;
 
@@ -97,13 +97,15 @@ class StudioHeader extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: AppText.s(20, weight: FontWeight.w600, height: 1.4),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppText.s(12, color: AppColors.muted, height: 1.4),
-                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.s(12, color: AppColors.muted, height: 1.4),
+                    ),
+                  ],
                 ],
               ),
             ),

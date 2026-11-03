@@ -156,7 +156,14 @@ class TaskRepository extends Repository<Task> {
   }
 
   /// Creates a task at the top of the list, due on [dueDate].
-  Task? add(String title, {DateTime? dueDate, int? reminderMinutes}) {
+  /// [priority] is the user's default (Settings → Default priority);
+  /// null keeps [Task.priorityMedium].
+  Task? add(
+    String title, {
+    DateTime? dueDate,
+    int? reminderMinutes,
+    String? priority,
+  }) {
     final clean = title.trim();
     if (clean.isEmpty) return null;
     final now = _clock();
@@ -164,6 +171,7 @@ class TaskRepository extends Repository<Task> {
       id: newId('task'),
       title: clean,
       dueDate: dueDate == null ? null : dateOnly(dueDate),
+      priority: priority ?? Task.priorityMedium,
       createdAt: now,
       reminderMinutes: reminderMinutes,
     );

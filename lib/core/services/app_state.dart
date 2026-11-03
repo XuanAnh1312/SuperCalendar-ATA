@@ -556,7 +556,8 @@ class AppState extends ChangeNotifier {
   // ---- Convenience writes that span features ------------------------------
 
   /// Quick Add from the lock screen or notification: a task due today.
-  Task? quickAddTask(String title) => tasks.add(title, dueDate: today);
+  Task? quickAddTask(String title) =>
+      tasks.add(title, dueDate: today, priority: settings.defaultPriority);
 
   // ---- Task convenience methods (BR-13, AC-25) ----------------------------
 

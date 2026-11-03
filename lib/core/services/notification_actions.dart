@@ -44,7 +44,13 @@ Future<bool> handleNotificationAction({
         changed = true;
       }
     case NotificationActions.addTask:
-      changed = tasks.add(input ?? '', dueDate: dateOnly(now())) != null;
+      changed =
+          tasks.add(
+            input ?? '',
+            dueDate: dateOnly(now()),
+            priority: account.settings.defaultPriority,
+          ) !=
+          null;
     case NotificationActions.saveNote:
       // AC-39: Save Quick Note content from the notification's RemoteInput.
       if (input != null && input.trim().isNotEmpty) {

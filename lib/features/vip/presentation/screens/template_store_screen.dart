@@ -66,7 +66,7 @@ class _TemplateStoreScreenState extends State<TemplateStoreScreen> {
                 message: switch (_filter) {
                   1 => 'Templates you unlock show up here.',
                   2 =>
-                    app.isVip
+                    app.canAccess(VipFeature.themeBuilder)
                         ? 'Build a template in the Template Studio (VIP tab).'
                         : 'Creating templates is a VIP feature.',
                   _ => 'No templates in the store yet.',

@@ -36,6 +36,17 @@ const _monthNamesEn = [
   'December',
 ];
 
+/// Order of numeric dates (FR-21, §5.2 DateFormat): `5/10` (day first, the
+/// default) or `10/5`. Kept in sync with `AppSettings.dateFormat` by
+/// `UserRepository`.
+abstract final class DateFormatPrefs {
+  static bool monthFirst = false;
+}
+
+/// Day and month as numbers in the chosen order: `5/10` or `10/5`.
+String dayMonth(DateTime d) =>
+    DateFormatPrefs.monthFirst ? '${d.month}/${d.day}' : '${d.day}/${d.month}';
+
 // Display names follow the UI language (AC-41).
 List<String> get weekdayLetters =>
     AppStrings.vi ? _weekdayShortVi : _weekdayLettersEn;
@@ -56,7 +67,7 @@ String longDate(DateTime d) => AppStrings.vi
 
 /// `Mon, Oct 5`
 String shortDate(DateTime d) => AppStrings.vi
-    ? '${weekdayShort[d.weekday - 1]}, ${d.day}/${d.month}'
+    ? '${weekdayShort[d.weekday - 1]}, ${dayMonth(d)}'
     : '${weekdayShort[d.weekday - 1]}, ${monthShort(d.month)} ${d.day}';
 
 bool sameDay(DateTime a, DateTime b) =>
@@ -87,9 +98,7 @@ String relativeDay(DateTime day, DateTime today) {
   if (diff == 1) return tr('Tomorrow');
   if (diff == -1) return tr('Yesterday');
   if (diff > 1 && diff < 7) return weekdayShort[day.weekday - 1];
-  return AppStrings.vi
-      ? '${day.day}/${day.month}'
-      : '${monthShort(day.month)} ${day.day}';
+  return AppStrings.vi ? dayMonth(day) : '${monthShort(day.month)} ${day.day}';
 }
 
 /// `15 min`, `1 hour`, `2 hours`.

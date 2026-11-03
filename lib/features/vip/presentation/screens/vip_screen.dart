@@ -9,18 +9,197 @@ import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/features/vip/domain/template.dart';
 import 'package:flutter_application/features/vip/presentation/screens/template_store_screen.dart';
 import 'package:flutter_application/features/vip/presentation/screens/template_studio_screen.dart';
+import 'package:flutter_application/features/settings_screen/presentation/screens/widget_style_screen.dart';
 import 'package:flutter_application/features/vip/presentation/widgets/vip_gate.dart';
 import 'package:flutter_application/core/utils/strings.dart';
 
-/// VIP tab. A VIP user gets the Template Studio (the Theme Builder); a Free
-/// user sees what VIP adds and can subscribe through the test payment.
+/// VIP tab. A VIP user sees the membership page (VIP 25) that leads to the
+/// Template Studio; a Free user sees what VIP adds and can subscribe through
+/// the test payment.
 class VipScreen extends StatelessWidget {
   const VipScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
-    return app.isVip ? const TemplateStudioScreen() : const _VipOffer();
+    return app.canAccess(VipFeature.themeBuilder)
+        ? const _VipMembership()
+        : const _VipOffer();
+  }
+}
+
+/// "Make it yours" (VIP 25): the active membership and Free vs VIP.
+class _VipMembership extends StatelessWidget {
+  const _VipMembership();
+
+  static const _rows = [
+    ('Ready-made layouts', '3 free', 'More styles'),
+    ('Template saving', 'Free layouts', 'Unlimited'),
+    ('Colors & typography', 'Standard', 'Premium'),
+    ('Widget styling', 'Basic', 'Personalized'),
+    ('Calendar & tasks', 'Included', 'Included'),
+  ];
+
+  Future<void> _managePlan(BuildContext context) async {
+    final app = AppScope.read(context);
+    final ok = await confirm(
+      context,
+      title: 'Switch back to Free?',
+      message:
+          'For testing the Free plan. Your templates are kept; VIP '
+          'features lock again.',
+      confirmLabel: 'Switch to Free',
+    );
+    if (ok) app.cancelVip();
+  }
+
+  Widget _row(String feature, String free, String vip, {bool header = false}) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 52),
+      decoration: BoxDecoration(
+        border: header
+            ? null
+            : Border(bottom: BorderSide(color: AppColors.border)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 5,
+            child: Text(
+              tr(feature),
+              style: header
+                  ? AppText.s(12, color: AppColors.muted)
+                  : AppText.s(13.5),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Text(
+                tr(free),
+                style: header
+                    ? AppText.s(13, weight: FontWeight.w700)
+                    : AppText.s(12, color: AppColors.muted),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              tr(vip),
+              style: AppText.s(
+                header ? 13 : 12.5,
+                weight: header ? FontWeight.w600 : FontWeight.w400,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = AppScope.of(context);
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          children: [
+            const PageHeader(
+              title: 'Make it yours',
+              subtitle: 'SuperCalendar VIP',
+            ),
+            const SizedBox(height: 14),
+            AppCard(
+              color: AppColors.primarySoft,
+              borderColor: Colors.transparent,
+              shadow: false,
+              radius: 24,
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(LucideIcons.gem, size: 26, color: AppColors.primary),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              trf('You’re a VIP, {name}', {
+                                'name': app.user.firstName,
+                              }),
+                              style: AppText.s(19, weight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              tr('Your membership is active'),
+                              style: AppText.s(12.5, color: AppColors.primary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    tr(
+                      'More room for personal layouts, colors and typography.',
+                    ),
+                    style: AppText.s(
+                      13.5,
+                      color: AppColors.muted,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              tr('Free & VIP, at a glance'),
+              style: AppText.s(16, weight: FontWeight.w600),
+            ),
+            const SizedBox(height: 4),
+            _row('Personalization', 'Free', 'VIP · Yours', header: true),
+            for (final (feature, free, vip) in _rows) _row(feature, free, vip),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: StudioButton(
+                    label: 'Explore styles',
+                    onTap: () =>
+                        pushInTab(context, const TemplateStudioScreen()),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: StudioButton(
+                    label: 'Manage plan',
+                    soft: true,
+                    onTap: () => _managePlan(context),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Center(
+              child: Text(
+                tr('Core planning stays available with Free.'),
+                style: AppText.s(12, color: AppColors.muted),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
