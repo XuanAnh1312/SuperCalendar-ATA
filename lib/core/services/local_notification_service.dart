@@ -7,6 +7,9 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import 'package:flutter_application/core/data/sqlite_document_store.dart';
+import 'package:flutter_application/core/data/document_store.dart';
+import 'package:flutter_application/features/settings_screen/data/user_repository.dart';
+import 'package:flutter_application/features/calendar/data/habit_repository.dart';
 import 'package:flutter_application/core/services/notification_actions.dart';
 import 'package:flutter_application/core/services/notification_service.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
@@ -49,6 +52,11 @@ Future<void> _handleBackgroundResponse(NotificationResponse response) async {
 /// Android notifications: reminders with Done / Snooze, and the persistent
 /// lock screen notification with today's schedule and to-do quick actions.
 class LocalNotificationService implements NotificationService {
+  LocalNotificationService({this.store});
+
+  final DocumentStore? store;
+  Future<DocumentStore> _openStore() async =>
+      store ?? await SqliteDocumentStore.open();
   static const _lockScreenId = 1;
   static const _quickNoteId = 2;
 
@@ -103,7 +111,10 @@ class LocalNotificationService implements NotificationService {
 
   // ---- Reminders ----------------------------------------------------------
 
-  NotificationDetails _reminderDetails({required bool task}) {
+  NotificationDetails _reminderDetails({
+    required bool task,
+    bool habit = false,
+  }) {
     return NotificationDetails(
       android: AndroidNotificationDetails(
         'reminders',
@@ -117,6 +128,8 @@ class LocalNotificationService implements NotificationService {
           if (task)
             AndroidNotificationAction(NotificationActions.done, tr('Done')),
           AndroidNotificationAction(NotificationActions.snooze, tr('Snooze')),
+          if (habit)
+            AndroidNotificationAction(NotificationActions.skip, tr('Skip')),
         ],
       ),
     );
@@ -140,14 +153,55 @@ class LocalNotificationService implements NotificationService {
     required DateTime now,
     List<Habit> habits = const [],
   }) async {
-    // Drop what was scheduled before, except reminders the user snoozed.
+    final store = await _openStore();
+    final account = UserRepository(store);
+    await account.load();
+    final settings = account.settings;
+    final occurrences = HabitOccurrenceRepository(store);
+    await occurrences.load();
+    final habitRepo = HabitRepository(store, occurrences: occurrences);
+    await habitRepo.load();
+    tasks = settings.taskReminders ? tasks : [];
+    events = settings.eventReminders ? events : [];
+    final eligible = habitRepo.occurrences(now).map((h) => h.id).toSet();
+    habits = settings.habitReminders
+        ? habits
+              .where(
+                (h) =>
+                    eligible.contains(h.id) &&
+                    !habitRepo.isDone(h, now) &&
+                    !habitRepo.isSkipped(h, now),
+              )
+              .toList()
+        : [];
+    bool validSnooze(NotificationTarget target) => switch (target.type) {
+      NotificationTarget.task => tasks.any(
+        (t) => t.id == target.id && !t.completed,
+      ),
+      NotificationTarget.event => events.any((e) => e.id == target.id),
+      NotificationTarget.habit => habits.any((h) => h.id == target.id),
+      _ => false,
+    };
+    final snoozedSources = <String>{};
+    // Preserve snoozes only while their source is still eligible.
     for (final pending in await _plugin.pendingNotificationRequests()) {
       final target = NotificationTarget.decode(pending.payload);
-      if (target == null || !target.snoozed) {
+      if (target == null ||
+          !{
+            NotificationTarget.task,
+            NotificationTarget.event,
+            NotificationTarget.habit,
+          }.contains(target.type)) {
+        continue;
+      }
+      if (!target.snoozed || !validSnooze(target)) {
         await _plugin.cancel(id: pending.id);
+      } else if (target.snoozed) {
+        snoozedSources.add('${target.type}:${target.id}');
       }
     }
     for (final task in tasks) {
+      if (snoozedSources.contains('task:${task.id}')) continue;
       final at = taskReminderTime(task, now);
       if (at == null) continue;
       await _schedule(
@@ -160,6 +214,7 @@ class LocalNotificationService implements NotificationService {
       );
     }
     for (final event in events) {
+      if (snoozedSources.contains('event:${event.id}')) continue;
       final at = eventReminderTime(event, now);
       if (at == null) continue;
       await _schedule(
@@ -172,7 +227,11 @@ class LocalNotificationService implements NotificationService {
       );
     }
     for (final habit in habits) {
-      final at = habitReminderTime(habit, now);
+      if (snoozedSources.contains('habit:${habit.id}')) continue;
+      final effectiveHabit = Habit.fromJson(habit.toJson())
+        ..reminderMinutes =
+            habit.reminderMinutes ?? settings.habitReminderMinutes ?? 0;
+      final at = habitReminderTime(effectiveHabit, now);
       if (at == null) continue;
       await _schedule(
         id: _stableId('habit:${habit.id}'),
@@ -180,7 +239,7 @@ class LocalNotificationService implements NotificationService {
         title: tr('Habit reminder'),
         body: habit.title,
         target: NotificationTarget(NotificationTarget.habit, habit.id),
-        details: _reminderDetails(task: false),
+        details: _reminderDetails(task: false, habit: true),
       );
     }
   }
@@ -256,6 +315,20 @@ class LocalNotificationService implements NotificationService {
     );
   }
 
+  @override
+  Future<void> snoozeHabit(Habit habit, Duration delay) => _schedule(
+    id: _stableId('snooze:habit:${habit.id}'),
+    at: DateTime.now().add(delay),
+    title: tr('Habit reminder'),
+    body: habit.title,
+    target: NotificationTarget(
+      NotificationTarget.habit,
+      habit.id,
+      snoozed: true,
+    ),
+    details: _reminderDetails(task: false, habit: true),
+  );
+
   // ---- Lock screen --------------------------------------------------------
 
   @override
@@ -272,7 +345,9 @@ class LocalNotificationService implements NotificationService {
       ],
     ];
     final summary = [
-      trf(events.length == 1 ? '{n} event' : '{n} events', {'n': events.length}),
+      trf(events.length == 1 ? '{n} event' : '{n} events', {
+        'n': events.length,
+      }),
       trf(tasks.length == 1 ? '{n} to-do' : '{n} to-dos', {'n': tasks.length}),
     ].join(' · ');
     return _plugin.show(
@@ -370,7 +445,7 @@ class LocalNotificationService implements NotificationService {
       title: tr('Habit reminder'),
       body: habit.title,
       target: NotificationTarget(NotificationTarget.habit, habit.id),
-      details: _reminderDetails(task: false),
+      details: _reminderDetails(task: false, habit: true),
     );
     return at;
   }
@@ -378,6 +453,7 @@ class LocalNotificationService implements NotificationService {
   @override
   Future<void> cancel(String sourceType, String sourceId) async {
     await _plugin.cancel(id: _stableId('$sourceType:$sourceId'));
+    await _plugin.cancel(id: _stableId('snooze:$sourceType:$sourceId'));
   }
 
   // ---- Quick Note notification (FR-20) ────────────────────────────────────
@@ -417,11 +493,14 @@ class LocalNotificationService implements NotificationService {
               NotificationActions.saveNote,
               tr('Save note'),
               cancelNotification: false,
-              inputs: [AndroidNotificationActionInput(label: tr('Type a note…'))],
+              inputs: [
+                AndroidNotificationActionInput(label: tr('Type a note…')),
+              ],
             ),
             AndroidNotificationAction(
               NotificationActions.openApp,
               tr('Open app'),
+              showsUserInterface: true,
               cancelNotification: false,
             ),
           ],

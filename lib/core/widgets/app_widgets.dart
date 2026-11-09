@@ -704,9 +704,9 @@ class WeekDots extends StatelessWidget {
   }
 }
 
-/// `☁ Saved & synced` status line of the quick note.
+/// Saved status line of the quick note.
 class SavedStatus extends StatelessWidget {
-  const SavedStatus({super.key, this.label = 'Saved & synced', this.size = 9});
+  const SavedStatus({super.key, this.label = 'Saved', this.size = 9});
 
   final String label;
   final double size;
