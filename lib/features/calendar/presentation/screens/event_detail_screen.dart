@@ -9,6 +9,7 @@ import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/features/calendar/domain/event.dart';
 import 'package:flutter_application/features/calendar/presentation/screens/event_form_screen.dart';
+import 'package:flutter_application/core/utils/strings.dart';
 
 /// Read-only view of one event with Edit and Delete for local events.
 /// Events from the phone calendar can only be viewed.
@@ -23,7 +24,15 @@ class EventDetailScreen extends StatelessWidget {
     final series = events.byId(event.id);
     if (series == null) return;
     if (series.isRecurring) {
-      final scope = await pickEventScope(context, title: 'Delete event');
+      final scope = await pickEventScope(
+        context,
+        title: 'Delete recurring event?',
+        message: trf(
+          '{title} repeats {repeat}. Choose what to update.',
+          {'title': event.title, 'repeat': event.repeatLabel},
+        ),
+        destructive: true,
+      );
       if (scope == null || !context.mounted) return;
       events.deleteScope(series, scope, occurrenceDate: event.date);
       Navigator.of(context).pop();

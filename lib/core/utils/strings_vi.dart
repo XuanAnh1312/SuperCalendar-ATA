@@ -114,6 +114,15 @@ const viStrings = <String, String>{
   'Permission not granted · using your SuperCalendar events only':
       'Chưa cấp quyền · chỉ dùng sự kiện của SuperCalendar',
   'SuperCalendar can read the events already on this phone and show them next to yours. They stay read-only and never leave the device. Android will ask for calendar access.': 'SuperCalendar có thể đọc các sự kiện sẵn có trên điện thoại và hiện cạnh sự kiện của bạn. Chúng chỉ để xem và không rời khỏi máy. Android sẽ hỏi quyền truy cập lịch.',
+  'Day': 'Ngày',
+  'Today is {date}': 'Hôm nay là {date}',
+  '1 event': '1 sự kiện',
+  'A little room between': 'Còn chỗ trống xen giữa',
+  'No events scheduled': 'Không có sự kiện',
+  'A little open space': 'Một khoảng trống nhỏ',
+  'There are no events on {date}. Keep it open, or make time for something that matters.':
+      'Không có sự kiện ngày {date}. Cứ để trống, hoặc dành thời gian cho việc quan trọng.',
+  'Back to today · {date}': 'Về hôm nay · {date}',
 
   // ── Event ────────────────────────────────────────────────────────────────
   'Event': 'Sự kiện',
@@ -168,6 +177,12 @@ const viStrings = <String, String>{
   'This and following events': 'Sự kiện này và các lần sau',
   'All events': 'Tất cả sự kiện',
   'Save changes to': 'Lưu thay đổi cho',
+  'Delete recurring event?': 'Xoá sự kiện lặp?',
+  '{title} repeats {repeat}. Choose what to update.':
+      '{title} lặp {repeat}. Chọn phạm vi cập nhật.',
+  'This occurrence': 'Lần này',
+  'Entire series': 'Cả chuỗi',
+  'This occurrence and every one after it': 'Lần này và mọi lần sau',
 
   // ── Habits ───────────────────────────────────────────────────────────────
   'Generated automatically from your rhythm':
@@ -347,6 +362,14 @@ const viStrings = <String, String>{
   '{n} event read from this phone': 'Đã đọc {n} sự kiện từ điện thoại',
   '{n} events read from this phone': 'Đã đọc {n} sự kiện từ điện thoại',
   'Why the permission? With calendar access SuperCalendar can show the events already on this phone next to yours. They are read-only and are not copied or uploaded. Without it, the app works the same with the events you create here.': 'Vì sao cần quyền này? Khi được truy cập lịch, SuperCalendar hiện các sự kiện có sẵn trên điện thoại cạnh sự kiện của bạn. Chúng chỉ để xem, không bị sao chép hay tải lên. Không cấp quyền thì ứng dụng vẫn hoạt động bình thường với sự kiện bạn tạo.',
+  'Phone calendars': 'Lịch trên điện thoại',
+  'Events from these calendars show in SuperCalendar. They stay read-only.':
+      'Sự kiện từ các lịch này hiện trong SuperCalendar. Chúng chỉ để xem.',
+  'SHOW THESE CALENDARS': 'HIỆN CÁC LỊCH NÀY',
+  'No calendars found on this phone': 'Không tìm thấy lịch nào trên điện thoại',
+  'Calendar access is off, so SuperCalendar cannot read events from this phone. Local events still work.':
+      'Quyền lịch đang tắt nên SuperCalendar không đọc được sự kiện trên điện thoại. Sự kiện trong ứng dụng vẫn dùng bình thường.',
+  'Open Android settings': 'Mở cài đặt Android',
 
   // Notification settings
   'Notification settings': 'Cài đặt thông báo',
