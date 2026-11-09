@@ -42,6 +42,7 @@ class NotificationTarget {
 abstract final class NotificationActions {
   static const done = 'done';
   static const snooze = 'snooze';
+  static const skip = 'skip';
   static const addTask = 'add_task';
   static const saveNote = 'save_note';
   static const openApp = 'open_app';
@@ -126,6 +127,8 @@ abstract class NotificationService {
   /// Shows the reminder for [event] again after [delay].
   Future<void> snoozeEvent(CalendarEvent event, Duration delay);
 
+  Future<void> snoozeHabit(Habit habit, Duration delay);
+
   // ── Lock screen ────────────────────────────────────────────────────────────
 
   Future<void> showLockScreen(LockScreenContent content);
@@ -156,6 +159,13 @@ class NoopNotificationService implements NotificationService {
   LockScreenContent? lockScreen;
   final List<Task> shownReminders = [];
   final List<String> snoozed = [];
+  final Map<String, Duration> snoozeDelays = {};
+
+  @override
+  Future<void> snoozeHabit(Habit habit, Duration delay) async {
+    snoozed.add(habit.id);
+    snoozeDelays[habit.id] = delay;
+  }
 
   // Quick Note notification tracking
   String? quickNoteText;
