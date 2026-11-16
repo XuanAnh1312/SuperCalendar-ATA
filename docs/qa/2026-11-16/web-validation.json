@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-16",
+  "branch": "main",
+  "head": "9079852",
+  "browser": "Chrome headless",
+  "viewport": {"width": 390, "height": 844},
+  "storage": "Isolated audit profile; real SQLite Web/IndexedDB",
+  "cases": [
+    {"id": "WEB-P01", "scenario": "Onboarding and Home", "result": "PASS"},
+    {"id": "WEB-P02", "scenario": "Free selects personal photo", "result": "PASS", "observed": "VIP paywall shown"},
+    {"id": "WEB-P03", "scenario": "Mock failed payment", "result": "PASS", "observed": "Subscribe still available; VIP not granted"},
+    {"id": "WEB-P04", "scenario": "Mock successful payment", "result": "PASS", "observed": "VIP membership page and native file chooser reachable"},
+    {"id": "WEB-P05", "scenario": "Reload after VIP purchase", "result": "PASS", "observed": "Explore styles and Manage plan still available"},
+    {"id": "WEB-P06", "scenario": "Manage plan / Switch to Free", "result": "PASS", "observed": "Free subscription offer shown again"},
+    {
+      "id": "AUD-WEB01",
+      "scenario": "VIP imports a valid JPG from Wallpaper gallery",
+      "result": "FAIL",
+      "selectedFile": "assets/wallpapers/soft_morning.jpg",
+      "observed": "Preview remains Soft morning; uncaught plugin exception",
+      "capturedWindowError": "MissingPluginException(No implementation found for method getApplicationDocumentsDirectory on channel plugins.flutter.io/path_provider)"
+    },
+    {
+      "id": "AUD-WEB02",
+      "scenario": "Edit Your Screen / Save Image",
+      "result": "FAIL",
+      "observed": "No image download or success screen; uncaught plugin exception",
+      "capturedWindowError": "MissingPluginException(No implementation found for method hasAccess on channel gal)"
+    }
+  ],
+  "nativeStatus": "APK built and installed; Android UI/notification/wallpaper acceptance tests remain BLOCKED by unstable emulator/System UI ANR"
+}
