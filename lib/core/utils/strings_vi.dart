@@ -22,8 +22,6 @@ const viStrings = <String, String>{
   'Reset': 'Đặt lại',
   'Save': 'Lưu',
   'Saved': 'Đã lưu',
-  'Saved & synced': 'Đã lưu',
-  'Saved & synced just now': 'Vừa lưu xong',
   'Not saved yet': 'Chưa lưu',
   'Undo': 'Hoàn tác',
   'done': 'xong',
@@ -286,6 +284,10 @@ const viStrings = <String, String>{
   'Lock screen': 'Màn hình khoá',
   'Quick Note for fast capture from the shade':
       'Ghi chú nhanh ngay từ khay thông báo',
+
+  'Skip': 'Bỏ qua',
+
+  'Saved just now': 'Vừa lưu xong',
 
   // ── Settings ─────────────────────────────────────────────────────────────
   'Account': 'Tài khoản',

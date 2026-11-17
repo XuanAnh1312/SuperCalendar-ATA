@@ -38,9 +38,15 @@ Future<bool> handleNotificationAction({
 
   switch (actionId) {
     case NotificationActions.done:
-      final task = target == null ? null : tasks.byId(target.id);
+      final task =
+          target == null ||
+              (target.type != NotificationTarget.task &&
+                  target.type != NotificationTarget.lockScreen)
+          ? null
+          : tasks.byId(target.id);
       if (task != null && !task.completed) {
         tasks.setCompleted(task, true);
+        await notifications.cancel(NotificationTarget.task, task.id);
         changed = true;
       }
     case NotificationActions.addTask:
@@ -49,6 +55,7 @@ Future<bool> handleNotificationAction({
             input ?? '',
             dueDate: dateOnly(now()),
             priority: account.settings.defaultPriority,
+            reminderMinutes: account.settings.taskReminderMinutes ?? 0,
           ) !=
           null;
     case NotificationActions.saveNote:
@@ -67,16 +74,50 @@ Future<bool> handleNotificationAction({
         await notifications.showQuickNoteNotification(notes.quickText);
         changed = true;
       }
+    case NotificationActions.skip:
+      if (target?.type != NotificationTarget.habit) break;
+      final occurrences = HabitOccurrenceRepository(store);
+      await occurrences.load();
+      final habits = HabitRepository(store, occurrences: occurrences);
+      await habits.load();
+      final habit = habits.byId(target!.id);
+      if (habit != null &&
+          habits.occurrences(now()).contains(habit) &&
+          !habits.isDone(habit, now())) {
+        habits.skip(habit, now());
+        await occurrences.flush();
+        await notifications.cancel(NotificationTarget.habit, habit.id);
+        changed = true;
+      }
     case NotificationActions.snooze:
-      if (target?.type == NotificationTarget.event) {
+      if (target == null) break;
+      if ((target.type == NotificationTarget.task &&
+              !account.settings.taskReminders) ||
+          (target.type == NotificationTarget.event &&
+              !account.settings.eventReminders) ||
+          (target.type == NotificationTarget.habit &&
+              !account.settings.habitReminders)) {
+        break;
+      }
+      if (target.type == NotificationTarget.event) {
         final events = EventRepository(store);
         await events.load();
-        final event = events.byId(target!.id);
+        final event = events.byId(target.id);
         if (event != null) await notifications.snoozeEvent(event, snoozeDelay);
-      } else if (target?.type == NotificationTarget.habit) {
-        // Habits don't snooze in the same way; skip for now.
+      } else if (target.type == NotificationTarget.habit) {
+        final occurrences = HabitOccurrenceRepository(store);
+        await occurrences.load();
+        final habits = HabitRepository(store, occurrences: occurrences);
+        await habits.load();
+        final habit = habits.byId(target.id);
+        if (habit != null &&
+            habits.occurrences(now()).contains(habit) &&
+            !habits.isDone(habit, now()) &&
+            !habits.isSkipped(habit, now())) {
+          await notifications.snoozeHabit(habit, snoozeDelay);
+        }
       } else {
-        final task = target == null ? null : tasks.byId(target.id);
+        final task = tasks.byId(target.id);
         if (task != null && !task.completed) {
           await notifications.snoozeTask(task, snoozeDelay);
         }

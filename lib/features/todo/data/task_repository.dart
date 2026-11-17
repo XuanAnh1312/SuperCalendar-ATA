@@ -1,4 +1,5 @@
 import 'package:flutter_application/core/data/document_store.dart';
+import 'package:flutter_application/features/settings_screen/data/user_repository.dart';
 import 'package:flutter_application/core/data/repository.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/features/todo/domain/task.dart';
@@ -9,6 +10,15 @@ class TaskRepository extends Repository<Task> {
       super(store, Collections.tasks);
 
   final DateTime Function() _clock;
+  int? _defaultReminderMinutes = 30;
+
+  @override
+  Future<void> load() async {
+    final account = UserRepository(store);
+    await account.load();
+    _defaultReminderMinutes = account.settings.taskReminderMinutes;
+    await super.load();
+  }
 
   // ── Recurring tasks (AC-25) ───────────────────────────────────────────────
 
@@ -173,7 +183,7 @@ class TaskRepository extends Repository<Task> {
       dueDate: dueDate == null ? null : dateOnly(dueDate),
       priority: priority ?? Task.priorityMedium,
       createdAt: now,
-      reminderMinutes: reminderMinutes,
+      reminderMinutes: reminderMinutes ?? _defaultReminderMinutes ?? 0,
     );
     items.insert(0, task);
     _renumber();
@@ -189,7 +199,13 @@ class TaskRepository extends Repository<Task> {
     notifyListeners();
   }
 
-  void toggle(Task task) => setCompleted(task, !task.completed);
+  void toggle(Task task) {
+    if (task.completed) {
+      setCompleted(task, false);
+    } else {
+      completeAndReschedule(task);
+    }
+  }
 
   void setCompleted(Task task, bool completed) {
     task.completed = completed;

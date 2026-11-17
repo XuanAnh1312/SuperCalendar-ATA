@@ -39,9 +39,7 @@ class _QuickNoteNotificationScreenState
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _note ??= TextEditingController(
-      text: AppScope.read(context).notes.quickText,
-    );
+    _note ??= TextEditingController();
   }
 
   @override
@@ -51,7 +49,14 @@ class _QuickNoteNotificationScreenState
   }
 
   void _save() {
-    AppScope.read(context).notes.setQuick(_note!.text);
+    final app = AppScope.read(context);
+    final input = _note!.text.trim();
+    if (input.isEmpty) return;
+    final old = app.notes.quickText;
+    app.notes.setQuick(
+      app.settings.quickNoteAppend && old.isNotEmpty ? '$old\n$input' : input,
+    );
+    _note!.clear();
     FocusScope.of(context).unfocus();
     setState(() => _dirty = false);
     showAppSnack(context, 'Note saved');
@@ -185,7 +190,8 @@ class _QuickNoteNotificationScreenState
                 ),
               ),
               const SizedBox(height: 16),
-              Text(tr('CONVERSATIONS & NOTES'),
+              Text(
+                tr('CONVERSATIONS & NOTES'),
                 style: AppText.s(10, color: AppColors.muted),
               ),
               const SizedBox(height: 8),
@@ -219,15 +225,12 @@ class _QuickNoteNotificationScreenState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(tr('SuperCalendar'),
+                                Text(
+                                  tr('SuperCalendar'),
                                   style: AppText.s(
                                     11.5,
                                     weight: FontWeight.w700,
                                   ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(tr('now · notification access'),
-                                  style: AppText.s(9.5, color: AppColors.muted),
                                 ),
                               ],
                             ),
@@ -255,9 +258,20 @@ class _QuickNoteNotificationScreenState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(tr('QUICK NOTE'),
+                            Text(
+                              tr('QUICK NOTE'),
                               style: AppText.s(9.5, color: AppColors.primary),
                             ),
+                            if (app.notes.quickText.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
+                                child: Text(
+                                  app.notes.quickText,
+                                  style: AppText.s(13),
+                                ),
+                              ),
                             TextField(
                               controller: note,
                               maxLines: null,
@@ -282,7 +296,8 @@ class _QuickNoteNotificationScreenState
                               children: [
                                 Expanded(
                                   child: _dirty
-                                      ? Text(tr('Not saved yet'),
+                                      ? Text(
+                                          tr('Not saved yet'),
                                           style: AppText.s(
                                             9.5,
                                             color: AppColors.amber,
@@ -291,7 +306,7 @@ class _QuickNoteNotificationScreenState
                                       : const Align(
                                           alignment: Alignment.centerLeft,
                                           child: SavedStatus(
-                                            label: 'Saved & synced just now',
+                                            label: 'Saved just now',
                                             size: 9.5,
                                           ),
                                         ),
@@ -359,11 +374,13 @@ class _QuickNoteNotificationScreenState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(tr('Mail · 12 min'),
+                            Text(
+                              tr('Mail · 12 min'),
                               style: AppText.s(10.5, weight: FontWeight.w700),
                             ),
                             const SizedBox(height: 3),
-                            Text(tr('Weekly project summary is ready'),
+                            Text(
+                              tr('Weekly project summary is ready'),
                               style: AppText.s(10.5, color: AppColors.muted),
                             ),
                           ],

@@ -42,8 +42,10 @@ class _TodoScreenState extends State<TodoScreen> {
       _input.text,
       dueDate: app.today,
       priority: app.settings.defaultPriority,
+      reminderMinutes: app.settings.taskReminderMinutes ?? 0,
     );
     _input.clear();
+    _inputFocus.requestFocus();
   }
 
   @override
@@ -57,12 +59,13 @@ class _TodoScreenState extends State<TodoScreen> {
       2 => upcoming,
       _ => all,
     };
-    if (_hideCompleted) {
+    final hideCompleted = _hideCompleted || app.settings.hideCompletedTasks;
+    if (hideCompleted) {
       visible = visible.where((t) => !t.completed).toList();
     }
     // Reordering maps list positions to the full task list, so it is only
     // offered when nothing is filtered out.
-    final canReorder = _filter == 0 && !_hideCompleted;
+    final canReorder = _filter == 0 && !hideCompleted;
 
     return Scaffold(
       body: SafeArea(
@@ -165,7 +168,8 @@ class _TodoScreenState extends State<TodoScreen> {
             ),
             const SizedBox(height: 12),
             Center(
-              child: Text(tr('Tap + to add another row · drag tasks to reorder'),
+              child: Text(
+                tr('Tap + to add another row · drag tasks to reorder'),
                 style: AppText.s(10, color: AppColors.muted),
               ),
             ),
@@ -242,7 +246,8 @@ class _TodoScreenState extends State<TodoScreen> {
                 color: AppColors.background,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(tr('Edit'),
+              child: Text(
+                tr('Edit'),
                 style: AppText.s(10, color: AppColors.primary),
               ),
             ),
