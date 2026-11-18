@@ -14,6 +14,7 @@ import 'package:flutter_application/features/settings_screen/presentation/screen
 import 'package:flutter_application/features/settings_screen/presentation/screens/sync_status_screen.dart';
 import 'package:flutter_application/features/todo/domain/task.dart';
 import 'package:flutter_application/core/utils/strings.dart';
+import 'package:flutter_application/features/auth/presentation/google_account_card.dart';
 
 /// Settings overview (Settings 26, FR-21): profile card, the preference rows
 /// of the design, then the Tasks / Data / Privacy rows of README UI-09.
@@ -83,12 +84,14 @@ class SettingsScreen extends StatelessWidget {
       content: SingleChildScrollView(
         child: Text(
           tr(
-            'SuperCalendar keeps all your data on this device. There is no '
-            'account, no server and no cloud sync. The app never asks for or '
-            'stores your PIN, password or biometrics. Calendar and '
-            'notification access are only used for the features you turn on. '
-            'VIP and template purchases in this prototype are simulated; no '
-            'real payment is made.',
+            AuthScope.maybeOf(context) != null
+                ? 'Google sign-in is handled by Firebase Authentication. Planner data stays on this device and is not synced to your Google account. VIP purchases are still simulated.'
+                : 'SuperCalendar keeps all your data on this device. There is no '
+                      'account, no server and no cloud sync. The app never asks for or '
+                      'stores your PIN, password or biometrics. Calendar and '
+                      'notification access are only used for the features you turn on. '
+                      'VIP and template purchases in this prototype are simulated; no '
+                      'real payment is made.',
           ),
           style: AppText.s(12.5, height: 1.4),
         ),
@@ -105,6 +108,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
+    final auth = AuthScope.maybeOf(context);
     final settings = app.settings;
     final timeFormat = switch (settings.timeFormat) {
       TimeFormatSetting.h12 => '12-hour',
@@ -123,6 +127,7 @@ class SettingsScreen extends StatelessWidget {
               subtitle: 'Make SuperCalendar yours',
             ),
             const SizedBox(height: 12),
+            if (auth != null) GoogleAccountCard(controller: auth),
             AppCard(
               color: AppColors.primarySoft,
               borderColor: Colors.transparent,
@@ -163,26 +168,27 @@ class SettingsScreen extends StatelessWidget {
             ),
             // Prototype mock (README §10 has no cloud sync); opens the
             // design's sync status screen.
-            InkWell(
-              onTap: () => pushInTab(context, const SyncStatusScreen()),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Row(
-                  children: [
-                    Icon(
-                      LucideIcons.cloudCheck,
-                      size: 15,
-                      color: AppColors.greenStrong,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      tr('Synced across 3 devices'),
-                      style: AppText.s(12, color: AppColors.greenStrong),
-                    ),
-                  ],
+            if (auth == null)
+              InkWell(
+                onTap: () => pushInTab(context, const SyncStatusScreen()),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        LucideIcons.cloudCheck,
+                        size: 15,
+                        color: AppColors.greenStrong,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        tr('Synced across 3 devices'),
+                        style: AppText.s(12, color: AppColors.greenStrong),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
             AppCard(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               shadow: false,

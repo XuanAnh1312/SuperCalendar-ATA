@@ -7,6 +7,7 @@ import 'package:flutter_application/core/services/app_state.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/features/note/domain/note.dart';
 import 'package:flutter_application/core/utils/strings.dart';
+import 'package:flutter_application/features/note/data/note_repository.dart';
 
 /// Creates a note, edits [note], or edits the Quick Note when [quick] is set.
 class NoteEditScreen extends StatefulWidget {
@@ -111,7 +112,8 @@ class _NoteEditScreenState extends State<NoteEditScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (!widget.quick) ...[
-                    Text(tr('TITLE'),
+                    Text(
+                      tr('TITLE'),
                       style: AppText.s(10, color: AppColors.primary),
                     ),
                     TextField(
@@ -137,7 +139,7 @@ class _NoteEditScreenState extends State<NoteEditScreen> {
                     autofocus: widget.note == null,
                     minLines: 6,
                     maxLines: null,
-                    maxLength: widget.quick ? 500 : null,
+                    maxLength: widget.quick ? quickNoteMaxChars : null,
                     style: AppText.s(13, height: 1.45),
                     textCapitalization: TextCapitalization.sentences,
                     decoration: InputDecoration(

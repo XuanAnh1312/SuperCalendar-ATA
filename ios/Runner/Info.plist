@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Flutter Application</string>
+	<string>SuperCalendar</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -26,6 +26,14 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose a photo for your calendar wallpaper.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Save your calendar wallpaper to Photos so you can use it on your Lock Screen.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Show your device calendar events in SuperCalendar. Events are only read, never changed.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Show your device calendar events in SuperCalendar. Events are only read, never changed.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -65,6 +73,19 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>GIDClientID</key>
+	<string>397687149185-ftrqj2aco2gp1bjhcrrgr6l091gqafij.apps.googleusercontent.com</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.397687149185-ftrqj2aco2gp1bjhcrrgr6l091gqafij</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>

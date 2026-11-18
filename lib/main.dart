@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import 'package:flutter_application/app/app.dart';
 import 'package:flutter_application/app/startup_screens.dart';
 import 'package:flutter_application/core/data/sqlite_document_store.dart';
 import 'package:flutter_application/core/services/app_state.dart';
+import 'package:flutter_application/core/services/firebase_bootstrap.dart';
 import 'package:flutter_application/core/services/local_notification_service.dart';
 import 'package:flutter_application/core/services/notification_service.dart';
 import 'package:flutter_application/core/services/system_calendar_service.dart';
+import 'package:flutter_application/features/auth/data/firebase_auth_repository.dart';
+import 'package:flutter_application/features/auth/presentation/auth_controller.dart';
+import 'package:flutter_application/features/auth/presentation/google_account_card.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +26,22 @@ Future<void> main() async {
 Future<void> _boot() async {
   runApp(const StartupScreen());
   try {
+    await initializeFirebase();
+  } catch (error, stackTrace) {
+    runApp(
+      StartupErrorScreen(
+        error: error,
+        stackTrace: stackTrace,
+        onRetry: _boot,
+        title: 'Could not connect to Firebase',
+        message:
+            'Firebase could not initialize. Please try again. '
+            'Your local data has not been changed.',
+      ),
+    );
+    return;
+  }
+  try {
     // One local database for the app, the lock screen and notifications.
     final state = AppState(
       store: await SqliteDocumentStore.open(),
@@ -30,15 +51,19 @@ Future<void> _boot() async {
       systemCalendar: AndroidSystemCalendarService(),
     );
     await state.load();
-    runApp(SuperCalendarApp(state: state));
+    final app = SuperCalendarApp(state: state);
+    runApp(
+      Firebase.apps.isEmpty
+          ? app
+          : AuthSession(
+              controller: AuthController(FirebaseAuthRepository()),
+              child: app,
+            ),
+    );
   } catch (error, stackTrace) {
     debugPrint('SuperCalendar failed to start: $error\n$stackTrace');
     runApp(
-      StartupErrorScreen(
-        error: error,
-        stackTrace: stackTrace,
-        onRetry: _boot,
-      ),
+      StartupErrorScreen(error: error, stackTrace: stackTrace, onRetry: _boot),
     );
   }
 }

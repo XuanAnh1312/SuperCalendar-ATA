@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "397687149185",
+    "project_id": "super-calendar-e4e6e",
+    "storage_bucket": "super-calendar-e4e6e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:397687149185:android:8aa9d2c7fb271751da3380",
+        "android_client_info": {
+          "package_name": "com.supercalendar.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "397687149185-rlqe75s0fcv1pleuldovouegiqu8kte3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.supercalendar.app",
+            "certificate_hash": "3a7c52830b6900332b468e677cc4c7a3f9053d91"
+          }
+        },
+        {
+          "client_id": "397687149185-9l8hp1048p78798pio4s1rl7dug19h31.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD77O4RJ65UqXCsHSBc1jsmAYSvrLsLU_E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "397687149185-9l8hp1048p78798pio4s1rl7dug19h31.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
