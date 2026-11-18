@@ -24,7 +24,6 @@ class _TodoScreenState extends State<TodoScreen> {
 
   // 0 = all, 1 = today, 2 = upcoming.
   int _filter = 0;
-  bool _hideCompleted = false;
 
   @override
   void dispose() {
@@ -38,31 +37,34 @@ class _TodoScreenState extends State<TodoScreen> {
       _inputFocus.requestFocus();
       return;
     }
-    app.tasks.add(
-      _input.text,
-      dueDate: app.today,
-      priority: app.settings.defaultPriority,
-    );
+    app.quickAddTask(_input.text);
     _input.clear();
+    _inputFocus.requestFocus();
   }
 
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
-    final all = app.tasks.items;
-    final today = app.tasks.dueOn(app.today);
-    final upcoming = app.tasks.notDueOn(app.today);
+    final hideCompleted = app.settings.hideCompletedTasks;
+    final all = app.tasks.items
+        .where((t) => !hideCompleted || !t.completed)
+        .toList();
+    final today = all.where((t) => t.isDueOn(app.today)).toList();
+    final upcoming = app.tasks
+        .notDueOn(app.today)
+        .where((t) => !hideCompleted || !t.completed)
+        .toList();
     var visible = switch (_filter) {
       1 => today,
       2 => upcoming,
       _ => all,
     };
-    if (_hideCompleted) {
+    if (hideCompleted) {
       visible = visible.where((t) => !t.completed).toList();
     }
     // Reordering maps list positions to the full task list, so it is only
     // offered when nothing is filtered out.
-    final canReorder = _filter == 0 && !_hideCompleted;
+    final canReorder = _filter == 0 && !hideCompleted;
 
     return Scaffold(
       body: SafeArea(
@@ -76,12 +78,14 @@ class _TodoScreenState extends State<TodoScreen> {
                   '${longDate(app.today)} · ${trf('{n} remaining', {'n': app.tasks.remaining})}',
               trailing: RoundIconButton(
                 icon: LucideIcons.listFilter,
-                iconColor: _hideCompleted ? AppColors.primary : AppColors.text,
+                iconColor: hideCompleted ? AppColors.primary : AppColors.text,
                 onTap: () {
-                  setState(() => _hideCompleted = !_hideCompleted);
+                  app.account.updateSettings(
+                    (s) => s.hideCompletedTasks = !hideCompleted,
+                  );
                   showAppSnack(
                     context,
-                    _hideCompleted
+                    !hideCompleted
                         ? 'Completed tasks hidden'
                         : 'Showing all tasks',
                   );
@@ -165,7 +169,8 @@ class _TodoScreenState extends State<TodoScreen> {
             ),
             const SizedBox(height: 12),
             Center(
-              child: Text(tr('Tap + to add another row · drag tasks to reorder'),
+              child: Text(
+                tr('Tap + to add another row · drag tasks to reorder'),
                 style: AppText.s(10, color: AppColors.muted),
               ),
             ),
@@ -242,7 +247,8 @@ class _TodoScreenState extends State<TodoScreen> {
                 color: AppColors.background,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(tr('Edit'),
+              child: Text(
+                tr('Edit'),
                 style: AppText.s(10, color: AppColors.primary),
               ),
             ),

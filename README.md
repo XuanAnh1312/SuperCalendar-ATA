@@ -75,7 +75,7 @@ Mục tiêu là chứng minh các ý tưởng cốt lõi:
 9. Theme có thể thay đổi giao diện.
 10. Có thể mô phỏng VIP.
 11. Có thể mô phỏng việc mua và áp dụng Template.
-12. Có thể mô phỏng Marketplace mà chưa cần thanh toán thật.
+12. Marketplace được phát triển trong tương lai, ngoài phạm vi Prototype (kể cả Marketplace giả lập).
 
 ---
 
@@ -108,7 +108,7 @@ Có thêm:
  Custom layout.
  Tùy chỉnh Lock Screen.
  Tạo Template.
- Publish Template.
+ Publish Template (tương lai).
  Trong tương lai: bán Template.
 
  3.3. Creator
@@ -141,7 +141,7 @@ Trong phiên bản Marketplace tương lai:
  Lock Screen
  Mock VIP
  Mock Payment
- Mock Template Marketplace
+ Marketplace: phát triển trong tương lai, ngoài phạm vi Prototype.
 
  4.2. Chưa cần triển khai thật
 
@@ -702,7 +702,7 @@ Có:
 
  Default Theme.
  Basic customization.
- Marketplace.
+ Marketplace (tương lai, ngoài Prototype).
  Purchased Templates.
 
 Không có:
@@ -721,7 +721,7 @@ Có:
  Custom Layout.
  Custom Lock Screen.
  Create Template.
- Publish Template.
+ Publish Template (tương lai).
 
 ---
 
@@ -793,9 +793,9 @@ Price:
 
 ---
 
- 22. TEMPLATE MARKETPLACE — PROTOTYPE
+ 22. TEMPLATE MARKETPLACE — FUTURE
 
-Marketplace giả lập:
+Marketplace được phát triển trong tương lai, không triển khai trong Prototype, kể cả Store giả lập. Luồng dưới đây chỉ mô tả định hướng tương lai:
 
 
 Template Store
@@ -833,9 +833,9 @@ Không cần payment thật.
 
 ---
 
- 23. CREATOR SYSTEM — PROTOTYPE
+ 23. CREATOR SYSTEM — FUTURE
 
-VIP user có thể:
+Trong tương lai, VIP user có thể thực hiện luồng Creator/Publish dưới đây. Prototype chỉ hỗ trợ tạo và lưu template cá nhân bằng Template Studio, chưa hỗ trợ đặt giá hay publish.
 
 
 Create Template
@@ -851,9 +851,7 @@ Set Price
 Publish
 
 
-Template được lưu trong database prototype.
-
-Chưa cần server.
+Trong Prototype, template cá nhân được lưu cục bộ. Marketplace và Creator/Publish sẽ được phát triển trong giai đoạn tương lai.
 
 ---
 
@@ -972,7 +970,7 @@ Home
      ├── Calendar · Notifications · Lock Screen
      └── Hide completed tasks · Data · Privacy & Terms
 
-Notes và Quick Note mở từ widget Quick Note trên Home. Edit Your Screen mở từ Home; Template Store mở từ tab VIP và Edit Your Screen.
+Notes và Quick Note mở từ widget Quick Note trên Home. Edit Your Screen mở từ Home; Template Store được phát triển trong tương lai, chưa có lối vào trong Prototype.
 Sync status, "Synced across 3 devices" và "Connected devices" là màn mô phỏng theo Figma (Settings 26–29); Prototype không có Cloud Sync (mục 10).
 
 
@@ -1143,7 +1141,7 @@ Mỗi FR dưới đây ghi: chức năng chính trong Prototype, nơi triển kh
 | FR-14 Widget Template | 3 Free Template dùng được ngay, template khác có khóa; sở hữu khác với đang áp dụng (BR-07). | `vip/data/template_repository.dart`, `template_store_screen.dart` | AC-30 |
 | FR-15 VIP & Paywall | VIP giả lập; mọi chức năng Premium kiểm tra qua `canAccess(feature)` (BR-06) và hiện Paywall bằng `requireVip`; Mock Purchase ghi bản ghi Purchase; Downgrade khóa lại chức năng VIP. | `vip/presentation/widgets/vip_gate.dart`, `vip_screen.dart`, `core/services/app_state.dart` | AC-31, AC-34 |
 | FR-16 Template Studio | VIP chỉnh màu, kích thước widget, kiểu thẻ, phông với bản xem trước trực tiếp; lưu vào Presets và áp dụng. | `vip/presentation/screens/template_studio_screen.dart` | AC-32, AC-33 |
-| FR-17 Template Marketplace & Publish | (P3) Store giả lập có Preview/Buy bằng Mock Purchase; VIP có thể đánh dấu publish template của mình trong database cục bộ. Không có marketplace thật (mục 10). | `template_store_screen.dart` | — |
+| FR-17 Template Marketplace & Publish | Phát triển trong tương lai, ngoài phạm vi Prototype; chưa triển khai Store giả lập hoặc publish template (mục 10). | Dự kiến: `template_store_screen.dart` | — |
 | FR-18 Notification & Reminder | Reminder cho Event/Task/Habit qua `flutter_local_notifications`; action Done/Snooze ghi thẳng vào database; đặt lại reminder sau khi khởi động máy. | `core/services/notification_service.dart`, `local_notification_service.dart`, `notification_actions.dart`, `BootReceiver.kt` | AC-16, AC-35, AC-36 |
 | FR-19 Lock Screen | Ongoing notification và màn Lock Screen: Schedule chỉ xem, To-do tick và Add Task; chế độ Hide details chỉ hiện số lượng; mở app dựa vào cơ chế mở khóa của Android (BR-14). | `lock_screen/`, `local_notification_service.dart` | AC-37, AC-38 |
 
@@ -1227,7 +1225,7 @@ lib/
     ├── lock_screen/              Lock Screen (Schedule read-only, To-do tương tác)
     │   └── presentation/
     │
-    ├── vip/                      VIP, mock payment, Template Studio, Template Store
+    ├── vip/                      VIP, mock payment, Template Studio (Template Store: tương lai)
     │   ├── data/                 TemplateRepository (Theme, Template, Purchase)
     │   ├── domain/               Template, Purchase, PaymentResult
     │   └── presentation/
@@ -1661,7 +1659,7 @@ Edit Your Screen ─────┤
                                                   │
 VIP Tab ── Template Studio ── Canvas / Styles / Presets ── Save ── Apply
                                                   │
-                         (P3) Marketplace ── Browse / Search / Purchase / Publish
+                         (Future) Marketplace ── Browse / Search / Purchase / Publish
 ```
 
 ---
@@ -1729,7 +1727,7 @@ Các chức năng sau không thuộc Prototype và có thể phát triển ở p
 |---|---|
 | Backend & Account | Real Backend, Real Account Authentication, Cloud Sync, đồng bộ nhiều thiết bị |
 | Payment | Real Payment Gateway, Credit Card Processing, Banking Integration, Google Play Billing |
-| Marketplace | Template Marketplace, Publish template, Real Marketplace Backend, Creator Revenue Sharing, Creator Payout, Complex Moderation, Review/Rating System |
+| Marketplace | Template Marketplace (kể cả giả lập), Publish template, Real Marketplace Backend, Creator Revenue Sharing, Creator Payout, Complex Moderation, Review/Rating System |
 | Social | Social Network, Chat, Team Collaboration, gửi lời mời Guests thật, Public Social Sharing trong ứng dụng |
 | Calendar | Ghi ngược vào System Calendar, Advanced Third-party Calendar Synchronization (Google/Outlook API) |
 | Others | AI Assistant, nhắc nhở theo vị trí hoặc giờ mặt trời, đặt hình nền tự động, phiên bản iOS |
@@ -1881,7 +1879,7 @@ ACCEPTANCE TEST
 | FR-14 | Widget Template | SCR-01, SCR-02, SCR-09 | WidgetTemplate | AC-30 | P1 |
 | FR-15 | VIP & Paywall | SCR-09, SCR-17 | User, Purchase | AC-31, AC-34 | P1 |
 | FR-16 | Template Studio | SCR-09 | WidgetTemplate | AC-32, AC-33 | P1 |
-| FR-17 | Template Marketplace & Publish | SCR-18 | WidgetTemplate, Purchase | — | P3 |
+| FR-17 | Template Marketplace & Publish | SCR-18 (dự kiến) | WidgetTemplate, Purchase | — | Future |
 | FR-18 | Notification & Reminder | System | Reminder | AC-16, AC-35, AC-36 | P1 |
 | FR-19 | Lock Screen | SCR-11 | Event, Task, Note, UserSettings | AC-37, AC-38 | P1 |
 | FR-20 | Android Quick Note Notification | SCR-12 | Note | AC-39 | P2 |
@@ -1910,7 +1908,7 @@ ACCEPTANCE TEST
 | FR-14 | Widget Template | Mẫu trình bày widget |
 | FR-15 | VIP & Paywall | Kiểm soát Premium và nâng cấp |
 | FR-16 | Template Studio | VIP tự thiết kế template |
-| FR-17 | Template Marketplace & Publish | Khám phá và chia sẻ template (P3) |
+| FR-17 | Template Marketplace & Publish | Khám phá và chia sẻ template (tương lai, ngoài Prototype) |
 | FR-18 | Notification & Reminder | Nhắc nhở và thao tác nhanh |
 | FR-19 | Lock Screen | Lịch trình, To-do, Quick Note trên màn hình khóa |
 | FR-20 | Android Quick Note Notification | Sửa Quick Note từ khay thông báo |

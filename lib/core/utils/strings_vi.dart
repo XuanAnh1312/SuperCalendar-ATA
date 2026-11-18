@@ -22,8 +22,6 @@ const viStrings = <String, String>{
   'Reset': 'Đặt lại',
   'Save': 'Lưu',
   'Saved': 'Đã lưu',
-  'Saved & synced': 'Đã lưu',
-  'Saved & synced just now': 'Vừa lưu xong',
   'Not saved yet': 'Chưa lưu',
   'Undo': 'Hoàn tác',
   'done': 'xong',
@@ -116,6 +114,15 @@ const viStrings = <String, String>{
   'Permission not granted · using your SuperCalendar events only':
       'Chưa cấp quyền · chỉ dùng sự kiện của SuperCalendar',
   'SuperCalendar can read the events already on this phone and show them next to yours. They stay read-only and never leave the device. Android will ask for calendar access.': 'SuperCalendar có thể đọc các sự kiện sẵn có trên điện thoại và hiện cạnh sự kiện của bạn. Chúng chỉ để xem và không rời khỏi máy. Android sẽ hỏi quyền truy cập lịch.',
+  'Day': 'Ngày',
+  'Today is {date}': 'Hôm nay là {date}',
+  '1 event': '1 sự kiện',
+  'A little room between': 'Còn chỗ trống xen giữa',
+  'No events scheduled': 'Không có sự kiện',
+  'A little open space': 'Một khoảng trống nhỏ',
+  'There are no events on {date}. Keep it open, or make time for something that matters.':
+      'Không có sự kiện ngày {date}. Cứ để trống, hoặc dành thời gian cho việc quan trọng.',
+  'Back to today · {date}': 'Về hôm nay · {date}',
 
   // ── Event ────────────────────────────────────────────────────────────────
   'Event': 'Sự kiện',
@@ -170,6 +177,12 @@ const viStrings = <String, String>{
   'This and following events': 'Sự kiện này và các lần sau',
   'All events': 'Tất cả sự kiện',
   'Save changes to': 'Lưu thay đổi cho',
+  'Delete recurring event?': 'Xoá sự kiện lặp?',
+  '{title} repeats {repeat}. Choose what to update.':
+      '{title} lặp {repeat}. Chọn phạm vi cập nhật.',
+  'This occurrence': 'Lần này',
+  'Entire series': 'Cả chuỗi',
+  'This occurrence and every one after it': 'Lần này và mọi lần sau',
 
   // ── Habits ───────────────────────────────────────────────────────────────
   'Generated automatically from your rhythm':
@@ -287,6 +300,12 @@ const viStrings = <String, String>{
   'Quick Note for fast capture from the shade':
       'Ghi chú nhanh ngay từ khay thông báo',
 
+  'Skip': 'Bỏ qua',
+
+  'Saved just now': 'Vừa lưu xong',
+  'Quick Note is full. Open the app to edit it.':
+      'Ghi chú nhanh đã đầy. Mở ứng dụng để chỉnh sửa.',
+
   // ── Settings ─────────────────────────────────────────────────────────────
   'Account': 'Tài khoản',
   'Name': 'Tên',
@@ -345,6 +364,14 @@ const viStrings = <String, String>{
   '{n} event read from this phone': 'Đã đọc {n} sự kiện từ điện thoại',
   '{n} events read from this phone': 'Đã đọc {n} sự kiện từ điện thoại',
   'Why the permission? With calendar access SuperCalendar can show the events already on this phone next to yours. They are read-only and are not copied or uploaded. Without it, the app works the same with the events you create here.': 'Vì sao cần quyền này? Khi được truy cập lịch, SuperCalendar hiện các sự kiện có sẵn trên điện thoại cạnh sự kiện của bạn. Chúng chỉ để xem, không bị sao chép hay tải lên. Không cấp quyền thì ứng dụng vẫn hoạt động bình thường với sự kiện bạn tạo.',
+  'Phone calendars': 'Lịch trên điện thoại',
+  'Events from these calendars show in SuperCalendar. They stay read-only.':
+      'Sự kiện từ các lịch này hiện trong SuperCalendar. Chúng chỉ để xem.',
+  'SHOW THESE CALENDARS': 'HIỆN CÁC LỊCH NÀY',
+  'No calendars found on this phone': 'Không tìm thấy lịch nào trên điện thoại',
+  'Calendar access is off, so SuperCalendar cannot read events from this phone. Local events still work.':
+      'Quyền lịch đang tắt nên SuperCalendar không đọc được sự kiện trên điện thoại. Sự kiện trong ứng dụng vẫn dùng bình thường.',
+  'Open Android settings': 'Mở cài đặt Android',
 
   // Notification settings
   'Notification settings': 'Cài đặt thông báo',
@@ -745,5 +772,46 @@ const viStrings = <String, String>{
       'SuperCalendar không thể mở cơ sở dữ liệu trên máy. Dữ liệu hiện có của bạn không bị thay đổi.',
   'Try again': 'Thử lại',
   'Technical details': 'Chi tiết kỹ thuật',
+  // Firebase account (Google sign-in).
+  'Could not load this photo. Please try another image.':
+      'Không thể tải ảnh này. Vui lòng thử ảnh khác.',
+  'Google sign-in is handled by Firebase Authentication. Planner data stays on this device and is not synced to your Google account. VIP purchases are still simulated.':
+      'Đăng nhập Google được xử lý qua Firebase Authentication. Dữ liệu lịch vẫn được lưu trên thiết bị và chưa đồng bộ với tài khoản Google. Các giao dịch VIP vẫn là mô phỏng.',
+  'Google account': 'Tài khoản Google',
+  'Continue with Google': 'Tiếp tục với Google',
+  'Signed in': 'Đã đăng nhập',
+  'Sign out': 'Đăng xuất',
+  'Your planner data stays on this device. Cloud sync is not available yet.':
+      'Dữ liệu lịch vẫn được lưu trên thiết bị này. Chưa hỗ trợ đồng bộ đám mây.',
+  'Sign-in was cancelled.': 'Đã hủy đăng nhập.',
+  'Allow pop-ups in your browser, then try again.':
+      'Hãy cho phép cửa sổ bật lên trong trình duyệt rồi thử lại.',
+  'This app address is not authorized for Google sign-in.':
+      'Địa chỉ ứng dụng chưa được cho phép đăng nhập Google.',
+  'Google sign-in has not been enabled for this app.':
+      'Ứng dụng chưa bật đăng nhập Google.',
+  'Check your internet connection and try again.':
+      'Hãy kiểm tra kết nối mạng rồi thử lại.',
+  'This email already uses another sign-in method.':
+      'Email này đang sử dụng phương thức đăng nhập khác.',
+  'Could not sign in. Please try again.': 'Không thể đăng nhập. Vui lòng thử lại.',
+  'Could not sign out. Please try again.': 'Không thể đăng xuất. Vui lòng thử lại.',
+  'Could not restore your sign-in session. Please try again.':
+      'Không thể khôi phục phiên đăng nhập. Vui lòng thử lại.',
+  'Google did not return a sign-in token.':
+      'Google chưa trả về thông tin xác thực đăng nhập.',
+  'Could not sign in with Google. Check the Android sign-in configuration.':
+      'Không thể đăng nhập Google. Hãy kiểm tra cấu hình đăng nhập Android.',
+  'Something went wrong. Please try again.': 'Đã xảy ra lỗi. Vui lòng thử lại.',
+  'Could not connect to Firebase': 'Không thể kết nối Firebase',
+  'Firebase could not initialize. Please try again. Your local data has not been changed.':
+      'Không thể khởi tạo Firebase. Vui lòng thử lại. Dữ liệu trên máy của bạn chưa bị thay đổi.',
   'No subtasks yet · tap + Add': 'Chưa có công việc con · chạm + Thêm',
+  'Save for Lock Screen': 'Lưu ảnh màn hình khóa',
+  'Apply wallpaper on iPhone': 'Đặt hình nền trên iPhone',
+  'How to apply': 'Cách đặt hình nền',
+  'Open Settings → Wallpaper → Add New Wallpaper → Photos, then select the image you saved.':
+      'Mở Cài đặt → Hình nền → Thêm hình nền mới → Ảnh, rồi chọn ảnh vừa lưu.',
+  'Could not sign in with Google. Check the sign-in configuration for this device.':
+      'Không thể đăng nhập Google. Hãy kiểm tra cấu hình đăng nhập của thiết bị này.',
 };

@@ -11,6 +11,7 @@ import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/features/calendar/domain/event.dart';
 import 'package:flutter_application/features/calendar/domain/goal.dart';
+import 'package:flutter_application/features/calendar/presentation/calendar_visibility.dart';
 import 'package:flutter_application/features/calendar/presentation/screens/event_detail_screen.dart';
 import 'package:flutter_application/features/calendar/presentation/screens/event_form_screen.dart';
 import 'package:flutter_application/features/calendar/presentation/widgets/system_calendar_prompt.dart';
@@ -25,6 +26,10 @@ class CalendarScreen extends StatefulWidget {
 }
 
 class _CalendarScreenState extends State<CalendarScreen> {
+  /// Day tab is local; Month/Week still follow [AppState.weekView] so Home
+  /// can open Week View without changing app_state.
+  bool _dayView = false;
+
   void _newEvent(BuildContext context, DateTime day) {
     pushFullScreen(context, EventFormScreen(initialDate: day));
   }
@@ -43,6 +48,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     unawaited(app.refreshSystemCalendar());
   }
 
+  List<CalendarEvent> _eventsOn(AppState app, DateTime day) =>
+      visibleEventsOn(app.events.on(day), app.settings);
+
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
@@ -51,38 +59,53 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final showPrompt =
         !app.settings.useSystemCalendar &&
         !app.settings.calendarBannerDismissed;
+    final tabIndex = app.weekView
+        ? 1
+        : _dayView
+        ? 2
+        : 0;
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          children: [
-            Row(
-              children: [
-                SegmentedToggle(
-                  labels: const ['Month', 'Week'],
-                  index: app.weekView ? 1 : 0,
-                  onChanged: (i) => app.setWeekView(i == 1),
-                ),
-                const Spacer(),
-                RoundIconButton(
-                  icon: LucideIcons.plus,
-                  size: 40,
-                  filled: true,
-                  onTap: () => _newEvent(context, selected),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            if (app.weekView)
-              ..._weekView(context, app)
-            else
-              ..._monthView(context, app, month),
-            if (showPrompt) ...[
+        child: RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: app.refreshSystemCalendar,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            children: [
+              Row(
+                children: [
+                  SegmentedToggle(
+                    labels: const ['Month', 'Week', 'Day'],
+                    index: tabIndex,
+                    onChanged: (i) {
+                      setState(() => _dayView = i == 2);
+                      app.setWeekView(i == 1);
+                    },
+                  ),
+                  const Spacer(),
+                  RoundIconButton(
+                    icon: LucideIcons.plus,
+                    size: 40,
+                    filled: true,
+                    onTap: () => _newEvent(context, selected),
+                  ),
+                ],
+              ),
               const SizedBox(height: 14),
-              const SystemCalendarPrompt(),
+              if (app.weekView)
+                ..._weekView(context, app)
+              else if (_dayView)
+                ..._dayViewContent(context, app)
+              else
+                ..._monthView(context, app, month),
+              if (showPrompt) ...[
+                const SizedBox(height: 14),
+                const SystemCalendarPrompt(),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -96,12 +119,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final lead = (month.weekday - app.firstWeekday) % 7;
     final weeks = ((lead + daysInMonth) / 7).ceil();
     final selected = app.selectedDay;
-    final agenda = app.events.on(selected);
+    final agenda = _eventsOn(app, selected);
+    final onToday = sameDay(selected, app.today);
 
     return [
       PageHeader(
         title: '${monthNames[month.month - 1]} ${month.year}',
-        subtitle: 'Tap a date to create an event',
+        subtitle: onToday
+            ? trf('Today is {date}', {'date': longDate(selected)})
+            : longDate(selected),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -115,6 +141,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               AppColors.text,
               () => _showMonth(app, DateTime(month.year, month.month + 1)),
             ),
+            SoftPill(label: 'Today', onTap: () => app.selectDay(app.today)),
           ],
         ),
       ),
@@ -166,6 +193,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
         color: AppColors.purple,
       ),
       const SizedBox(height: 14),
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              longDate(selected),
+              style: AppText.s(14, weight: FontWeight.w600),
+            ),
+          ),
+          if (onToday)
+            Text(
+              tr('Today'),
+              style: AppText.s(12, weight: FontWeight.w600, color: AppColors.primary),
+            ),
+        ],
+      ),
+      const SizedBox(height: 10),
       if (agenda.isEmpty)
         EmptyState(
           icon: LucideIcons.calendarPlus,
@@ -204,7 +247,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   ) {
     final inMonth = day.month == month.month;
     final selected = sameDay(day, app.selectedDay);
-    final events = inMonth ? app.events.on(day) : const <CalendarEvent>[];
+    final events = inMonth ? _eventsOn(app, day) : const <CalendarEvent>[];
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
@@ -282,11 +325,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final monday = days.firstWhere((d) => d.weekday == DateTime.monday);
     final eventCount = days.fold<int>(
       0,
-      (sum, day) => sum + app.events.on(day).length,
+      (sum, day) => sum + _eventsOn(app, day).length,
     );
     final gridHeight = (_lastHour - _firstHour) * _hourHeight;
-    final outside = app.events
-        .on(anchor)
+    final outside = _eventsOn(app, anchor)
         .where(
           (e) =>
               e.endMinutes <= _firstHour * 60 ||
@@ -452,7 +494,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         child: Stack(
           clipBehavior: Clip.hardEdge,
           children: [
-            for (final event in app.events.on(day))
+            for (final event in _eventsOn(app, day))
               if (event.endMinutes > _firstHour * 60 &&
                   event.startMinutes < _lastHour * 60)
                 _weekEvent(context, event),
@@ -496,6 +538,190 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final thursday = monday.add(const Duration(days: 3));
     final firstDay = DateTime(thursday.year, 1, 1);
     return thursday.difference(firstDay).inDays ~/ 7 + 1;
+  }
+
+  // ---- Day ----------------------------------------------------------------
+
+  List<Widget> _dayViewContent(BuildContext context, AppState app) {
+    final day = app.selectedDay;
+    final events = _eventsOn(app, day);
+    final first = app.weekStartOf(day);
+    final days = [
+      for (var i = 0; i < 7; i++)
+        DateTime(first.year, first.month, first.day + i),
+    ];
+    final gridHeight = (_lastHour - _firstHour) * _hourHeight;
+    final inGrid = events
+        .where(
+          (e) =>
+              e.endMinutes > _firstHour * 60 &&
+              e.startMinutes < _lastHour * 60,
+        )
+        .toList();
+    final outside = events
+        .where(
+          (e) =>
+              e.endMinutes <= _firstHour * 60 ||
+              e.startMinutes >= _lastHour * 60,
+        )
+        .toList();
+    final countLabel = events.length == 1
+        ? tr('1 event')
+        : trf('{n} events', {'n': events.length});
+
+    return [
+      Text(longDate(day), style: AppText.s(20)),
+      const SizedBox(height: 2),
+      Text(
+        events.isEmpty
+            ? tr('No events scheduled')
+            : '$countLabel · ${tr('A little room between')}',
+        style: AppText.s(10, color: AppColors.muted),
+      ),
+      const SizedBox(height: 10),
+      Row(
+        children: [
+          for (var i = 0; i < 7; i++)
+            Expanded(child: _weekDayHeader(app, days[i], i)),
+        ],
+      ),
+      const SizedBox(height: 12),
+      if (events.isEmpty)
+        _DayEmpty(
+          day: day,
+          today: app.today,
+          onCreate: () => _newEvent(context, day),
+          onToday: () => app.selectDay(app.today),
+        )
+      else ...[
+        AppCard(
+          padding: const EdgeInsets.fromLTRB(0, 8, 8, 8),
+          child: SizedBox(
+            height: gridHeight + 16,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: _hourColumn - 1,
+                  child: Column(
+                    children: [
+                      for (var h = _firstHour; h < _lastHour; h++)
+                        SizedBox(
+                          height: _hourHeight,
+                          child: Align(
+                            alignment: Alignment.topRight,
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: Text(
+                                h.toString().padLeft(2, '0'),
+                                style: AppText.s(8.5, color: AppColors.faint),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: SizedBox(
+                    height: gridHeight + 16,
+                    child: Stack(
+                      clipBehavior: Clip.hardEdge,
+                      children: [
+                        for (final event in inGrid) _weekEvent(context, event),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (outside.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(
+            trf('Outside 08:00–17:00 on {date}', {'date': shortDate(day)}),
+            style: AppText.s(10, color: AppColors.muted),
+          ),
+          const SizedBox(height: 8),
+          for (final event in outside)
+            _AgendaRow(
+              event: event,
+              isToday: sameDay(event.date, app.today),
+              onTap: () => _openEvent(context, event),
+            ),
+        ],
+      ],
+    ];
+  }
+}
+
+class _DayEmpty extends StatelessWidget {
+  const _DayEmpty({
+    required this.day,
+    required this.today,
+    required this.onCreate,
+    required this.onToday,
+  });
+
+  final DateTime day;
+  final DateTime today;
+  final VoidCallback onCreate;
+  final VoidCallback onToday;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 8),
+      child: Column(
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Icon(
+              LucideIcons.calendarHeart,
+              size: 28,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            tr('A little open space'),
+            textAlign: TextAlign.center,
+            style: AppText.s(18, weight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            trf(
+              'There are no events on {date}. Keep it open, or make time for something that matters.',
+              {'date': '${monthNames[day.month - 1]} ${day.day}'},
+            ),
+            textAlign: TextAlign.center,
+            style: AppText.s(12.5, color: AppColors.muted, height: 1.4),
+          ),
+          const SizedBox(height: 18),
+          PrimaryButton(
+            label: 'Create event',
+            icon: LucideIcons.plus,
+            onTap: onCreate,
+          ),
+          if (!sameDay(day, today)) ...[
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: onToday,
+              child: Text(
+                trf('Back to today · {date}', {'date': longDate(today)}),
+                style: AppText.s(12, color: AppColors.primary),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 

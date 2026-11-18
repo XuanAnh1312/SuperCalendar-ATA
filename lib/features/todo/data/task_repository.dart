@@ -1,4 +1,5 @@
 import 'package:flutter_application/core/data/document_store.dart';
+import 'package:flutter_application/features/settings_screen/data/user_repository.dart';
 import 'package:flutter_application/core/data/repository.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/features/todo/domain/task.dart';
@@ -9,6 +10,15 @@ class TaskRepository extends Repository<Task> {
       super(store, Collections.tasks);
 
   final DateTime Function() _clock;
+  int? _defaultReminderMinutes = 30;
+
+  @override
+  Future<void> load() async {
+    final account = UserRepository(store);
+    await account.load();
+    _defaultReminderMinutes = account.settings.taskReminderMinutes;
+    await super.load();
+  }
 
   // ── Recurring tasks (AC-25) ───────────────────────────────────────────────
 
@@ -82,7 +92,7 @@ class TaskRepository extends Repository<Task> {
       estimateMinutes: task.estimateMinutes,
       colorIndex: task.colorIndex,
       tags: List<String>.from(task.tags),
-      subtasks: [],
+      subtasks: [for (final subtask in task.subtasks) Subtask(subtask.title)],
     );
     insert(newTask);
     return newTask;
@@ -131,9 +141,12 @@ class TaskRepository extends Repository<Task> {
 
   List<Task> dueOn(DateTime day) => items.where((t) => t.isDueOn(day)).toList();
 
-  /// Tasks that are not due on [day]: later, earlier or undated.
-  List<Task> notDueOn(DateTime day) =>
-      items.where((t) => !t.isDueOn(day)).toList();
+  /// Upcoming contains future dated tasks. Undated tasks remain in All.
+  List<Task> notDueOn(DateTime day) => items
+      .where(
+        (t) => t.dueDate != null && dateOnly(t.dueDate!).isAfter(dateOnly(day)),
+      )
+      .toList();
 
   /// Up to three tasks for the dashboard and lock screen: today's first.
   List<Task> dashboard(DateTime day) {
@@ -173,7 +186,7 @@ class TaskRepository extends Repository<Task> {
       dueDate: dueDate == null ? null : dateOnly(dueDate),
       priority: priority ?? Task.priorityMedium,
       createdAt: now,
-      reminderMinutes: reminderMinutes,
+      reminderMinutes: reminderMinutes ?? _defaultReminderMinutes ?? 0,
     );
     items.insert(0, task);
     _renumber();
@@ -189,7 +202,13 @@ class TaskRepository extends Repository<Task> {
     notifyListeners();
   }
 
-  void toggle(Task task) => setCompleted(task, !task.completed);
+  void toggle(Task task) {
+    if (task.completed) {
+      setCompleted(task, false);
+    } else {
+      completeAndReschedule(task);
+    }
+  }
 
   void setCompleted(Task task, bool completed) {
     task.completed = completed;

@@ -1,11 +1,10 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:flutter_application/app/theme/app_colors.dart';
 import 'package:flutter_application/app/theme/app_text.dart';
 import 'package:flutter_application/app/theme/app_theme_data.dart';
+import 'package:flutter_application/core/services/background_photo.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/core/utils/strings.dart';
 
@@ -704,9 +703,9 @@ class WeekDots extends StatelessWidget {
   }
 }
 
-/// `☁ Saved & synced` status line of the quick note.
+/// Saved status line of the quick note.
 class SavedStatus extends StatelessWidget {
-  const SavedStatus({super.key, this.label = 'Saved & synced', this.size = 9});
+  const SavedStatus({super.key, this.label = 'Saved', this.size = 9});
 
   final String label;
   final double size;
@@ -1184,27 +1183,55 @@ Future<int?> pickReminder(BuildContext context, int? current) async {
 
 /// Paints a user-chosen background image behind [child], with a wash of the
 /// theme background on top so content stays readable.
-class ScreenBackground extends StatelessWidget {
+class ScreenBackground extends StatefulWidget {
   const ScreenBackground({super.key, required this.child, this.imagePath});
 
   final Widget child;
   final String? imagePath;
 
   @override
+  State<ScreenBackground> createState() => _ScreenBackgroundState();
+}
+
+class _ScreenBackgroundState extends State<ScreenBackground> {
+  ImageProvider? _image;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImage();
+  }
+
+  @override
+  void didUpdateWidget(ScreenBackground oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imagePath != widget.imagePath) _loadImage();
+  }
+
+  void _loadImage() {
+    final path = widget.imagePath;
+    try {
+      _image = path == null ? null : backgroundPhotoProvider(path);
+    } on FormatException {
+      _image = null;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final path = imagePath;
-    if (path == null) return child;
+    final image = _image;
+    if (image == null) return widget.child;
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.file(
-          File(path),
+        Image(
+          image: image,
           fit: BoxFit.cover,
           // A deleted or unreadable file falls back to the plain background.
           errorBuilder: (_, _, _) => const SizedBox.shrink(),
         ),
         ColoredBox(color: AppColors.background.withValues(alpha: 0.55)),
-        child,
+        widget.child,
       ],
     );
   }

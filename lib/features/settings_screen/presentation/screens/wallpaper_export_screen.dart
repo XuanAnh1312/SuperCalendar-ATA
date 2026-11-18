@@ -34,6 +34,26 @@ class _WallpaperExportScreenState extends State<WallpaperExportScreen> {
   bool _busy = false;
 
   Future<void> _setWallpaper() async {
+    if (requiresManualWallpaperSetup) {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(tr('Apply wallpaper on iPhone')),
+          content: Text(
+            tr(
+              'Open Settings → Wallpaper → Add New Wallpaper → Photos, then select the image you saved.',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(tr('OK')),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     if (_busy) return;
     setState(() => _busy = true);
     final ok = await WallpaperService.instance.setWallpaper(
@@ -131,7 +151,9 @@ class _WallpaperExportScreenState extends State<WallpaperExportScreen> {
                         const SizedBox(height: 6),
                         Text(
                           tr(
-                            _applied
+                            requiresManualWallpaperSetup
+                                ? 'Open Settings → Wallpaper → Add New Wallpaper → Photos, then select the image you saved.'
+                                : _applied
                                 ? 'It is now your wallpaper.'
                                 : 'Choose Set Wallpaper to apply it. Your current wallpaper hasn’t changed.',
                           ),
@@ -154,7 +176,12 @@ class _WallpaperExportScreenState extends State<WallpaperExportScreen> {
                   soft: true,
                   onTap: () => Navigator.of(context).pop(),
                 ),
-                StudioButton(label: 'Set Wallpaper', onTap: _setWallpaper),
+                StudioButton(
+                  label: requiresManualWallpaperSetup
+                      ? 'How to apply'
+                      : 'Set Wallpaper',
+                  onTap: _setWallpaper,
+                ),
               ],
             ),
           ],

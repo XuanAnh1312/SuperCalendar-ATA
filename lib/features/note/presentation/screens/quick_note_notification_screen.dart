@@ -7,6 +7,8 @@ import 'package:flutter_application/core/services/app_state.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/core/utils/strings.dart';
+import 'package:flutter_application/features/note/data/note_repository.dart';
+import 'package:flutter_application/features/note/presentation/screens/note_edit_screen.dart';
 
 /// In-app preview of the notification shade with the Quick Note
 /// notification. The note is saved to the same database the dashboard reads.
@@ -20,7 +22,7 @@ class QuickNoteNotificationScreen extends StatefulWidget {
 
 class _QuickNoteNotificationScreenState
     extends State<QuickNoteNotificationScreen> {
-  static const _maxLength = 500;
+  static const _maxLength = quickNoteMaxChars;
 
   TextEditingController? _note;
   final _toggles = [true, true, false, false];
@@ -39,9 +41,7 @@ class _QuickNoteNotificationScreenState
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _note ??= TextEditingController(
-      text: AppScope.read(context).notes.quickText,
-    );
+    _note ??= TextEditingController();
   }
 
   @override
@@ -51,20 +51,41 @@ class _QuickNoteNotificationScreenState
   }
 
   void _save() {
-    AppScope.read(context).notes.setQuick(_note!.text);
+    final app = AppScope.read(context);
+    final input = _note!.text.trim();
+    if (input.isEmpty) return;
+    if (!app.notes.captureQuick(input, append: app.settings.quickNoteAppend)) {
+      showAppSnack(context, 'Quick Note is full. Open the app to edit it.');
+      return;
+    }
+    _note!.clear();
     FocusScope.of(context).unfocus();
     setState(() => _dirty = false);
     showAppSnack(context, 'Note saved');
   }
 
   void _openApp() {
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => const NoteEditScreen(quick: true),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
     final note = _note!;
+    final capacity = app.notes.quickCapacity(
+      append: app.settings.quickNoteAppend,
+    );
+    final oldLength = app.settings.quickNoteAppend
+        ? app.notes.quickText.characters.length
+        : 0;
+    final count =
+        oldLength +
+        note.text.characters.length +
+        (oldLength > 0 && note.text.isNotEmpty ? 1 : 0);
     final now = app.now;
     return Scaffold(
       body: Container(
@@ -185,7 +206,8 @@ class _QuickNoteNotificationScreenState
                 ),
               ),
               const SizedBox(height: 16),
-              Text(tr('CONVERSATIONS & NOTES'),
+              Text(
+                tr('CONVERSATIONS & NOTES'),
                 style: AppText.s(10, color: AppColors.muted),
               ),
               const SizedBox(height: 8),
@@ -219,15 +241,12 @@ class _QuickNoteNotificationScreenState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(tr('SuperCalendar'),
+                                Text(
+                                  tr('SuperCalendar'),
                                   style: AppText.s(
                                     11.5,
                                     weight: FontWeight.w700,
                                   ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(tr('now · notification access'),
-                                  style: AppText.s(9.5, color: AppColors.muted),
                                 ),
                               ],
                             ),
@@ -255,13 +274,25 @@ class _QuickNoteNotificationScreenState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(tr('QUICK NOTE'),
+                            Text(
+                              tr('QUICK NOTE'),
                               style: AppText.s(9.5, color: AppColors.primary),
                             ),
+                            if (app.notes.quickText.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
+                                child: Text(
+                                  app.notes.quickText,
+                                  style: AppText.s(13),
+                                ),
+                              ),
                             TextField(
                               controller: note,
                               maxLines: null,
-                              maxLength: _maxLength,
+                              maxLength: capacity == 0 ? _maxLength : capacity,
+                              readOnly: capacity == 0,
                               style: AppText.s(13, height: 1.35),
                               onChanged: (_) => setState(() => _dirty = true),
                               decoration: InputDecoration(
@@ -271,7 +302,11 @@ class _QuickNoteNotificationScreenState
                                 contentPadding: const EdgeInsets.symmetric(
                                   vertical: 8,
                                 ),
-                                hintText: tr('Type a quick note'),
+                                hintText: tr(
+                                  capacity == 0
+                                      ? 'Quick Note is full. Open the app to edit it.'
+                                      : 'Type a quick note',
+                                ),
                                 hintStyle: AppText.s(
                                   13,
                                   color: AppColors.faint,
@@ -282,7 +317,8 @@ class _QuickNoteNotificationScreenState
                               children: [
                                 Expanded(
                                   child: _dirty
-                                      ? Text(tr('Not saved yet'),
+                                      ? Text(
+                                          tr('Not saved yet'),
                                           style: AppText.s(
                                             9.5,
                                             color: AppColors.amber,
@@ -291,13 +327,13 @@ class _QuickNoteNotificationScreenState
                                       : const Align(
                                           alignment: Alignment.centerLeft,
                                           child: SavedStatus(
-                                            label: 'Saved & synced just now',
+                                            label: 'Saved just now',
                                             size: 9.5,
                                           ),
                                         ),
                                 ),
                                 Text(
-                                  '${note.text.length}/$_maxLength',
+                                  '$count/$_maxLength',
                                   style: AppText.s(9.5, color: AppColors.muted),
                                 ),
                               ],
@@ -359,11 +395,13 @@ class _QuickNoteNotificationScreenState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(tr('Mail · 12 min'),
+                            Text(
+                              tr('Mail · 12 min'),
                               style: AppText.s(10.5, weight: FontWeight.w700),
                             ),
                             const SizedBox(height: 3),
-                            Text(tr('Weekly project summary is ready'),
+                            Text(
+                              tr('Weekly project summary is ready'),
                               style: AppText.s(10.5, color: AppColors.muted),
                             ),
                           ],

@@ -66,10 +66,16 @@ class StartupErrorScreen extends StatefulWidget {
     required this.error,
     required this.stackTrace,
     required this.onRetry,
+    this.title = 'Could not open your data',
+    this.message =
+        'SuperCalendar could not open its local database. '
+        'Your existing data has not been changed.',
   });
 
   /// Failure thrown while opening or reading the database.
   final Object error;
+  final String title;
+  final String message;
 
   final StackTrace? stackTrace;
 
@@ -125,18 +131,19 @@ class _StartupErrorScreenState extends State<StartupErrorScreen> {
                   ),
                   const SizedBox(height: 18),
                   Text(
-                    tr('Could not open your data'),
+                    tr(widget.title),
                     textAlign: TextAlign.center,
                     style: AppText.s(16, weight: FontWeight.w700),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    tr(
-                      'SuperCalendar could not open its local database. '
-                      'Your existing data has not been changed.',
-                    ),
+                    tr(widget.message),
                     textAlign: TextAlign.center,
-                    style: AppText.s(11.5, color: AppColors.muted, height: 1.45),
+                    style: AppText.s(
+                      11.5,
+                      color: AppColors.muted,
+                      height: 1.45,
+                    ),
                   ),
                   const SizedBox(height: 22),
                   PrimaryButton(
@@ -146,9 +153,8 @@ class _StartupErrorScreenState extends State<StartupErrorScreen> {
                   ),
                   const SizedBox(height: 10),
                   Theme(
-                    data: Theme.of(context).copyWith(
-                      dividerColor: Colors.transparent,
-                    ),
+                    data: Theme.of(context)
+                        .copyWith(dividerColor: Colors.transparent),
                     child: ExpansionTile(
                       tilePadding: EdgeInsets.zero,
                       childrenPadding: const EdgeInsets.only(bottom: 8),

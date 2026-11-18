@@ -1,0 +1,31 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "super-calendar-e4e6e",
+          "appId": "1:397687149185:android:8aa9d2c7fb271751da3380",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "super-calendar-e4e6e",
+          "configurations": {
+            "android": "1:397687149185:android:8aa9d2c7fb271751da3380",
+            "web": "1:397687149185:web:a795306541c04edcda3380",
+            "ios": "1:397687149185:ios:17b112f955af9cb7da3380"
+          }
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "super-calendar-e4e6e",
+          "appId": "1:397687149185:ios:17b112f955af9cb7da3380",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      }
+    }
+  }
+}

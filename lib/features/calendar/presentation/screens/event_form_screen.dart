@@ -15,23 +15,148 @@ import 'package:flutter_application/core/utils/strings.dart';
 
 /// Creates an event, or edits [event] when one is given.
 /// Asks which repeats of a recurring event an edit or delete applies to
-/// (BR-10). Null when dismissed.
+/// (BR-10). Null when dismissed. Delete stays locked until a scope is chosen.
 Future<DeleteScope?> pickEventScope(
   BuildContext context, {
   required String title,
-}) async {
-  const labels = {
-    'Only this event': DeleteScope.one,
-    'This and following events': DeleteScope.fromThis,
-    'All events': DeleteScope.all,
-  };
-  final picked = await pickOption(
-    context,
-    title: title,
-    options: labels.keys.toList(),
-    current: '',
+  String? message,
+  bool destructive = false,
+}) {
+  return showModalBottomSheet<DeleteScope>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (context) => _EventScopeSheet(
+      title: title,
+      message: message,
+      destructive: destructive,
+    ),
   );
-  return labels[picked];
+}
+
+class _EventScopeSheet extends StatefulWidget {
+  const _EventScopeSheet({
+    required this.title,
+    this.message,
+    required this.destructive,
+  });
+
+  final String title;
+  final String? message;
+  final bool destructive;
+
+  @override
+  State<_EventScopeSheet> createState() => _EventScopeSheetState();
+}
+
+class _EventScopeSheetState extends State<_EventScopeSheet> {
+  DeleteScope? _scope;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(tr(widget.title), style: AppText.cardTitle()),
+            if (widget.message != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                widget.message!,
+                style: AppText.s(12, color: AppColors.muted, height: 1.4),
+              ),
+            ],
+            const SizedBox(height: 8),
+            _scopeRow(
+              DeleteScope.one,
+              'This occurrence',
+              'Only this event',
+            ),
+            _scopeRow(
+              DeleteScope.fromThis,
+              'This and following events',
+              'This occurrence and every one after it',
+            ),
+            _scopeRow(
+              DeleteScope.all,
+              'Entire series',
+              'All events',
+            ),
+            const SizedBox(height: 14),
+            Opacity(
+              opacity: _scope == null ? 0.4 : 1,
+              child: IgnorePointer(
+                ignoring: _scope == null,
+                child: PrimaryButton(
+                  label: widget.destructive ? 'Delete' : 'Save changes',
+                  danger: widget.destructive,
+                  onTap: () => Navigator.pop(context, _scope),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            PrimaryButton(
+              label: 'Cancel',
+              soft: true,
+              onTap: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _scopeRow(DeleteScope scope, String title, String subtitle) {
+    final selected = _scope == scope;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => setState(() => _scope = scope),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected ? AppColors.primary : AppColors.border,
+                  width: 2,
+                ),
+              ),
+              child: selected
+                  ? Center(
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: const BoxDecoration(
+                          color: AppColors.lavender,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(tr(title), style: AppText.s(14, weight: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Text(tr(subtitle), style: AppText.s(11, color: AppColors.muted)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class EventFormScreen extends StatefulWidget {
@@ -55,6 +180,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
   DateTime? _date;
   late int _start = widget.event?.startMinutes ?? 14 * 60;
   late int _end = widget.event?.endMinutes ?? 15 * 60;
+  bool _durationFromSettings = false;
   late int _color = widget.event?.colorIndex ?? 0;
   late String _category = widget.event?.category ?? 'Work';
   int? _reminder;
@@ -84,6 +210,13 @@ class _EventFormScreenState extends State<EventFormScreen> {
         ? app.settings.defaultReminderMinutes
         : event.reminderMinutes;
     _calendar = event?.calendar ?? app.settings.defaultCalendar;
+    if (event == null && !_durationFromSettings) {
+      _durationFromSettings = true;
+      _end = (_start + app.settings.defaultEventDurationMinutes).clamp(
+        _start + 5,
+        24 * 60 - 1,
+      );
+    }
   }
 
   @override
@@ -306,7 +439,6 @@ class _EventFormScreenState extends State<EventFormScreen> {
             TopBar(
               title: _editing ? 'Edit event' : 'New event',
               close: true,
-              trailing: TopBarAction(label: 'Save', onTap: _save),
             ),
             const SizedBox(height: 12),
             AppCard(
@@ -343,7 +475,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
                   child: FieldTile(
                     icon: LucideIcons.calendar,
                     label: 'Date',
-                    value: shortDate(_date!),
+                    value: dayMonth(_date!),
                     onTap: _pickDate,
                   ),
                 ),
