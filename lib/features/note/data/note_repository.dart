@@ -1,4 +1,5 @@
 import 'package:flutter_application/core/data/document_store.dart';
+import 'package:characters/characters.dart';
 import 'package:flutter_application/core/data/repository.dart';
 import 'package:flutter_application/features/note/domain/note.dart';
 
@@ -53,6 +54,30 @@ class NoteRepository extends Repository<Note> {
       ..updatedAt = now;
     persist(note);
     notifyListeners();
+  }
+
+  /// Remaining capture space, including the separator used by Append.
+  int quickCapacity({required bool append}) {
+    if (!append || quickText.isEmpty) return quickNoteMaxChars;
+    return (quickNoteMaxChars - quickText.characters.length - 1).clamp(
+      0,
+      quickNoteMaxChars,
+    );
+  }
+
+  /// Shared by RemoteInput and its preview. Empty input never erases a note.
+  bool captureQuick(String text, {required bool append}) {
+    final input = text.trim();
+    if (input.isEmpty) return false;
+    final capacity = quickCapacity(append: append);
+    if (capacity == 0) return false;
+    final captured = input.characters.take(capacity).toString();
+    final next = append && quickText.isNotEmpty
+        ? '$quickText\n$captured'
+        : captured;
+    if (next == quickText) return false;
+    setQuick(next);
+    return true;
   }
 
   // ── Notes list (AC-26: pinned first) ──────────────────────────────────────
@@ -140,7 +165,6 @@ class NoteRepository extends Repository<Note> {
   /// Trims and clamps [text] to [quickNoteMaxChars] characters.
   static String _clampQuick(String text) {
     final trimmed = text.trim();
-    if (trimmed.length <= quickNoteMaxChars) return trimmed;
-    return trimmed.substring(0, quickNoteMaxChars);
+    return trimmed.characters.take(quickNoteMaxChars).toString();
   }
 }

@@ -1,0 +1,302 @@
+﻿00:00 +0: loading D:/VSC/SuperCalendar/planner-app-mobile-SuperCalendar/test/system_audit_probes.dart
+00:00 +0: AUD-P01 task create edit complete survives reload
+00:00 +1: AUD-P02 deleting and undoing task preserves embedded subtasks
+00:00 +2: AUD-P03 note CRUD pin and undo survive reload
+00:00 +3: AUD-P04 Quick Note caps and persists 500 ASCII characters
+00:00 +4: AUD-P05 background Save note applies Append and Replace
+00:00 +5: AUD-P06 failed and cancelled mock payments do not grant VIP
+00:00 +6: AUD-N01 Habit Snooze schedules a reminder
+00:00 +6 -1: AUD-N01 Habit Snooze schedules a reminder [E]
+  Expected: contains 'audit-habit'
+    Actual: []
+     Which: does not contain 'audit-habit'
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\system_audit_probes.dart 184:5                 main.<fn>
+  
+00:00 +6 -1: AUD-N02 disabled reminder categories do not schedule
+00:00 +6 -2: AUD-N02 disabled reminder categories do not schedule [E]
+  Expected: not contains 'task_1794831366169687_117'
+    Actual: ['task_1794831366169687_117', 'seed_task_0', 'seed_event_2', 'seed_event_5']
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\system_audit_probes.dart 199:5                 main.<fn>
+  
+00:00 +6 -2: AUD-N03 habit outside its start date does not remind
+00:01 +6 -3: AUD-N03 habit outside its start date does not remind [E]
+  Expected: null
+    Actual: DateTime:<2026-10-09 11:00:00.000>
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\system_audit_probes.dart 213:5                 main.<fn>
+  
+00:01 +6 -3: AUD-N04 turning notifications off hides Quick Note too
+00:01 +6 -4: AUD-N04 turning notifications off hides Quick Note too [E]
+  Expected: true
+    Actual: <false>
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\system_audit_probes.dart 220:5                 main.<fn>
+  
+00:01 +6 -4: AUD-N05 resume reloads Habit occurrences changed in background
+00:01 +6 -5: AUD-N05 resume reloads Habit occurrences changed in background [E]
+  Expected: true
+    Actual: <false>
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\system_audit_probes.dart 243:7                 main.<fn>
+  
+00:01 +6 -5: AUD-T01 checkbox completes recurring task and generates next Monday
+00:01 +6 -6: AUD-T01 checkbox completes recurring task and generates next Monday [E]
+  Expected: contains DateTime:<2026-10-12 00:00:00.000>
+    Actual: MappedIterable<Task, DateTime?>:[]
+     Which: does not contain DateTime:<2026-10-12 00:00:00.000>
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\system_audit_probes.dart 253:7                 main.<fn>
+  
+00:01 +6 -6: AUD-T02 Upcoming excludes overdue tasks
+00:01 +6 -7: AUD-T02 Upcoming excludes overdue tasks [E]
+  Expected: not contains 'task_1794831366597739_190'
+    Actual: MappedListIterable<Task, String>:[
+              'task_1794831366597739_190',
+              'seed_task_3',
+              'seed_task_4',
+              'seed_task_5'
+            ]
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\system_audit_probes.dart 267:5                 main.<fn>
+  
+00:01 +6 -7: AUD-T03 Lock Screen Quick Add uses default reminder
+00:01 +6 -8: AUD-T03 Lock Screen Quick Add uses default reminder [E]
+  Expected: <15>
+    Actual: <null>
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\system_audit_probes.dart 276:5                 main.<fn>
+  
+00:01 +6 -8: AUD-C01 overnight event appears on its second day
+00:01 +6 -9: AUD-C01 overnight event appears on its second day [E]
+  Expected: contains 'overnight'
+    Actual: MappedListIterable<CalendarEvent, String>:['seed_event_3']
+     Which: does not contain 'overnight'
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\system_audit_probes.dart 287:5                 main.<fn>
+  
+00:01 +6 -9: AUD-C02 deleted repeat does not retain its reminder
+00:01 +6 -10: AUD-C02 deleted repeat does not retain its reminder [E]
+  Expected: not DateTime:<2026-10-09 11:00:00.000>
+    Actual: DateTime:<2026-10-09 11:00:00.000>
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\system_audit_probes.dart 305:5                 main.<fn>
+  
+00:01 +6 -10: AUD-T04 hideCompletedTasks removes completed rows
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: no matching candidates
+  Actual: _TextWidgetFinder:<Found 1 widget with text "Audit completed": [
+            Text("Audit completed", inherit: true, color: Color(alpha: 1.0000, red: 0.4627, green:
+0.4824, blue: 0.5216, colorSpace: ColorSpace.sRGB), family: Inter, size: 12.5, weight: 600,
+letterSpacing: -0.1, height: 1.2x, decoration: Color(alpha: 1.0000, red: 0.4627, green: 0.4824,
+blue: 0.5216, colorSpace: ColorSpace.sRGB) TextDecoration.lineThrough, overflow: ellipsis, maxLines:
+1, dependencies: [DefaultSelectionStyle, DefaultTextStyle, MediaQuery]),
+          ]>
+   Which: means one was found but none were expected
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///D:/VSC/SuperCalendar/planner-app-mobile-SuperCalendar/test/system_audit_probes.dart:316:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///D:/VSC/SuperCalendar/planner-app-mobile-SuperCalendar/test/system_audit_probes.dart line 316
+The test description was:
+  AUD-T04 hideCompletedTasks removes completed rows
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:06 +6 -11: AUD-T04 hideCompletedTasks removes completed rows [E]
+  Test failed. See exception logs above.
+  The test description was: AUD-T04 hideCompletedTasks removes completed rows
+  
+00:06 +6 -11: AUD-T05 Quick Add keeps focus after Enter
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: true
+  Actual: <false>
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///D:/VSC/SuperCalendar/planner-app-mobile-SuperCalendar/test/system_audit_probes.dart:325:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///D:/VSC/SuperCalendar/planner-app-mobile-SuperCalendar/test/system_audit_probes.dart line 325
+The test description was:
+  AUD-T05 Quick Add keeps focus after Enter
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:08 +6 -12: AUD-T05 Quick Add keeps focus after Enter [E]
+  Test failed. See exception logs above.
+  The test description was: AUD-T05 Quick Add keeps focus after Enter
+  
+00:08 +6 -12: AUD-Q01 notification preview input starts empty
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: empty
+  Actual: 'Existing audit note'
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///D:/VSC/SuperCalendar/planner-app-mobile-SuperCalendar/test/system_audit_probes.dart:333:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///D:/VSC/SuperCalendar/planner-app-mobile-SuperCalendar/test/system_audit_probes.dart line 333
+The test description was:
+  AUD-Q01 notification preview input starts empty
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:09 +6 -13: AUD-Q01 notification preview input starts empty [E]
+  Test failed. See exception logs above.
+  The test description was: AUD-Q01 notification preview input starts empty
+  
+00:09 +6 -13: AUD-W01 wallpaper week follows Sunday start
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: contains '4'
+  Actual: [
+            'October',
+            '2026',
+            'M',
+            'T',
+            'W',
+            'T',
+            'F',
+            'S',
+            'S',
+            '5',
+            '6',
+            '7',
+            '8',
+            '9',
+            '10',
+            '11',
+            '11:30 AM · Lunch with Ana'
+          ]
+   Which: does not contain '4'
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///D:/VSC/SuperCalendar/planner-app-mobile-SuperCalendar/test/system_audit_probes.dart:349:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///D:/VSC/SuperCalendar/planner-app-mobile-SuperCalendar/test/system_audit_probes.dart line 349
+The test description was:
+  AUD-W01 wallpaper week follows Sunday start
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:09 +6 -14: AUD-W01 wallpaper week follows Sunday start [E]
+  Test failed. See exception logs above.
+  The test description was: AUD-W01 wallpaper week follows Sunday start
+  
+00:09 +6 -14: AUD-Q02 500 user-visible characters retain a final emoji
+00:09 +6 -15: AUD-Q02 500 user-visible characters retain a final emoji [E]
+  Expected: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀'
+    Actual: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa�'
+     Which: is different. Both strings start the same, but the actual value is missing the following trailing characters: �
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\system_audit_probes.dart 356:5                 main.<fn>
+  
+00:09 +6 -15: AUD-W03 wallpaper week contains events from the other six days
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _TextContainingWidgetFinder:<Found 0 widgets with text containing Audit Saturday event:
+[]>
+   Which: means none were found but one was expected
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///D:/VSC/SuperCalendar/planner-app-mobile-SuperCalendar/test/system_audit_probes.dart:373:7)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///D:/VSC/SuperCalendar/planner-app-mobile-SuperCalendar/test/system_audit_probes.dart line 373
+The test description was:
+  AUD-W03 wallpaper week contains events from the other six days
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:09 +6 -16: AUD-W03 wallpaper week contains events from the other six days [E]
+  Test failed. See exception logs above.
+  The test description was: AUD-W03 wallpaper week contains events from the other six days
+  
+00:09 +6 -16: AUD-W02 exported PNG matches 1080x2400 phone dimensions
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: [1080, 2400]
+  Actual: [1080, 1702]
+   Which: at location [1] is <1702> instead of <2400>
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///D:/VSC/SuperCalendar/planner-app-mobile-SuperCalendar/test/system_audit_probes.dart:399:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///D:/VSC/SuperCalendar/planner-app-mobile-SuperCalendar/test/system_audit_probes.dart line 399
+The test description was:
+  AUD-W02 exported PNG matches 1080x2400 phone dimensions
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:12 +6 -17: AUD-W02 exported PNG matches 1080x2400 phone dimensions [E]
+  Test failed. See exception logs above.
+  The test description was: AUD-W02 exported PNG matches 1080x2400 phone dimensions
+  
+00:12 +6 -17: Some tests failed.
+
+Failing tests:
+  D:/VSC/SuperCalendar/planner-app-mobile-SuperCalendar/test/system_audit_probes.dart: AUD-C01 overnight event appears on its second day
+  D:/VSC/SuperCalendar/planner-app-mobile-SuperCalendar/test/system_audit_probes.dart: AUD-C02 deleted repeat does not retain its reminder
+  D:/VSC/SuperCalendar/planner-app-mobile-SuperCalendar/test/system_audit_probes.dart: AUD-N01 Habit Snooze schedules a reminder
+  D:/VSC/SuperCalendar/planner-app-mobile-SuperCalendar/test/system_audit_probes.dart: AUD-N02 disabled reminder categories do not schedule
+  ... and 13 more

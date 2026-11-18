@@ -92,7 +92,7 @@ class TaskRepository extends Repository<Task> {
       estimateMinutes: task.estimateMinutes,
       colorIndex: task.colorIndex,
       tags: List<String>.from(task.tags),
-      subtasks: [],
+      subtasks: [for (final subtask in task.subtasks) Subtask(subtask.title)],
     );
     insert(newTask);
     return newTask;
@@ -141,9 +141,12 @@ class TaskRepository extends Repository<Task> {
 
   List<Task> dueOn(DateTime day) => items.where((t) => t.isDueOn(day)).toList();
 
-  /// Tasks that are not due on [day]: later, earlier or undated.
-  List<Task> notDueOn(DateTime day) =>
-      items.where((t) => !t.isDueOn(day)).toList();
+  /// Upcoming contains future dated tasks. Undated tasks remain in All.
+  List<Task> notDueOn(DateTime day) => items
+      .where(
+        (t) => t.dueDate != null && dateOnly(t.dueDate!).isAfter(dateOnly(day)),
+      )
+      .toList();
 
   /// Up to three tasks for the dashboard and lock screen: today's first.
   List<Task> dashboard(DateTime day) {

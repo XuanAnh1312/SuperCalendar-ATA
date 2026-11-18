@@ -1,42 +1,50 @@
-name: iOS-ipa-build
+name: iPhone test IPA (unsigned)
 
 on:
   workflow_dispatch:
+    inputs:
+      flutter_version:
+        description: Flutter SDK version (must support Dart >= 3.13.4)
+        required: true
+        default: '3.50.0'
+
+permissions:
+  contents: read
 
 jobs:
   build-ios:
-    name: 🎉 iOS Build
     runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      FLUTTER_VERSION: ${{ inputs.flutter_version }}
     steps:
-      - uses: actions/checkout@v3
-
-      - uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v4
+      - name: Install Flutter SDK
+        run: |
+          git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Prepare dependencies
+        run: |
+          flutter --version
+          flutter config --enable-swift-package-manager
+          flutter pub get
+          pod --version
+          python3 tool/check_ios_configuration.py
+      - name: Analyze and test
+        run: |
+          flutter analyze --no-fatal-infos
+          flutter test
+      - name: Build for physical iPhone
+        run: flutter build ios --release --no-codesign --dart-define=USE_FIREBASE=true
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p build/ios/ipa/Payload
+          ditto build/ios/iphoneos/Runner.app build/ios/ipa/Payload/Runner.app
+          cd build/ios/ipa
+          zip -qry SuperCalendar-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
         with:
-          channel: 'stable'
-          architecture: x64
-      - run: flutter pub get
-      
-
-      - run: pod repo update
-        working-directory: ios
-
-      - run: flutter build ios --release --no-codesign
-
-      - run: mkdir Payload
-        working-directory: build/ios/iphoneos
-
-      - run: mv Runner.app/ Payload
-        working-directory: build/ios/iphoneos
-
-      - name: Zip output
-        run: zip -qq -r -9 FlutterIpaExport.ipa Payload
-        working-directory: build/ios/iphoneos
-
-      - name: Upload binaries to release
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: build/ios/iphoneos/FlutterIpaExport.ipa
-          tag: v1.0
-          overwrite: true
-          body: "This is first release"
+          name: SuperCalendar-iPhone-unsigned
+          path: build/ios/ipa/SuperCalendar-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 7

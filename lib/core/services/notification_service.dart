@@ -1,52 +1,12 @@
-import 'dart:convert';
+import 'notification_payload.dart';
+import 'reminder_plan.dart';
+
+export 'notification_payload.dart';
+export 'reminder_plan.dart';
 
 import 'package:flutter_application/features/calendar/domain/event.dart';
 import 'package:flutter_application/features/calendar/domain/habit.dart';
 import 'package:flutter_application/features/todo/domain/task.dart';
-
-/// What a notification points at; carried as its payload.
-class NotificationTarget {
-  const NotificationTarget(this.type, this.id, {this.snoozed = false});
-
-  static const task = 'task';
-  static const event = 'event';
-  static const habit = 'habit';
-  static const lockScreen = 'lock';
-  static const quickNote = 'quick_note';
-
-  final String type;
-  final String id;
-
-  /// True for a reminder the user postponed; a reminder sync leaves it alone.
-  final bool snoozed;
-
-  String encode() =>
-      jsonEncode({'type': type, 'id': id, if (snoozed) 'snoozed': true});
-
-  static NotificationTarget? decode(String? payload) {
-    if (payload == null || payload.isEmpty) return null;
-    try {
-      final json = jsonDecode(payload) as Map<String, dynamic>;
-      return NotificationTarget(
-        json['type'] as String,
-        json['id'] as String,
-        snoozed: json['snoozed'] as bool? ?? false,
-      );
-    } on Object {
-      return null;
-    }
-  }
-}
-
-/// Ids of the notification action buttons.
-abstract final class NotificationActions {
-  static const done = 'done';
-  static const snooze = 'snooze';
-  static const skip = 'skip';
-  static const addTask = 'add_task';
-  static const saveNote = 'save_note';
-  static const openApp = 'open_app';
-}
 
 /// Data for the persistent lock screen notification.
 class LockScreenContent {
@@ -149,7 +109,12 @@ abstract class NotificationService {
 }
 
 /// Does nothing but remember what it was asked to do.
-class NoopNotificationService implements NotificationService {
+class NoopNotificationService
+    implements NotificationService, ReminderContextConsumer {
+  ReminderContext _context = ReminderContext();
+  @override
+  void updateReminderContext(ReminderContext context) => _context = context;
+  final Map<String, NotificationTarget> pendingSnoozes = {};
   NoopNotificationService({this.permissionGranted = true});
 
   bool permissionGranted;
@@ -165,6 +130,11 @@ class NoopNotificationService implements NotificationService {
   Future<void> snoozeHabit(Habit habit, Duration delay) async {
     snoozed.add(habit.id);
     snoozeDelays[habit.id] = delay;
+    pendingSnoozes['habit:${habit.id}'] = NotificationTarget(
+      NotificationTarget.habit,
+      habit.id,
+      snoozed: true,
+    );
   }
 
   // Quick Note notification tracking
@@ -178,12 +148,28 @@ class NoopNotificationService implements NotificationService {
   }) async {}
 
   @override
-  Future<void> snoozeTask(Task task, Duration delay) async =>
-      snoozed.add(task.id);
+  Future<void> snoozeTask(Task task, Duration delay) async {
+    snoozed.add(task.id);
+    snoozeDelays[task.id] = delay;
+    pendingSnoozes['task:${task.id}'] = NotificationTarget(
+      NotificationTarget.task,
+      task.id,
+      snoozed: true,
+    );
+  }
 
   @override
-  Future<void> snoozeEvent(CalendarEvent event, Duration delay) async =>
-      snoozed.add(event.id);
+  Future<void> snoozeEvent(CalendarEvent event, Duration delay) async {
+    snoozed.add(event.id);
+    snoozeDelays[event.id] = delay;
+    pendingSnoozes['event:${event.id}'] = NotificationTarget(
+      NotificationTarget.event,
+      event.id,
+      snoozed: true,
+      occurrenceDate: event.originalOccurrenceDate,
+      occurrenceStart: event.startTime,
+    );
+  }
 
   @override
   Future<NotificationTarget?> launchTarget() async => null;
@@ -205,18 +191,35 @@ class NoopNotificationService implements NotificationService {
     List<Habit> habits = const [],
   }) async {
     syncCount++;
+    final plan = buildReminderPlan(
+      tasks: tasks,
+      events: events,
+      habits: habits,
+      now: now,
+      context: _context,
+    );
+    pendingSnoozes.removeWhere(
+      (_, target) => !reminderTargetIsValid(
+        target,
+        tasks: tasks,
+        events: events,
+        habits: habits,
+        now: now,
+        context: _context,
+      ),
+    );
     scheduled = [
-      for (final task in tasks)
-        if (taskReminderTime(task, now) != null) task.id,
-      for (final event in events)
-        if (eventReminderTime(event, now) != null) event.id,
-      for (final habit in habits)
-        if (habitReminderTime(habit, now) != null) habit.id,
+      for (final entry in plan)
+        if (!pendingSnoozes.containsKey(entry.sourceKey)) entry.target.id,
+      for (final target in pendingSnoozes.values) target.id,
     ];
   }
 
   @override
-  Future<void> cancelReminders() async => scheduled = [];
+  Future<void> cancelReminders() async {
+    scheduled = [];
+    pendingSnoozes.clear();
+  }
 
   @override
   Future<DateTime?> scheduleForEvent(CalendarEvent event) async =>
@@ -233,6 +236,7 @@ class NoopNotificationService implements NotificationService {
   @override
   Future<void> cancel(String sourceType, String sourceId) async {
     scheduled.removeWhere((id) => id == sourceId);
+    pendingSnoozes.remove("$sourceType:$sourceId");
   }
 
   @override
@@ -253,48 +257,4 @@ class NoopNotificationService implements NotificationService {
 
   @override
   Future<void> hideQuickNoteNotification() async => quickNoteHidden = true;
-}
-
-/// When to remind about [task]; null if it has no future reminder.
-DateTime? taskReminderTime(Task task, DateTime now) {
-  final due = task.dueAt;
-  final minutes = task.reminderMinutes;
-  if (task.completed || due == null || minutes == null) return null;
-  final at = due.subtract(Duration(minutes: minutes));
-  return at.isAfter(now) ? at : null;
-}
-
-/// When to remind about [event]; null if it has no future reminder.
-DateTime? eventReminderTime(CalendarEvent event, DateTime now) {
-  final minutes = event.reminderMinutes;
-  if (minutes == null) return null;
-  if (!event.isRecurring) {
-    final at = event.startTime.subtract(Duration(minutes: minutes));
-    return at.isAfter(now) ? at : null;
-  }
-  // shortcut: ignores single deleted repeats (EventException); the app
-  // re-syncs reminders on every change, so a skipped day is rare to hit.
-  for (var i = 0; i <= 366; i++) {
-    final day = DateTime(now.year, now.month, now.day + i);
-    if (!event.isOn(day)) continue;
-    final at = event
-        .occurrenceOn(day)
-        .startTime
-        .subtract(Duration(minutes: minutes));
-    if (at.isAfter(now)) return at;
-  }
-  return null;
-}
-
-/// When to remind about [habit] today; null if it has no reminder configured,
-/// no preferred time, or the reminder time has already passed today (FR-18).
-DateTime? habitReminderTime(Habit habit, DateTime now) {
-  final minutes = habit.reminderMinutes;
-  final habitTime = habit.time;
-  if (minutes == null || habitTime == null) return null;
-  if (habit.isArchived) return null;
-
-  final today = DateTime(now.year, now.month, now.day);
-  final at = today.add(Duration(minutes: habitTime - minutes));
-  return at.isAfter(now) ? at : null;
 }

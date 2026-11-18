@@ -21,6 +21,7 @@ import 'package:flutter_application/features/todo/presentation/screens/task_deta
 import 'package:flutter_application/features/todo/presentation/screens/todo_screen.dart';
 import 'package:flutter_application/features/vip/presentation/screens/vip_screen.dart';
 import 'package:flutter_application/core/utils/strings.dart';
+import 'package:flutter_application/features/note/presentation/screens/note_edit_screen.dart';
 
 class SuperCalendarApp extends StatefulWidget {
   const SuperCalendarApp({super.key, required this.state});
@@ -53,27 +54,45 @@ class _SuperCalendarAppState extends State<SuperCalendarApp>
 
   Future<void> _initNotifications() async {
     await _app.notifications.init(
-      onOpen: _openTarget,
+      onOpen: (target) => unawaited(_openTarget(target)),
       onDataChanged: () => unawaited(_app.reloadFromDisk()),
     );
     final launch = await _app.notifications.launchTarget();
     if (launch != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _openTarget(launch));
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => unawaited(_openTarget(launch)),
+      );
     }
   }
 
   /// Opens the screen a tapped notification points at.
-  void _openTarget(NotificationTarget target) {
+  Future<void> _openTarget(NotificationTarget target) async {
+    await _app.reloadFromDisk();
+    if (!mounted) return;
     final navigator = rootNavigatorKey.currentState;
-    if (navigator == null) return;
+    if (navigator == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_openTarget(target));
+      });
+      return;
+    }
     Widget? page;
     switch (target.type) {
       case NotificationTarget.event:
         final event = _app.events.byId(target.id);
-        if (event != null) page = EventDetailScreen(event: event);
+        if (event != null) {
+          final occurrence = target.occurrenceDate == null
+              ? event
+              : event.resolvedOccurrenceOn(target.occurrenceDate!);
+          if (occurrence != null) page = EventDetailScreen(event: occurrence);
+        }
       case NotificationTarget.task:
         final task = _app.tasks.byId(target.id);
         if (task != null) page = TaskDetailScreen(task: task);
+      case NotificationTarget.quickNote:
+        page = const NoteEditScreen(quick: true);
+      case NotificationTarget.schedule:
+        page = const CalendarScreen();
       case NotificationTarget.lockScreen:
         // The lock screen notification opens the next event of the day, or
         // the lock screen layout when nothing is left on the schedule.
@@ -96,7 +115,6 @@ class _SuperCalendarAppState extends State<SuperCalendarApp>
     // A notification action may have changed data while we were away.
     unawaited(_app.reloadFromDisk());
     unawaited(_app.refreshSystemCalendar());
-    unawaited(_app.syncNotifications());
   }
 
   @override

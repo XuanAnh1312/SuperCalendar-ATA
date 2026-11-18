@@ -7,6 +7,8 @@ import 'package:flutter_application/core/services/app_state.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/core/utils/strings.dart';
+import 'package:flutter_application/features/note/data/note_repository.dart';
+import 'package:flutter_application/features/note/presentation/screens/note_edit_screen.dart';
 
 /// In-app preview of the notification shade with the Quick Note
 /// notification. The note is saved to the same database the dashboard reads.
@@ -20,7 +22,7 @@ class QuickNoteNotificationScreen extends StatefulWidget {
 
 class _QuickNoteNotificationScreenState
     extends State<QuickNoteNotificationScreen> {
-  static const _maxLength = 500;
+  static const _maxLength = quickNoteMaxChars;
 
   TextEditingController? _note;
   final _toggles = [true, true, false, false];
@@ -52,10 +54,10 @@ class _QuickNoteNotificationScreenState
     final app = AppScope.read(context);
     final input = _note!.text.trim();
     if (input.isEmpty) return;
-    final old = app.notes.quickText;
-    app.notes.setQuick(
-      app.settings.quickNoteAppend && old.isNotEmpty ? '$old\n$input' : input,
-    );
+    if (!app.notes.captureQuick(input, append: app.settings.quickNoteAppend)) {
+      showAppSnack(context, 'Quick Note is full. Open the app to edit it.');
+      return;
+    }
     _note!.clear();
     FocusScope.of(context).unfocus();
     setState(() => _dirty = false);
@@ -63,13 +65,27 @@ class _QuickNoteNotificationScreenState
   }
 
   void _openApp() {
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => const NoteEditScreen(quick: true),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
     final note = _note!;
+    final capacity = app.notes.quickCapacity(
+      append: app.settings.quickNoteAppend,
+    );
+    final oldLength = app.settings.quickNoteAppend
+        ? app.notes.quickText.characters.length
+        : 0;
+    final count =
+        oldLength +
+        note.text.characters.length +
+        (oldLength > 0 && note.text.isNotEmpty ? 1 : 0);
     final now = app.now;
     return Scaffold(
       body: Container(
@@ -275,7 +291,8 @@ class _QuickNoteNotificationScreenState
                             TextField(
                               controller: note,
                               maxLines: null,
-                              maxLength: _maxLength,
+                              maxLength: capacity == 0 ? _maxLength : capacity,
+                              readOnly: capacity == 0,
                               style: AppText.s(13, height: 1.35),
                               onChanged: (_) => setState(() => _dirty = true),
                               decoration: InputDecoration(
@@ -285,7 +302,11 @@ class _QuickNoteNotificationScreenState
                                 contentPadding: const EdgeInsets.symmetric(
                                   vertical: 8,
                                 ),
-                                hintText: tr('Type a quick note'),
+                                hintText: tr(
+                                  capacity == 0
+                                      ? 'Quick Note is full. Open the app to edit it.'
+                                      : 'Type a quick note',
+                                ),
                                 hintStyle: AppText.s(
                                   13,
                                   color: AppColors.faint,
@@ -312,7 +333,7 @@ class _QuickNoteNotificationScreenState
                                         ),
                                 ),
                                 Text(
-                                  '${note.text.length}/$_maxLength',
+                                  '$count/$_maxLength',
                                   style: AppText.s(9.5, color: AppColors.muted),
                                 ),
                               ],

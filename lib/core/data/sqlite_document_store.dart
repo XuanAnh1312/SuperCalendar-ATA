@@ -1,9 +1,12 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
 import 'package:flutter_application/core/data/document_store.dart';
+import 'package:flutter_application/core/data/database_factory_native.dart'
+    if (dart.library.js_interop) 'package:flutter_application/core/data/database_factory_web.dart';
 
 /// SQLite database on the device: one table per collection, each row holding
 /// a model as JSON keyed by its id.
@@ -24,12 +27,17 @@ class SqliteDocumentStore implements DocumentStore {
   final Database _db;
 
   static Future<SqliteDocumentStore> open() async {
-    final path = p.join(await getDatabasesPath(), _fileName);
-    final db = await openDatabase(
+    final factory = localDatabaseFactory;
+    final path = kIsWeb
+        ? _fileName
+        : p.join(await factory.getDatabasesPath(), _fileName);
+    final db = await factory.openDatabase(
       path,
-      version: _version,
-      onCreate: _onCreate,
-      onUpgrade: _onUpgrade,
+      options: OpenDatabaseOptions(
+        version: _version,
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+      ),
     );
     return SqliteDocumentStore._(db);
   }
