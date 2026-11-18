@@ -2,6 +2,32 @@ import 'package:flutter/services.dart';
 
 import 'package:flutter_application/features/calendar/domain/event.dart';
 
+/// One calendar on the phone (FR-22 step 5).
+class DeviceCalendar {
+  const DeviceCalendar({
+    required this.id,
+    required this.name,
+    this.account = '',
+    this.color,
+  });
+
+  factory DeviceCalendar.fromMap(Map<dynamic, dynamic> row) => DeviceCalendar(
+    id: '${row['id'] ?? ''}',
+    name: (row['name'] as String?)?.trim().isNotEmpty == true
+        ? (row['name'] as String).trim()
+        : 'Calendar',
+    account: (row['account'] as String?)?.trim() ?? '',
+    color: row['color'] as int?,
+  );
+
+  final String id;
+  final String name;
+  final String account;
+
+  /// Android ARGB colour, when the provider supplies one.
+  final int? color;
+}
+
 /// Read-only access to the device calendar (FR-22).
 abstract class SystemCalendarService {
   Future<bool> hasPermission();
@@ -11,6 +37,13 @@ abstract class SystemCalendarService {
 
   /// Events between [from] and [to], marked `source = system_calendar`.
   Future<List<CalendarEvent>> events(DateTime from, DateTime to);
+
+  /// Calendars on the device (id, name, account, colour). Empty without
+  /// permission.
+  Future<List<DeviceCalendar>> calendars();
+
+  /// Opens this app's Android settings so the user can grant Calendar access.
+  Future<bool> openAppSettings();
 }
 
 /// Talks to `MainActivity.kt`, which queries Android's CalendarContract
@@ -70,6 +103,31 @@ class AndroidSystemCalendarService implements SystemCalendarService {
       return [];
     } on MissingPluginException {
       return [];
+    }
+  }
+
+  @override
+  Future<List<DeviceCalendar>> calendars() async {
+    try {
+      final rows = await _channel.invokeListMethod<Map>('calendars');
+      return [
+        for (final row in rows ?? const <Map>[]) DeviceCalendar.fromMap(row),
+      ];
+    } on PlatformException {
+      return [];
+    } on MissingPluginException {
+      return [];
+    }
+  }
+
+  @override
+  Future<bool> openAppSettings() async {
+    try {
+      return await _channel.invokeMethod<bool>('openAppSettings') ?? false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
     }
   }
 
@@ -140,12 +198,16 @@ class FakeSystemCalendarService implements SystemCalendarService {
     this.granted = false,
     this.grantOnRequest = true,
     List<CalendarEvent>? events,
-  }) : _events = events ?? [];
+    List<DeviceCalendar>? calendars,
+  }) : _events = events ?? [],
+       _calendars = calendars ?? [];
 
   bool granted;
   bool grantOnRequest;
   int requests = 0;
+  int openSettingsCalls = 0;
   final List<CalendarEvent> _events;
+  final List<DeviceCalendar> _calendars;
 
   @override
   Future<bool> hasPermission() async => granted;
@@ -163,5 +225,17 @@ class FakeSystemCalendarService implements SystemCalendarService {
     return _events
         .where((e) => !e.startTime.isBefore(from) && e.startTime.isBefore(to))
         .toList();
+  }
+
+  @override
+  Future<List<DeviceCalendar>> calendars() async {
+    if (!granted) return [];
+    return List.unmodifiable(_calendars);
+  }
+
+  @override
+  Future<bool> openAppSettings() async {
+    openSettingsCalls++;
+    return true;
   }
 }
