@@ -288,6 +288,8 @@ const viStrings = <String, String>{
   'Skip': 'Bỏ qua',
 
   'Saved just now': 'Vừa lưu xong',
+  'Quick Note is full. Open the app to edit it.':
+      'Ghi chú nhanh đã đầy. Mở ứng dụng để chỉnh sửa.',
 
   // ── Settings ─────────────────────────────────────────────────────────────
   'Account': 'Tài khoản',

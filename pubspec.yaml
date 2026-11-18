@@ -42,6 +42,7 @@ dependencies:
   timezone: ^0.11.1
   image_picker: ^1.2.4
   gal: ^2.3.3
+  characters: ^1.4.1
 
 dev_dependencies:
   flutter_test:
