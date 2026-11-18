@@ -9,7 +9,7 @@ on:
         default: '3.50.0'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-ios:
@@ -55,3 +55,24 @@ jobs:
           path: build/ios/ipa/SuperCalendar-unsigned.ipa
           if-no-files-found: error
           retention-days: 7
+      - name: Publish iPhone test release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          APP_VERSION=$(awk '/^version:/ {print $2; exit}' pubspec.yaml)
+          test -n "$APP_VERSION"
+          RELEASE_TAG="ios-v${APP_VERSION}-run${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+          printf '%s\n' \
+            'Unsigned iPhone test build. Sign the IPA before installing on a physical iPhone.' \
+            "Source commit: $GITHUB_SHA" \
+            "Build: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            > "$RUNNER_TEMP/ios-release-notes.md"
+          gh release create "$RELEASE_TAG" \
+            build/ios/ipa/SuperCalendar-unsigned.ipa \
+            --target "$GITHUB_SHA" \
+            --title "SuperCalendar $APP_VERSION - iPhone test #$GITHUB_RUN_NUMBER" \
+            --notes-file "$RUNNER_TEMP/ios-release-notes.md" \
+            --prerelease
+          printf '### iPhone test release\n[Download IPA from Release](%s/%s/releases/tag/%s)\n' \
+            "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"
