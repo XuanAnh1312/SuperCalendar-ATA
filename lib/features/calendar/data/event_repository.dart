@@ -249,7 +249,53 @@ class EventRepository extends Repository<CalendarEvent> {
 
   @override
   CalendarEvent decode(Map<String, dynamic> json) =>
-      CalendarEvent.fromJson(json);
+      _bindOccurrenceLookup(CalendarEvent.fromJson(json));
+
+  CalendarEvent _bindOccurrenceLookup(CalendarEvent event) {
+    CalendarEvent? resolve(DateTime day) {
+      if (!event.isOn(day) || (_exceptions?.isDeleted(event.id, day) ?? false)) {
+        return null;
+      }
+      final occurrence = event.isRecurring
+          ? event.occurrenceOn(day)
+          : CalendarEvent.fromJson(event.toJson());
+      final override = _exceptions?.overrideFor(event.id, day);
+      final data = {...occurrence.toJson(), ...?override, 'id': event.id};
+      if (override?.containsKey('startTime') == true &&
+          !override!.containsKey('endTime')) {
+        final start = DateTime.tryParse(override['startTime'] as String? ?? '');
+        if (start != null) {
+          data['endTime'] = start
+              .add(occurrence.endTime.difference(occurrence.startTime))
+              .toIso8601String();
+        }
+      }
+      if (override?.containsKey('reminderMinutes') == true &&
+          !override!.containsKey('reminder')) {
+        data['reminder'] = override['reminderMinutes'];
+      }
+      if (override?.containsKey('reminder') == true) {
+        data['reminderMinutes'] = override!['reminder'];
+      }
+      return CalendarEvent.fromJson(data)
+        ..originalOccurrenceDate = DateTime(day.year, day.month, day.day);
+    }
+
+    event.occurrenceResolver = resolve;
+    event.overrideResolver = () sync* {
+      for (final exception
+          in _exceptions?.forEvent(event.id) ?? <EventException>[]) {
+        if (exception.isDeleted || exception.overrideData == null) continue;
+        final occurrence = resolve(exception.originalDate);
+        if (occurrence != null) yield occurrence;
+      }
+    };
+    return event;
+  }
+
+  /// Attaches exception lookup to a live, not-yet-persisted event snapshot.
+  CalendarEvent withOccurrenceLookup(CalendarEvent event) =>
+      _bindOccurrenceLookup(event);
 
   @override
   Map<String, dynamic> encode(CalendarEvent item) => item.toJson();
@@ -292,6 +338,7 @@ class EventRepository extends Repository<CalendarEvent> {
   // ── Simple mutations ──────────────────────────────────────────────────────
 
   void add(CalendarEvent event) {
+    _bindOccurrenceLookup(event);
     items.add(event);
     persist(event);
     notifyListeners();

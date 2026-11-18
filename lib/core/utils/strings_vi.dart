@@ -303,6 +303,8 @@ const viStrings = <String, String>{
   'Skip': 'Bỏ qua',
 
   'Saved just now': 'Vừa lưu xong',
+  'Quick Note is full. Open the app to edit it.':
+      'Ghi chú nhanh đã đầy. Mở ứng dụng để chỉnh sửa.',
 
   // ── Settings ─────────────────────────────────────────────────────────────
   'Account': 'Tài khoản',
@@ -770,5 +772,46 @@ const viStrings = <String, String>{
       'SuperCalendar không thể mở cơ sở dữ liệu trên máy. Dữ liệu hiện có của bạn không bị thay đổi.',
   'Try again': 'Thử lại',
   'Technical details': 'Chi tiết kỹ thuật',
+  // Firebase account (Google sign-in).
+  'Could not load this photo. Please try another image.':
+      'Không thể tải ảnh này. Vui lòng thử ảnh khác.',
+  'Google sign-in is handled by Firebase Authentication. Planner data stays on this device and is not synced to your Google account. VIP purchases are still simulated.':
+      'Đăng nhập Google được xử lý qua Firebase Authentication. Dữ liệu lịch vẫn được lưu trên thiết bị và chưa đồng bộ với tài khoản Google. Các giao dịch VIP vẫn là mô phỏng.',
+  'Google account': 'Tài khoản Google',
+  'Continue with Google': 'Tiếp tục với Google',
+  'Signed in': 'Đã đăng nhập',
+  'Sign out': 'Đăng xuất',
+  'Your planner data stays on this device. Cloud sync is not available yet.':
+      'Dữ liệu lịch vẫn được lưu trên thiết bị này. Chưa hỗ trợ đồng bộ đám mây.',
+  'Sign-in was cancelled.': 'Đã hủy đăng nhập.',
+  'Allow pop-ups in your browser, then try again.':
+      'Hãy cho phép cửa sổ bật lên trong trình duyệt rồi thử lại.',
+  'This app address is not authorized for Google sign-in.':
+      'Địa chỉ ứng dụng chưa được cho phép đăng nhập Google.',
+  'Google sign-in has not been enabled for this app.':
+      'Ứng dụng chưa bật đăng nhập Google.',
+  'Check your internet connection and try again.':
+      'Hãy kiểm tra kết nối mạng rồi thử lại.',
+  'This email already uses another sign-in method.':
+      'Email này đang sử dụng phương thức đăng nhập khác.',
+  'Could not sign in. Please try again.': 'Không thể đăng nhập. Vui lòng thử lại.',
+  'Could not sign out. Please try again.': 'Không thể đăng xuất. Vui lòng thử lại.',
+  'Could not restore your sign-in session. Please try again.':
+      'Không thể khôi phục phiên đăng nhập. Vui lòng thử lại.',
+  'Google did not return a sign-in token.':
+      'Google chưa trả về thông tin xác thực đăng nhập.',
+  'Could not sign in with Google. Check the Android sign-in configuration.':
+      'Không thể đăng nhập Google. Hãy kiểm tra cấu hình đăng nhập Android.',
+  'Something went wrong. Please try again.': 'Đã xảy ra lỗi. Vui lòng thử lại.',
+  'Could not connect to Firebase': 'Không thể kết nối Firebase',
+  'Firebase could not initialize. Please try again. Your local data has not been changed.':
+      'Không thể khởi tạo Firebase. Vui lòng thử lại. Dữ liệu trên máy của bạn chưa bị thay đổi.',
   'No subtasks yet · tap + Add': 'Chưa có công việc con · chạm + Thêm',
+  'Save for Lock Screen': 'Lưu ảnh màn hình khóa',
+  'Apply wallpaper on iPhone': 'Đặt hình nền trên iPhone',
+  'How to apply': 'Cách đặt hình nền',
+  'Open Settings → Wallpaper → Add New Wallpaper → Photos, then select the image you saved.':
+      'Mở Cài đặt → Hình nền → Thêm hình nền mới → Ảnh, rồi chọn ảnh vừa lưu.',
+  'Could not sign in with Google. Check the sign-in configuration for this device.':
+      'Không thể đăng nhập Google. Hãy kiểm tra cấu hình đăng nhập của thiết bị này.',
 };

@@ -7,6 +7,7 @@ import android.content.ContentUris
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
+import android.graphics.Rect
 import android.net.Uri
 import android.provider.CalendarContract
 import android.provider.Settings
@@ -140,11 +141,14 @@ class MainActivity : FlutterActivity() {
         val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return false
         val flag = if (lockScreen) WallpaperManager.FLAG_LOCK else WallpaperManager.FLAG_SYSTEM
         return try {
-            WallpaperManager.getInstance(this).setBitmap(bitmap, null, true, flag) != 0
+            val visible = Rect(0, 0, bitmap.width, bitmap.height)
+            WallpaperManager.getInstance(this).setBitmap(bitmap, visible, true, flag) != 0
         } catch (e: IOException) {
             false
         } catch (e: SecurityException) {
             false
+        } finally {
+            bitmap.recycle()
         }
     }
 

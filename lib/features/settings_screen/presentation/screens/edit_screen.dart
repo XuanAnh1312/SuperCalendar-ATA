@@ -1,21 +1,21 @@
-import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/rendering.dart';
 import 'package:gal/gal.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import 'package:flutter_application/app/routes/app_routes.dart';
 import 'package:flutter_application/app/theme/app_colors.dart';
 import 'package:flutter_application/app/theme/app_text.dart';
 import 'package:flutter_application/core/services/app_state.dart';
+import 'package:flutter_application/core/services/background_photo.dart';
 import 'package:flutter_application/core/services/wallpaper_service.dart';
+import 'package:flutter_application/core/services/wallpaper_export.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/core/utils/strings.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
@@ -30,10 +30,9 @@ import 'package:flutter_application/features/settings_screen/presentation/screen
 import 'package:flutter_application/features/vip/presentation/screens/template_store_screen.dart';
 import 'package:flutter_application/features/vip/presentation/widgets/vip_gate.dart';
 
-/// Size of the wallpaper canvas in the design; it is drawn at this size and
-/// scaled to the screen, so the design's measures are used as they are.
+/// Design width; canvas height follows the target display's aspect ratio.
 const _canvasWidth = 330.0;
-const _canvasHeight = 520.0;
+const _referenceCanvasHeight = 520.0;
 
 /// Where the widget grid starts on the canvas (below the clock on the lock
 /// screen) and how far it is from the sides.
@@ -89,6 +88,15 @@ class _EditScreenState extends State<EditScreen> {
   String get _layoutId => _lock ? ScreenLayout.lock : ScreenLayout.home;
   ScreenLayout get _draft => _drafts![_layoutId]!;
   List<String> get _types => _lock ? WidgetType.lock : WidgetType.home;
+
+  WallpaperDimensions get _wallpaperDimensions {
+    final view = View.of(context);
+    // A browser's emulated viewport is the target; Android needs the whole
+    // display, including system bars and outside a split-screen app window.
+    final viewport = MediaQuery.sizeOf(context) * view.devicePixelRatio;
+    final display = kIsWeb ? viewport : view.display.size;
+    return WallpaperDimensions(display.isEmpty ? viewport : display);
+  }
 
   String get _wallpaperName => wallpaperName(
     _draft.backgroundPath != null ? wallpaperPhoto : _draft.wallpaper,
@@ -283,11 +291,12 @@ class _EditScreenState extends State<EditScreen> {
       context,
       WallpaperGalleryScreen(current: current),
     );
-    if (picked == null || !mounted || picked == current) return;
+    if (picked == null || !mounted) return;
     if (picked == wallpaperPhoto) {
       await _pickPhoto();
       return;
     }
+    if (picked == current) return;
     _edit((draft) {
       draft
         ..wallpaper = picked
@@ -301,32 +310,43 @@ class _EditScreenState extends State<EditScreen> {
       return;
     }
     final id = _layoutId;
-    final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1440,
-    );
-    if (picked == null) return;
-    // Copy out of the picker's cache so the image survives a restart.
-    final directory = await getApplicationDocumentsDirectory();
-    final name =
-        'background_${id}_${DateTime.now().millisecondsSinceEpoch}'
-        '${p.extension(picked.path)}';
-    final saved = await File(picked.path).copy(p.join(directory.path, name));
-    _newImages.add(saved.path);
-    if (!mounted) return;
-    _remember();
-    setState(() {
-      _drafts![id]!.backgroundPath = saved.path;
-      _dirty = true;
-    });
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1440,
+      );
+      if (picked == null) return;
+      // Reject unreadable/unsupported images before replacing the current photo.
+      final codec = await ui.instantiateImageCodec(await picked.readAsBytes());
+      try {
+        final frame = await codec.getNextFrame();
+        frame.image.dispose();
+      } finally {
+        codec.dispose();
+      }
+      if (!mounted) return;
+      final saved = await storeBackgroundPhoto(picked, id);
+      if (!mounted) {
+        await deleteBackgroundPhoto(saved);
+        return;
+      }
+      _newImages.add(saved);
+      _remember();
+      setState(() {
+        _drafts![id]!.backgroundPath = saved;
+        _dirty = true;
+      });
+    } catch (_) {
+      if (mounted)
+        showAppSnack(
+          context,
+          'Could not load this photo. Please try another image.',
+        );
+    }
   }
 
   Future<void> _deleteQuietly(String path) async {
-    try {
-      await File(path).delete();
-    } on FileSystemException {
-      // Already gone; nothing to clean up.
-    }
+    await deleteBackgroundPhoto(path);
   }
 
   // ---- Save / export -----------------------------------------------------------
@@ -366,11 +386,7 @@ class _EditScreenState extends State<EditScreen> {
     final boundary =
         _exportKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
     if (boundary == null) return null;
-    final ratio = View.of(context).physicalSize.width / boundary.size.width;
-    final image = await boundary.toImage(pixelRatio: ratio);
-    final data = await image.toByteData(format: ui.ImageByteFormat.png);
-    image.dispose();
-    return data?.buffer.asUint8List();
+    return _wallpaperDimensions.capture(boundary);
   }
 
   Future<void> _saveImage() async {
@@ -382,7 +398,8 @@ class _EditScreenState extends State<EditScreen> {
       if (!await Gal.hasAccess()) await Gal.requestAccess();
       await Gal.putImageBytes(
         bytes,
-        name: 'supercalendar_wallpaper_${DateTime.now().millisecondsSinceEpoch}',
+        name:
+            'supercalendar_wallpaper_${DateTime.now().millisecondsSinceEpoch}',
       );
       if (!mounted) return;
       await pushInTab<void>(
@@ -401,6 +418,10 @@ class _EditScreenState extends State<EditScreen> {
   }
 
   Future<void> _setWallpaper() async {
+    if (requiresManualWallpaperSetup) {
+      await _saveImage();
+      return;
+    }
     if (_busy) return;
     setState(() => _busy = true);
     try {
@@ -455,7 +476,10 @@ class _EditScreenState extends State<EditScreen> {
                       : null,
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                   children: [
-                    if (_lock) ...[_overlayControl(), const SizedBox(height: 12)],
+                    if (_lock) ...[
+                      _overlayControl(),
+                      const SizedBox(height: 12),
+                    ],
                     _canvas(draft),
                     const SizedBox(height: 10),
                     Text(
@@ -476,7 +500,12 @@ class _EditScreenState extends State<EditScreen> {
                     soft: true,
                     onTap: _saveImage,
                   ),
-                  StudioButton(label: 'Set Wallpaper', onTap: _setWallpaper),
+                  StudioButton(
+                    label: requiresManualWallpaperSetup
+                        ? 'Save for Lock Screen'
+                        : 'Set Wallpaper',
+                    onTap: _setWallpaper,
+                  ),
                 ],
               ),
             ],
@@ -515,18 +544,21 @@ class _EditScreenState extends State<EditScreen> {
   }
 
   Widget _canvas(ScreenLayout draft) {
-    final gridTop = _lock ? _lockGridTop : _homeGridTop;
+    final canvasHeight = _wallpaperDimensions.canvasHeight(_canvasWidth);
+    final gridTop = _lock
+        ? canvasHeight * _lockGridTop / _referenceCanvasHeight
+        : _homeGridTop;
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = math.min(_canvasWidth, constraints.maxWidth);
         return Center(
           child: SizedBox(
             width: width,
-            height: width * _canvasHeight / _canvasWidth,
+            height: width * canvasHeight / _canvasWidth,
             child: FittedBox(
               child: SizedBox(
                 width: _canvasWidth,
-                height: _canvasHeight,
+                height: canvasHeight,
                 child: DragTarget<String>(
                   onWillAcceptWithDetails: (d) => _types.contains(d.data),
                   onAcceptWithDetails: (d) => _drop(d.data, d.offset),
@@ -560,11 +592,19 @@ class _EditScreenState extends State<EditScreen> {
                                       left: _gridSide,
                                       right: _gridSide,
                                       top: gridTop,
-                                      child: WidgetGrid(
-                                        key: _gridKey,
-                                        layout: draft,
-                                        minRows: draft.rows,
-                                        cellBuilder: _canvasItem,
+                                      bottom: _gridSide,
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.topCenter,
+                                        child: SizedBox(
+                                          width: _canvasWidth - 2 * _gridSide,
+                                          child: WidgetGrid(
+                                            key: _gridKey,
+                                            layout: draft,
+                                            minRows: draft.rows,
+                                            cellBuilder: _canvasItem,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -573,14 +613,22 @@ class _EditScreenState extends State<EditScreen> {
                             ),
                           ),
                           if (_lock && _overlay)
-                            const Positioned(
+                            Positioned(
                               left: _gridSide,
                               right: _gridSide,
                               top: 15,
+                              height: math.max(1, gridTop - 30),
                               child: IgnorePointer(
-                                child: Opacity(
-                                  opacity: 0.6,
-                                  child: _LockOverlay(),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.topCenter,
+                                  child: SizedBox(
+                                    width: _canvasWidth - 2 * _gridSide,
+                                    child: const Opacity(
+                                      opacity: 0.6,
+                                      child: _LockOverlay(),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -634,7 +682,10 @@ class _EditScreenState extends State<EditScreen> {
                   child: IgnorePointer(
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        border: Border.all(color: AppColors.primary, width: 1.5),
+                        border: Border.all(
+                          color: AppColors.primary,
+                          width: 1.5,
+                        ),
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
@@ -877,9 +928,8 @@ class _EditScreenState extends State<EditScreen> {
                       const SizedBox(width: 10),
                       AppSwitch(
                         value: item.visible,
-                        onChanged: (show) => show
-                            ? _place(type, item.x, item.y)
-                            : _remove(type),
+                        onChanged: (show) =>
+                            show ? _place(type, item.x, item.y) : _remove(type),
                       ),
                     ],
                   ),
@@ -908,10 +958,7 @@ class _LockOverlay extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text(
-              weekdayNames[app.today.weekday - 1],
-              style: AppText.s(10),
-            ),
+            Text(weekdayNames[app.today.weekday - 1], style: AppText.s(10)),
             const Spacer(),
             Icon(LucideIcons.signal, size: 12, color: AppColors.text),
             const SizedBox(width: 5),

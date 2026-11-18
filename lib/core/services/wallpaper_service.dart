@@ -1,4 +1,9 @@
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
+
+/// iOS exposes no public API for applying a wallpaper from an application.
+bool get requiresManualWallpaperSetup =>
+    !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
 /// Sets the phone wallpaper to the image exported by Edit Your Screen
 /// (FR-04, "Set Wallpaper").
@@ -43,10 +48,12 @@ class FakeWallpaperService implements WallpaperService {
 
   final bool result;
   final calls = <bool>[];
+  final images = <Uint8List>[];
 
   @override
   Future<bool> setWallpaper(Uint8List png, {required bool lockScreen}) async {
     calls.add(lockScreen);
+    images.add(Uint8List.fromList(png));
     return result;
   }
 }

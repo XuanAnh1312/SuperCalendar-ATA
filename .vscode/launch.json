@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "SuperCalendar - Web (Chrome hiện tại)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "deviceId": "web-server",
+      "flutterMode": "debug",
+      "toolArgs": [
+        "--web-hostname",
+        "localhost",
+        "--web-port",
+        "7357"
+      ]
+    }
+  ]
+}
