@@ -136,10 +136,30 @@ class AppState extends ChangeNotifier {
 
   /// Picks up changes written by a notification action while the UI was
   /// alive in another isolate.
-  Future<void> reloadFromDisk() async {
-    if (!loaded) return;
-    await tasks.load();
-    await notes.load();
+  Future<void>? _reloadInFlight;
+  bool _reloading = false;
+
+  Future<void> reloadFromDisk() {
+    if (!loaded) return Future.value();
+    return _reloadInFlight ??= _reloadNotificationData().whenComplete(
+      () => _reloadInFlight = null,
+    );
+  }
+
+  Future<void> _reloadNotificationData() async {
+    _reloading = true;
+    try {
+      await account.load();
+      await tasks.load();
+      await notes.load();
+      await eventExceptions.load();
+      await events.load();
+      await habitOccurrences.load();
+      await habits.load();
+    } finally {
+      _reloading = false;
+    }
+    await syncNotifications();
   }
 
   Future<void> _loadRepositories() async {
@@ -178,6 +198,7 @@ class AppState extends ChangeNotifier {
 
   @override
   void dispose() {
+    loaded = false;
     for (final repository in _repositories) {
       repository.removeListener(_onDataChanged);
     }
@@ -416,6 +437,7 @@ class AppState extends ChangeNotifier {
       s.notificationPermissionAsked = true;
       s.notificationsEnabled = granted;
     });
+    await account.flush();
     return granted;
   }
 
@@ -423,9 +445,12 @@ class AppState extends ChangeNotifier {
     account.updateSettings((s) {
       s.notificationsEnabled = false;
       s.lockScreenEnabled = false;
+      s.quickNoteNotification = false;
     });
+    await account.flush();
     await notifications.cancelReminders();
     await notifications.hideLockScreen();
+    await notifications.hideQuickNoteNotification();
   }
 
   /// Called when the user saves something with a reminder. Asks for the
@@ -470,6 +495,7 @@ class AppState extends ChangeNotifier {
       if (!await enableNotifications()) return false;
     }
     account.updateSettings((s) => s.quickNoteNotification = value);
+    await account.flush();
     if (value) {
       await notifications.showQuickNoteNotification(notes.quickText);
     } else {
@@ -480,34 +506,84 @@ class AppState extends ChangeNotifier {
 
   /// Updates the Quick Note notification when its text changes (FR-20, AC-39).
   Future<void> updateQuickNoteNotification() async {
-    if (!settings.quickNoteNotification) return;
+    if (!settings.notificationsEnabled || !settings.quickNoteNotification) {
+      return;
+    }
     await notifications.showQuickNoteNotification(notes.quickText);
   }
 
   void _queueSync() {
-    if (_syncQueued || !loaded) return;
+    if (_syncQueued || !loaded || _reloading) return;
     _syncQueued = true;
     scheduleMicrotask(() {
       _syncQueued = false;
-      unawaited(syncNotifications());
+      unawaited(
+        syncNotifications().catchError((Object error, StackTrace stack) {
+          notificationSyncError = error;
+          debugPrint('Could not update notifications: $error');
+          if (loaded) notifyListeners();
+        }),
+      );
     });
   }
 
   /// Reschedules reminders and refreshes the lock screen notification.
   /// Also updates the Quick Note notification when enabled (FR-20).
-  Future<void> syncNotifications() async {
-    if (!settings.notificationsEnabled) return;
+  Object? notificationSyncError;
+  Future<void>? _notificationSync;
+  bool _syncAgain = false;
+
+  Future<void> syncNotifications() {
+    _syncAgain = true;
+    return _notificationSync ??= _drainNotificationSync().whenComplete(
+      () => _notificationSync = null,
+    );
+  }
+
+  Future<void> _drainNotificationSync() async {
+    while (_syncAgain && loaded) {
+      _syncAgain = false;
+      if (!_reloading) await _performNotificationSync();
+    }
+  }
+
+  Future<void> _performNotificationSync() async {
+    await flush();
+    if (!loaded) return;
+    if (!settings.notificationsEnabled) {
+      await notifications.cancelReminders();
+      await notifications.hideLockScreen();
+      await notifications.hideQuickNoteNotification();
+      return;
+    }
+    if (!await notifications.hasPermission()) {
+      await disableNotifications();
+      return;
+    }
+    notificationSyncError = null;
+    if (notifications case final ReminderContextConsumer consumer) {
+      consumer.updateReminderContext(
+        ReminderContext(
+          settings: settings,
+          habitOccurrences: habitOccurrences.items,
+        ),
+      );
+    }
     await notifications.syncReminders(
-      tasks: tasks.items,
-      events: events.items,
+      tasks: settings.taskReminders ? tasks.items : const [],
+      events: settings.eventReminders ? events.items : const [],
       now: now,
-      habits: habits.active,
+      habits: settings.habitReminders ? habits.active : const [],
     );
     if (settings.lockScreenEnabled) {
       await notifications.showLockScreen(lockScreenContent);
+    } else {
+      await notifications.hideLockScreen();
     }
     if (settings.quickNoteNotification) {
       await notifications.showQuickNoteNotification(notes.quickText);
+    } else {
+      await notifications.hideQuickNoteNotification();
     }
   }
 
@@ -556,8 +632,12 @@ class AppState extends ChangeNotifier {
   // ---- Convenience writes that span features ------------------------------
 
   /// Quick Add from the lock screen or notification: a task due today.
-  Task? quickAddTask(String title) =>
-      tasks.add(title, dueDate: today, priority: settings.defaultPriority);
+  Task? quickAddTask(String title) => tasks.add(
+    title,
+    dueDate: today,
+    priority: settings.defaultPriority,
+    reminderMinutes: settings.taskReminderMinutes ?? 0,
+  );
 
   // ---- Task convenience methods (BR-13, AC-25) ----------------------------
 

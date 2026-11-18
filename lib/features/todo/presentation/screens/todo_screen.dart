@@ -24,7 +24,6 @@ class _TodoScreenState extends State<TodoScreen> {
 
   // 0 = all, 1 = today, 2 = upcoming.
   int _filter = 0;
-  bool _hideCompleted = false;
 
   @override
   void dispose() {
@@ -38,12 +37,7 @@ class _TodoScreenState extends State<TodoScreen> {
       _inputFocus.requestFocus();
       return;
     }
-    app.tasks.add(
-      _input.text,
-      dueDate: app.today,
-      priority: app.settings.defaultPriority,
-      reminderMinutes: app.settings.taskReminderMinutes ?? 0,
-    );
+    app.quickAddTask(_input.text);
     _input.clear();
     _inputFocus.requestFocus();
   }
@@ -51,15 +45,20 @@ class _TodoScreenState extends State<TodoScreen> {
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
-    final all = app.tasks.items;
-    final today = app.tasks.dueOn(app.today);
-    final upcoming = app.tasks.notDueOn(app.today);
+    final hideCompleted = app.settings.hideCompletedTasks;
+    final all = app.tasks.items
+        .where((t) => !hideCompleted || !t.completed)
+        .toList();
+    final today = all.where((t) => t.isDueOn(app.today)).toList();
+    final upcoming = app.tasks
+        .notDueOn(app.today)
+        .where((t) => !hideCompleted || !t.completed)
+        .toList();
     var visible = switch (_filter) {
       1 => today,
       2 => upcoming,
       _ => all,
     };
-    final hideCompleted = _hideCompleted || app.settings.hideCompletedTasks;
     if (hideCompleted) {
       visible = visible.where((t) => !t.completed).toList();
     }
@@ -79,12 +78,14 @@ class _TodoScreenState extends State<TodoScreen> {
                   '${longDate(app.today)} · ${trf('{n} remaining', {'n': app.tasks.remaining})}',
               trailing: RoundIconButton(
                 icon: LucideIcons.listFilter,
-                iconColor: _hideCompleted ? AppColors.primary : AppColors.text,
+                iconColor: hideCompleted ? AppColors.primary : AppColors.text,
                 onTap: () {
-                  setState(() => _hideCompleted = !_hideCompleted);
+                  app.account.updateSettings(
+                    (s) => s.hideCompletedTasks = !hideCompleted,
+                  );
                   showAppSnack(
                     context,
-                    _hideCompleted
+                    !hideCompleted
                         ? 'Completed tasks hidden'
                         : 'Showing all tasks',
                   );

@@ -63,19 +63,20 @@ Future<bool> handleNotificationAction({
       if (input != null && input.trim().isNotEmpty) {
         final notes = NoteRepository(store, clock: now);
         await notes.load();
-        // FR-20.03: Append (default) or Replace; setQuick clamps to 500.
-        final old = notes.quickText;
-        notes.setQuick(
-          account.settings.quickNoteAppend && old.isNotEmpty
-              ? '$old\n${input.trim()}'
-              : input,
+        changed = notes.captureQuick(
+          input,
+          append: account.settings.quickNoteAppend,
         );
+        if (!changed) break;
         await notes.flush();
         await notifications.showQuickNoteNotification(notes.quickText);
-        changed = true;
       }
     case NotificationActions.skip:
       if (target?.type != NotificationTarget.habit) break;
+      if (target?.occurrenceDate != null &&
+          !sameDay(target!.occurrenceDate!, now())) {
+        break;
+      }
       final occurrences = HabitOccurrenceRepository(store);
       await occurrences.load();
       final habits = HabitRepository(store, occurrences: occurrences);
@@ -100,11 +101,25 @@ Future<bool> handleNotificationAction({
         break;
       }
       if (target.type == NotificationTarget.event) {
-        final events = EventRepository(store);
+        final exceptions = EventExceptionRepository(store);
+        await exceptions.load();
+        final events = EventRepository(store, exceptions: exceptions);
         await events.load();
-        final event = events.byId(target.id);
-        if (event != null) await notifications.snoozeEvent(event, snoozeDelay);
+        final root = events.byId(target.id);
+        final event = root?.resolvedOccurrenceOn(
+          target.occurrenceDate ?? (root.isRecurring ? now() : root.startTime),
+        );
+        if (event != null &&
+            event.endTime.isAfter(now()) &&
+            (target.occurrenceStart == null ||
+                target.occurrenceStart!.isAtSameMomentAs(event.startTime))) {
+          await notifications.snoozeEvent(event, snoozeDelay);
+        }
       } else if (target.type == NotificationTarget.habit) {
+        if (target.occurrenceDate != null &&
+            !sameDay(target.occurrenceDate!, now())) {
+          break;
+        }
         final occurrences = HabitOccurrenceRepository(store);
         await occurrences.load();
         final habits = HabitRepository(store, occurrences: occurrences);
@@ -114,7 +129,16 @@ Future<bool> handleNotificationAction({
             habits.occurrences(now()).contains(habit) &&
             !habits.isDone(habit, now()) &&
             !habits.isSkipped(habit, now())) {
-          await notifications.snoozeHabit(habit, snoozeDelay);
+          final context = ReminderContext(
+            settings: account.settings,
+            habitOccurrences: occurrences.items,
+          );
+          if (habitOccursOn(habit, now(), context)) {
+            await notifications.snoozeHabit(
+              effectiveHabit(habit, now(), context),
+              snoozeDelay,
+            );
+          }
         }
       } else {
         final task = tasks.byId(target.id);
@@ -140,16 +164,33 @@ Future<void> _refreshNotifications(
   final account = UserRepository(store, clock: now);
   await account.load();
   AppStrings.vi = account.settings.language == AppStrings.vietnamese;
-  if (!account.settings.notificationsEnabled) return;
-  final events = EventRepository(store);
+  if (!account.settings.notificationsEnabled) {
+    await notifications.cancelReminders();
+    await notifications.hideLockScreen();
+    await notifications.hideQuickNoteNotification();
+    return;
+  }
+  final exceptions = EventExceptionRepository(store);
+  await exceptions.load();
+  final events = EventRepository(store, exceptions: exceptions);
   await events.load();
-  final habits = HabitRepository(store);
+  final occurrences = HabitOccurrenceRepository(store);
+  await occurrences.load();
+  final habits = HabitRepository(store, occurrences: occurrences);
   await habits.load();
+  if (notifications case final ReminderContextConsumer consumer) {
+    consumer.updateReminderContext(
+      ReminderContext(
+        settings: account.settings,
+        habitOccurrences: occurrences.items,
+      ),
+    );
+  }
   await notifications.syncReminders(
-    tasks: tasks.items,
-    events: events.items,
+    tasks: account.settings.taskReminders ? tasks.items : const [],
+    events: account.settings.eventReminders ? events.items : const [],
     now: now(),
-    habits: habits.active,
+    habits: account.settings.habitReminders ? habits.active : const [],
   );
   if (account.settings.lockScreenEnabled) {
     final today = dateOnly(now());
@@ -161,5 +202,14 @@ Future<void> _refreshNotifications(
         hideDetails: account.settings.lockScreenHideDetails,
       ),
     );
+  } else {
+    await notifications.hideLockScreen();
+  }
+  if (account.settings.quickNoteNotification) {
+    final notes = NoteRepository(store);
+    await notes.load();
+    await notifications.showQuickNoteNotification(notes.quickText);
+  } else {
+    await notifications.hideQuickNoteNotification();
   }
 }

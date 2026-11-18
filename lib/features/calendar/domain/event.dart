@@ -97,6 +97,20 @@ class CalendarEvent {
   /// RRULE string for recurring events; null = single occurrence (BR-10).
   String? repeatRule;
 
+  /// Runtime-only occurrence lookup supplied by the repository. Keeping this
+  /// separate from the rule lets reminder consumers respect persisted edits
+  /// without putting exception records into the event JSON.
+  CalendarEvent? Function(DateTime day)? occurrenceResolver;
+  Iterable<CalendarEvent> Function()? overrideResolver;
+  DateTime? originalOccurrenceDate;
+
+  CalendarEvent? resolvedOccurrenceOn(DateTime day) =>
+      occurrenceResolver != null
+      ? occurrenceResolver!(day)
+      : isOn(day)
+      ? (isRecurring ? occurrenceOn(day) : this)
+      : null;
+
   /// Extra notes attached to this event (max 1000 chars per §5.5).
   String notes;
 
