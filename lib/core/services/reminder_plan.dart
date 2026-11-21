@@ -65,13 +65,18 @@ DateTime? taskReminderTime(Task task, DateTime now) {
   return at.isAfter(now) ? at : null;
 }
 
-CalendarEvent? eventReminderOccurrence(CalendarEvent event, DateTime now) {
+CalendarEvent? eventReminderOccurrence(
+  CalendarEvent event,
+  DateTime now, {
+  int? lead,
+}) {
   CalendarEvent? best;
   DateTime? bestTime;
   void consider(CalendarEvent? candidate) {
-    if (candidate == null || candidate.reminderMinutes == null) return;
+    if (candidate == null || candidate.reminderLeadTimes.isEmpty) return;
+    if (lead != null && !candidate.reminderLeadTimes.contains(lead)) return;
     final at = candidate.startTime.subtract(
-      Duration(minutes: candidate.reminderMinutes!),
+      Duration(minutes: lead ?? candidate.reminderLeadTimes.first),
     );
     if (at.isAfter(now) && (bestTime == null || at.isBefore(bestTime!))) {
       best = candidate;
@@ -96,10 +101,14 @@ CalendarEvent? eventReminderOccurrence(CalendarEvent event, DateTime now) {
 }
 
 DateTime? eventReminderTime(CalendarEvent event, DateTime now) {
-  final occurrence = eventReminderOccurrence(event, now);
-  return occurrence?.startTime.subtract(
-    Duration(minutes: occurrence.reminderMinutes!),
-  );
+  DateTime? earliest;
+  for (final lead in event.reminderLeadTimes) {
+    final occurrence = eventReminderOccurrence(event, now, lead: lead);
+    if (occurrence == null) continue;
+    final at = occurrence.startTime.subtract(Duration(minutes: lead));
+    if (earliest == null || at.isBefore(earliest)) earliest = at;
+  }
+  return earliest;
 }
 
 bool habitOccursOn(Habit habit, DateTime day, [ReminderContext? context]) {
@@ -181,21 +190,29 @@ List<ReminderPlanEntry> buildReminderPlan({
   }
   if (context.enabled(NotificationTarget.event)) {
     for (final event in events) {
-      final next = eventReminderOccurrence(event, now);
-      if (next == null) continue;
-      result.add(
-        ReminderPlanEntry(
-          at: next.startTime.subtract(Duration(minutes: next.reminderMinutes!)),
-          event: next,
-          expiresAt: next.endTime,
-          target: NotificationTarget(
-            NotificationTarget.event,
-            event.id,
-            occurrenceDate: next.originalOccurrenceDate ?? next.startTime,
-            occurrenceStart: next.startTime,
+      for (final lead in {
+        ...event.reminderLeadTimes,
+        for (final override
+            in event.overrideResolver?.call() ?? <CalendarEvent>[])
+          ...override.reminderLeadTimes,
+      }) {
+        final next = eventReminderOccurrence(event, now, lead: lead);
+        if (next == null) continue;
+        result.add(
+          ReminderPlanEntry(
+            at: next.startTime.subtract(Duration(minutes: lead)),
+            event: next,
+            expiresAt: next.endTime,
+            target: NotificationTarget(
+              NotificationTarget.event,
+              event.id,
+              reminderLead: next.reminderOffsets == null ? null : lead,
+              occurrenceDate: next.originalOccurrenceDate ?? next.startTime,
+              occurrenceStart: next.startTime,
+            ),
           ),
-        ),
-      );
+        );
+      }
     }
   }
   if (context.enabled(NotificationTarget.habit)) {
@@ -261,7 +278,9 @@ bool reminderTargetIsValid(
         target.occurrenceDate ?? (event.isRecurring ? now : event.startTime),
       );
       return next != null &&
-          next.reminderMinutes != null &&
+          next.reminderLeadTimes.isNotEmpty &&
+          (target.reminderLead == null ||
+              next.reminderLeadTimes.contains(target.reminderLead)) &&
           next.endTime.isAfter(now) &&
           sameStart(next.startTime);
     case NotificationTarget.habit:

@@ -67,14 +67,65 @@ class EditScreen extends StatefulWidget {
 class _EditScreenState extends State<EditScreen> {
   // 0 = lock screen, 1 = home screen (OI-08).
   int _target = 0;
-  // Dock view: 0 = Background, 1 = Widgets, 2 = Layers.
-  int _tab = 1;
+  // Dock view: 0 = Background, 1 = Layers, 2 = Widgets.
+  int _tab = 2;
   bool _overlay = true;
   bool _dirty = false;
   bool _closing = false;
   bool _resizing = false;
   bool _busy = false;
   String? _selected;
+  LayoutItem? _gestureItem;
+  Offset? _gestureOrigin;
+  bool _gestureRemembered = false;
+
+  void _transformStart(String type, ScaleStartDetails details) {
+    _gestureItem = _draft.item(type).copy();
+    _gestureOrigin = _gridBox?.globalToLocal(details.focalPoint);
+    _gestureRemembered = false;
+    setState(() {
+      _selected = type;
+      _resizing = true;
+    });
+  }
+
+  void _transformUpdate(String type, ScaleUpdateDetails details) {
+    final box = _gridBox;
+    final original = _gestureItem;
+    final origin = _gestureOrigin;
+    if (box == null || original == null || origin == null) return;
+    final delta = box.globalToLocal(details.focalPoint) - origin;
+    final w = (original.w * details.scale).round().clamp(
+      ScreenLayout.minWidth,
+      ScreenLayout.columns,
+    );
+    final h = (original.h * details.scale).round().clamp(
+      ScreenLayout.minHeight,
+      _draft.rows,
+    );
+    final x =
+        (original.x +
+                delta.dx / gridPitch(box.size.width) -
+                (w - original.w) / 2)
+            .round();
+    final y =
+        (original.y +
+                delta.dy / gridRowPitch(box.size.width) -
+                (h - original.h) / 2)
+            .round();
+    final current = _draft.item(type);
+    if (current.x == x && current.y == y && current.w == w && current.h == h)
+      return;
+    if (!_draft.isFree(x, y, w, h, ignore: current)) return;
+    if (!_gestureRemembered) {
+      _remember();
+      _gestureRemembered = true;
+    }
+    setState(() {
+      _draft.resize(type, x, y, w, h);
+      _dirty = true;
+    });
+  }
 
   late AppState _app;
   Map<String, ScreenLayout>? _drafts;
@@ -636,8 +687,8 @@ class _EditScreenState extends State<EditScreen> {
     );
   }
 
-  /// A widget on the canvas: tap to select, long-press to drag, pull a
-  /// corner to resize. Released outside the canvas, it leaves the screen.
+  /// Drag directly or pinch to resize; long-press dragging and corner handles
+  /// remain available. Every accepted gesture is one Undo step.
   Widget _canvasItem(LayoutItem item, Size size, double scale) {
     final type = item.type;
     final selected = type == _selected;
@@ -667,7 +718,16 @@ class _EditScreenState extends State<EditScreen> {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              card,
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onScaleStart: (details) => _transformStart(type, details),
+                onScaleUpdate: (details) => _transformUpdate(type, details),
+                onScaleEnd: (_) => setState(() {
+                  _resizing = false;
+                  _gestureItem = null;
+                }),
+                child: IgnorePointer(child: card),
+              ),
               if (selected) ...[
                 Positioned.fill(
                   child: IgnorePointer(
@@ -718,14 +778,14 @@ class _EditScreenState extends State<EditScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           PillSwitch(
-            labels: const ['Background', 'Widgets', 'Layers'],
+            labels: const ['Background', 'Layers', 'Widgets'],
             index: _tab,
             onChanged: (i) => setState(() => _tab = i),
           ),
           const SizedBox(height: 12),
           switch (_tab) {
             0 => _backgroundTab(app, draft),
-            2 => _layersTab(draft),
+            1 => _layersTab(draft),
             _ => _widgetsTab(draft),
           },
         ],
@@ -886,7 +946,7 @@ class _EditScreenState extends State<EditScreen> {
                 onTap: item.visible
                     ? () => setState(() {
                         _selected = type;
-                        _tab = 1;
+                        _tab = 2;
                       })
                     : null,
                 child: SizedBox(
@@ -913,7 +973,7 @@ class _EditScreenState extends State<EditScreen> {
                         ),
                       ),
                       Text(
-                        item.visible ? _sizeLabel(item) : tr('Hidden'),
+                        item.visible ? '' : tr('Hidden'),
                         style: AppText.s(11, color: AppColors.muted),
                       ),
                       const SizedBox(width: 10),

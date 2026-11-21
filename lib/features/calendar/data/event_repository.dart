@@ -253,7 +253,8 @@ class EventRepository extends Repository<CalendarEvent> {
 
   CalendarEvent _bindOccurrenceLookup(CalendarEvent event) {
     CalendarEvent? resolve(DateTime day) {
-      if (!event.isOn(day) || (_exceptions?.isDeleted(event.id, day) ?? false)) {
+      if (!event.isOn(day) ||
+          (_exceptions?.isDeleted(event.id, day) ?? false)) {
         return null;
       }
       final occurrence = event.isRecurring
@@ -276,6 +277,12 @@ class EventRepository extends Repository<CalendarEvent> {
       }
       if (override?.containsKey('reminder') == true) {
         data['reminderMinutes'] = override!['reminder'];
+      }
+      if (override != null &&
+          !override.containsKey('reminderOffsets') &&
+          (override.containsKey('reminder') ||
+              override.containsKey('reminderMinutes'))) {
+        data.remove('reminderOffsets');
       }
       return CalendarEvent.fromJson(data)
         ..originalOccurrenceDate = DateTime(day.year, day.month, day.day);

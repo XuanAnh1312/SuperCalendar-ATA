@@ -191,10 +191,7 @@ class WallpaperWeatherCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(tr('Mostly sunny'), style: AppText.s(10)),
           const SizedBox(height: 6),
-          Text(
-            'H: 21°  L: 14°',
-            style: AppText.s(9, color: AppColors.muted),
-          ),
+          Text('H: 21°  L: 14°', style: AppText.s(9, color: AppColors.muted)),
         ],
       ),
     );
@@ -354,6 +351,7 @@ class LockWidgetList extends StatelessWidget {
       layout: layout,
       cellBuilder: (item, size, scale) => GridCell(
         size: size,
+        fillWidth: item.type == WidgetType.schedule,
         minWidth: minLockCardWidth,
         scale: wallpaperWidgets.contains(item.type) ? scale : null,
         color: item.color,
@@ -366,15 +364,17 @@ class LockWidgetList extends StatelessWidget {
 }
 
 class _LockCard extends StatelessWidget {
-  const _LockCard({required this.child, this.color, this.onTap});
+  const _LockCard({required this.child, this.color, this.onTap, this.padding});
 
   final Widget child;
   final Color? color;
   final VoidCallback? onTap;
+  final EdgeInsets? padding;
 
   @override
   Widget build(BuildContext context) {
     return AppCard(
+      padding: padding,
       color: CardTint.fill(context, color ?? AppColors.lockCard),
       borderColor: CardTint.border(context) ?? AppColors.surface,
       onTap: onTap,
@@ -393,88 +393,228 @@ class LockScheduleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
     final events = app.events.on(app.today);
-    return _LockCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                LucideIcons.calendarDays,
-                size: 15,
-                color: AppColors.primary,
-              ),
-              const SizedBox(width: 8),
+    final start = app.today.subtract(
+      Duration(
+        days: app.settings.weekStart.name == 'sunday'
+            ? app.today.weekday % 7
+            : app.today.weekday - 1,
+      ),
+    );
+    final tasks = app.tasks
+        .dashboard(app.today)
+        .where((t) => !t.completed)
+        .toList();
+    final sections = <Widget>[
+      _LockCard(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var i = 0; i < 7; i++)
               Expanded(
-                child: Text(tr('Schedule'),
-                  style: AppText.s(12.5, weight: FontWeight.w700),
+                child: Builder(
+                  builder: (context) {
+                    final day = start.add(Duration(days: i));
+                    final dayEvents = app.events.on(day);
+                    final today = sameDay(day, app.today);
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            weekdayLetters[day.weekday - 1],
+                            style: AppText.s(8, color: AppColors.muted),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: today
+                                  ? AppColors.primary
+                                  : Colors.transparent,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              '${day.day}',
+                              style: AppText.s(
+                                10,
+                                color: today
+                                    ? AppColors.surface
+                                    : AppColors.text,
+                                weight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          if (app.settings.lockScreenHideDetails)
+                            Text('${dayEvents.length}', style: AppText.s(8))
+                          else ...[
+                            for (final event in dayEvents.take(3))
+                              Container(
+                                width: double.infinity,
+                                margin: const EdgeInsets.only(top: 3),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.accentSurface(
+                                    event.colorIndex,
+                                  ),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: Text(
+                                  event.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppText.s(7),
+                                ),
+                              ),
+                            if (dayEvents.length > 3)
+                              Text(
+                                '+${dayEvents.length - 3}',
+                                style: AppText.s(7),
+                              ),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
                 ),
               ),
-              SoftPill(
-                label: 'Read only',
-                icon: LucideIcons.lockKeyhole,
-                color: AppColors.background,
-                textColor: AppColors.muted,
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          // AC-38: Hide details shows counts only.
-          if (app.settings.lockScreenHideDetails)
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Text(
-                trf(events.length == 1 ? '{n} event today' : '{n} events today', {'n': events.length}),
-                style: AppText.s(11.5, weight: FontWeight.w600),
-              ),
-            )
-          else if (events.isEmpty)
-            const EmptyState(
-              compact: true,
-              icon: LucideIcons.calendarDays,
-              message: 'Nothing scheduled today',
+          ],
+        ),
+      ),
+      _LockCard(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  LucideIcons.calendarDays,
+                  size: 15,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    longDate(app.today),
+                    style: AppText.s(12.5, weight: FontWeight.w700),
+                  ),
+                ),
+                SoftPill(
+                  label: 'Read only',
+                  icon: LucideIcons.lockKeyhole,
+                  color: AppColors.background,
+                  textColor: AppColors.muted,
+                ),
+              ],
             ),
-          if (!app.settings.lockScreenHideDetails)
-            for (final event in events)
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: actions.onOpenEvent == null
-                    ? null
-                    : () => actions.onOpenEvent!(event),
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 10),
+            const SizedBox(height: 4),
+            // AC-38: Hide details shows counts only.
+            if (app.settings.lockScreenHideDetails)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(
+                  trf(
+                    events.length == 1 ? '{n} event today' : '{n} events today',
+                    {'n': events.length},
+                  ),
+                  style: AppText.s(11.5, weight: FontWeight.w600),
+                ),
+              )
+            else if (events.isEmpty)
+              const EmptyState(
+                compact: true,
+                icon: LucideIcons.calendarDays,
+                message: 'Nothing scheduled today',
+              ),
+            if (!app.settings.lockScreenHideDetails)
+              for (final event in events)
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: actions.onOpenEvent == null
+                      ? null
+                      : () => actions.onOpenEvent!(event),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 47,
+                          child: Text(
+                            event.startLabel,
+                            style: AppText.s(9.5, color: AppColors.muted),
+                          ),
+                        ),
+                        Container(
+                          width: 4,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: AppColors.accentSurface(event.colorIndex),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(width: 9),
+                        Expanded(
+                          child: Text(
+                            event.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppText.s(11.5, weight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            if (!app.settings.lockScreenHideDetails)
+              for (final task in tasks.take(3))
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
                   child: Row(
                     children: [
-                      SizedBox(
-                        width: 47,
-                        child: Text(
-                          event.startLabel,
-                          style: AppText.s(9.5, color: AppColors.muted),
-                        ),
+                      Icon(
+                        LucideIcons.circle,
+                        size: 12,
+                        color: AppColors.muted,
                       ),
-                      Container(
-                        width: 4,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: AppColors.accentSurface(event.colorIndex),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(width: 9),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          event.title,
+                          task.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppText.s(11.5, weight: FontWeight.w600),
+                          style: AppText.s(11),
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-        ],
+          ],
+        ),
       ),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (!constraints.hasBoundedHeight) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [sections[0], const SizedBox(height: 6), sections[1]],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(flex: 2, child: SingleChildScrollView(child: sections[0])),
+            const SizedBox(height: 6),
+            Expanded(flex: 3, child: SingleChildScrollView(child: sections[1])),
+          ],
+        );
+      },
     );
   }
 }
@@ -502,11 +642,13 @@ class LockTodoCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(tr('To-do'),
+                child: Text(
+                  tr('To-do'),
                   style: AppText.s(12.5, weight: FontWeight.w700),
                 ),
               ),
-              Text(tr('Quick actions on'),
+              Text(
+                tr('Quick actions on'),
                 style: AppText.s(9.5, color: AppColors.greenStrong),
               ),
             ],
@@ -515,7 +657,9 @@ class LockTodoCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 10),
               child: Text(
-                trf('{n} to-dos left', {'n': tasks.where((t) => !t.completed).length}),
+                trf('{n} to-dos left', {
+                  'n': tasks.where((t) => !t.completed).length,
+                }),
                 style: AppText.s(11.5, weight: FontWeight.w600),
               ),
             )
@@ -613,11 +757,13 @@ class LockNoteCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(tr('Quick Note'),
+                child: Text(
+                  tr('Quick Note'),
                   style: AppText.s(12.5, weight: FontWeight.w700),
                 ),
               ),
-              Text(tr('Tap to type'),
+              Text(
+                tr('Tap to type'),
                 style: AppText.s(
                   10.5,
                   weight: FontWeight.w700,
@@ -630,11 +776,13 @@ class LockNoteCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            tr(app.settings.lockScreenHideDetails
-                ? 'Hidden on the lock screen'
-                : text.isEmpty
-                ? 'Tap to write a note'
-                : text),
+            tr(
+              app.settings.lockScreenHideDetails
+                  ? 'Hidden on the lock screen'
+                  : text.isEmpty
+                  ? 'Tap to write a note'
+                  : text,
+            ),
             maxLines: 4,
             overflow: TextOverflow.ellipsis,
             style: AppText.s(11.5, height: 1.35),

@@ -18,6 +18,7 @@ class CalendarEvent {
     this.location = '',
     this.categoryId,
     this.reminderMinutes,
+    this.reminderOffsets,
     this.colorIndex = 0,
     this.color,
     this.repeatRule,
@@ -50,6 +51,7 @@ class CalendarEvent {
       categoryId: json['categoryId'] as String?,
       reminderMinutes:
           json['reminder'] as int? ?? json['reminderMinutes'] as int?,
+      reminderOffsets: (json['reminderOffsets'] as List?)?.cast<int>(),
       colorIndex: json['color'] as int? ?? json['colorIndex'] as int? ?? 0,
       color: json['colorHex'] as String?,
       repeatRule: json['repeatRule'] as String?,
@@ -87,6 +89,15 @@ class CalendarEvent {
 
   /// Minutes before [startTime] to notify; null = no reminder.
   int? reminderMinutes;
+
+  /// Null reads the legacy single reminder; [] explicitly disables reminders.
+  List<int>? reminderOffsets;
+  List<int> get reminderLeadTimes =>
+      (reminderOffsets ?? [if (reminderMinutes != null) reminderMinutes!])
+          .where((m) => m >= 0)
+          .toSet()
+          .toList()
+        ..sort();
 
   /// Legacy palette index (prefer [color]).
   int colorIndex;
@@ -185,6 +196,7 @@ class CalendarEvent {
     'categoryId': categoryId,
     'reminder': reminderMinutes,
     'reminderMinutes': reminderMinutes,
+    if (reminderOffsets != null) 'reminderOffsets': reminderOffsets,
     'color': colorIndex,
     'colorIndex': colorIndex,
     'colorHex': color,

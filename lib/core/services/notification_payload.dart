@@ -5,6 +5,7 @@ class NotificationTarget {
     this.type,
     this.id, {
     this.snoozed = false,
+    this.reminderLead,
     this.occurrenceDate,
     this.occurrenceStart,
   });
@@ -18,12 +19,14 @@ class NotificationTarget {
   final String type;
   final String id;
   final bool snoozed;
+  final int? reminderLead;
   final DateTime? occurrenceDate;
   final DateTime? occurrenceStart;
 
   String encode() => jsonEncode({
     'type': type,
     'id': id,
+    if (reminderLead != null) 'reminderLead': reminderLead,
     if (snoozed) 'snoozed': true,
     if (occurrenceDate != null)
       'occurrenceDate': occurrenceDate!.toIso8601String(),
@@ -38,6 +41,7 @@ class NotificationTarget {
       return NotificationTarget(
         data['type'] as String,
         data['id'] as String,
+        reminderLead: data['reminderLead'] as int?,
         snoozed: data['snoozed'] as bool? ?? false,
         occurrenceDate: DateTime.tryParse(
           data['occurrenceDate'] as String? ?? '',

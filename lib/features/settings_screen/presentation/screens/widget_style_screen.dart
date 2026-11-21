@@ -47,6 +47,7 @@ Widget widgetCell(
 }) {
   return GridCell(
     size: size,
+    fillWidth: lock && type == WidgetType.schedule,
     color: color,
     textSize: textSize,
     surface: surface,
@@ -356,10 +357,8 @@ class _WidgetStyleScreenState extends State<WidgetStyleScreen> {
   static const _heightWords = {'S': 'SMALL', 'M': 'MEDIUM', 'L': 'LARGE'};
   static const _textSizes = [12, 13, 14, 15, 16, 18];
 
-  int get _widthIndex =>
-      ScreenLayout.widths.values.toList().indexOf(_width);
-  int get _heightIndex =>
-      ScreenLayout.heights.values.toList().indexOf(_height);
+  int get _widthIndex => ScreenLayout.widths.values.toList().indexOf(_width);
+  int get _heightIndex => ScreenLayout.heights.values.toList().indexOf(_height);
 
   Future<void> _pickTextSize() async {
     final picked = await pickOption(
@@ -408,8 +407,7 @@ class _WidgetStyleScreenState extends State<WidgetStyleScreen> {
           children: [
             StudioHeader(
               title: 'Style your widget',
-              subtitle:
-                  '${studioName(widget.type)} · ${tr(widget.layoutName)}',
+              subtitle: '${studioName(widget.type)} · ${tr(widget.layoutName)}',
               onBack: () => Navigator.of(context).pop(),
             ),
             Expanded(
@@ -549,9 +547,7 @@ class _WidgetStyleScreenState extends State<WidgetStyleScreen> {
     final height = _heightIndex < 0
         ? ''
         : _heightWords[_heightNames[_heightIndex]]!;
-    final width = _widthIndex < 0
-        ? ''
-        : _widthWords[_widthNames[_widthIndex]]!;
+    final width = _widthIndex < 0 ? '' : _widthWords[_widthNames[_widthIndex]]!;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -563,7 +559,10 @@ class _WidgetStyleScreenState extends State<WidgetStyleScreen> {
         children: [
           Text(
             trf('PREVIEW · {size}', {
-              'size': [tr(height), tr(width)].where((w) => w.isNotEmpty).join(' / '),
+              'size': [
+                tr(height),
+                tr(width),
+              ].where((w) => w.isNotEmpty).join(' / '),
             }),
             style: AppText.s(10, color: AppColors.primary),
           ),
@@ -625,10 +624,7 @@ class _ChoiceBox extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    tr(label),
-                    style: AppText.s(10, color: AppColors.muted),
-                  ),
+                  Text(tr(label), style: AppText.s(10, color: AppColors.muted)),
                   const SizedBox(height: 4),
                   Text(value, style: AppText.s(13)),
                 ],

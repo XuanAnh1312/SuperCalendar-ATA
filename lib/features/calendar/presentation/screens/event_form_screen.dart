@@ -70,21 +70,13 @@ class _EventScopeSheetState extends State<_EventScopeSheet> {
               ),
             ],
             const SizedBox(height: 8),
-            _scopeRow(
-              DeleteScope.one,
-              'This occurrence',
-              'Only this event',
-            ),
+            _scopeRow(DeleteScope.one, 'This occurrence', 'Only this event'),
             _scopeRow(
               DeleteScope.fromThis,
               'This and following events',
               'This occurrence and every one after it',
             ),
-            _scopeRow(
-              DeleteScope.all,
-              'Entire series',
-              'All events',
-            ),
+            _scopeRow(DeleteScope.all, 'Entire series', 'All events'),
             const SizedBox(height: 14),
             Opacity(
               opacity: _scope == null ? 0.4 : 1,
@@ -146,9 +138,15 @@ class _EventScopeSheetState extends State<_EventScopeSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(tr(title), style: AppText.s(14, weight: FontWeight.w600)),
+                  Text(
+                    tr(title),
+                    style: AppText.s(14, weight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 2),
-                  Text(tr(subtitle), style: AppText.s(11, color: AppColors.muted)),
+                  Text(
+                    tr(subtitle),
+                    style: AppText.s(11, color: AppColors.muted),
+                  ),
                 ],
               ),
             ),
@@ -184,6 +182,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
   late int _color = widget.event?.colorIndex ?? 0;
   late String _category = widget.event?.category ?? 'Work';
   int? _reminder;
+  List<int>? _reminderOffsets;
   late String _repeat = widget.event?.repeatLabel ?? 'Never';
   String? _calendar;
   late final List<String> _guests = [...?widget.event?.guests];
@@ -280,8 +279,65 @@ class _EventFormScreenState extends State<EventFormScreen> {
   }
 
   Future<void> _chooseReminder() async {
-    final picked = await pickReminder(context, _reminder);
-    if (picked != null) setState(() => _reminder = picked < 0 ? null : picked);
+    final selected = {
+      ...?(_reminderOffsets ?? widget.event?.reminderLeadTimes),
+      if (_reminderOffsets == null && widget.event == null && _reminder != null)
+        _reminder!,
+    };
+    final result = await showModalBottomSheet<List<int>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, update) => SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(tr('Reminders')),
+                ),
+                for (final minutes in ({
+                  0,
+                  5,
+                  10,
+                  15,
+                  30,
+                  60,
+                  120,
+                  1440,
+                  ...selected,
+                }.toList()..sort()))
+                  CheckboxListTile(
+                    title: Text(formatReminder(minutes)),
+                    value: selected.contains(minutes),
+                    onChanged: (checked) => update(() {
+                      checked == true
+                          ? selected.add(minutes)
+                          : selected.remove(minutes);
+                    }),
+                  ),
+                TextButton(
+                  onPressed: () => update(selected.clear),
+                  child: Text(tr('None')),
+                ),
+                FilledButton(
+                  onPressed: () =>
+                      Navigator.pop(context, selected.toList()..sort()),
+                  child: Text(tr('Done')),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (result != null)
+      setState(() {
+        _reminderOffsets = result;
+        _reminder = result.firstOrNull;
+      });
   }
 
   Future<void> _addGuest() async {
@@ -342,6 +398,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
       endTime: end,
       location: _location.text.trim(),
       reminderMinutes: _reminder,
+      reminderOffsets: _reminderOffsets ?? widget.event?.reminderOffsets,
       colorIndex: _color,
       category: _category,
       repeatRule: _rule,
@@ -378,6 +435,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
             ..endTime = edited.endTime.add(shift)
             ..location = edited.location
             ..reminderMinutes = edited.reminderMinutes
+            ..reminderOffsets = edited.reminderOffsets
             ..colorIndex = edited.colorIndex
             ..category = edited.category
             ..repeatRule = edited.repeatRule
@@ -395,6 +453,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
           endTime: end,
           location: _location.text.trim(),
           reminderMinutes: _reminder,
+          reminderOffsets: _reminderOffsets ?? widget.event?.reminderOffsets,
           colorIndex: _color,
           category: _category,
           repeatRule: _rule,
@@ -410,6 +469,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
         ..endTime = end
         ..location = _location.text.trim()
         ..reminderMinutes = _reminder
+        ..reminderOffsets = _reminderOffsets ?? existing.reminderOffsets
         ..colorIndex = _color
         ..category = _category
         ..repeatRule = _rule
@@ -436,10 +496,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
           children: [
-            TopBar(
-              title: _editing ? 'Edit event' : 'New event',
-              close: true,
-            ),
+            TopBar(title: _editing ? 'Edit event' : 'New event', close: true),
             const SizedBox(height: 12),
             AppCard(
               padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
@@ -449,7 +506,8 @@ class _EventFormScreenState extends State<EventFormScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(tr('EVENT TITLE'),
+                  Text(
+                    tr('EVENT TITLE'),
                     style: AppText.s(10, color: AppColors.primary),
                   ),
                   TextField(
@@ -492,7 +550,8 @@ class _EventFormScreenState extends State<EventFormScreen> {
             if (!_timeValid)
               Padding(
                 padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
-                child: Text(tr('End time must be after the start time'),
+                child: Text(
+                  tr('End time must be after the start time'),
                   style: AppText.s(11, color: AppColors.danger),
                 ),
               ),
@@ -543,7 +602,17 @@ class _EventFormScreenState extends State<EventFormScreen> {
                   child: FieldTile(
                     icon: LucideIcons.bell,
                     label: 'Reminder',
-                    value: formatReminder(_reminder),
+                    value:
+                        (_reminderOffsets ??
+                                widget.event?.reminderLeadTimes ??
+                                [if (_reminder != null) _reminder!])
+                            .isEmpty
+                        ? formatReminder(null)
+                        : (_reminderOffsets ??
+                                  widget.event?.reminderLeadTimes ??
+                                  [_reminder!])
+                              .map(formatReminder)
+                              .join(', '),
                     onTap: _chooseReminder,
                   ),
                 ),
@@ -593,7 +662,10 @@ class _EventFormScreenState extends State<EventFormScreen> {
                   child: Text(
                     _guests.isEmpty
                         ? tr('No guests')
-                        : trf(_guests.length == 1 ? '{n} guest' : '{n} guests', {'n': _guests.length}),
+                        : trf(
+                            _guests.length == 1 ? '{n} guest' : '{n} guests',
+                            {'n': _guests.length},
+                          ),
                     style: AppText.s(11, color: AppColors.muted),
                   ),
                 ),

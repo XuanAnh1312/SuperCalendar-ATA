@@ -357,7 +357,7 @@ class LocalNotificationService implements NotificationService {
 
   Future<void> _scheduleEntry(ReminderPlanEntry entry) => _schedule(
     id: reminderNotificationId(
-      '${entry.target.snoozed ? 'snooze:' : ''}${entry.sourceKey}',
+      '${entry.target.snoozed ? 'snooze:' : ''}${entry.sourceKey}${entry.target.reminderLead == null ? '' : ':lead:${entry.target.reminderLead}'}',
     ),
     at: entry.at,
     expiresAt: entry.expiresAt,

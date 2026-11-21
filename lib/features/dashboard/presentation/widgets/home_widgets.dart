@@ -106,17 +106,118 @@ class HomeWidgetGrid extends StatelessWidget {
             'No widgets on this screen yet.\nAdd some in Edit Your Screen.',
       );
     }
-    return WidgetGrid(
-      layout: layout,
-      cellBuilder: (item, size, _) => GridCell(
-        size: size,
-        color: item.color,
-        textSize: item.textSize,
-        surface: item.surface,
-        child: buildHomeWidget(item.type, actions: actions),
-      ),
+    final items = [...layout.visibleItems]
+      ..sort((a, b) => a.y == b.y ? a.x.compareTo(b.x) : a.y.compareTo(b.y));
+    return _ContentGrid(
+      items: items,
+      children: [
+        for (final item in items)
+          CardTint(
+            color: item.color == null
+                ? null
+                : AppColors.accentSurface(item.color!),
+            surface: item.surface ?? CardSurface.soft,
+            child: MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear((item.textSize ?? 14) / 14),
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) => FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: constraints.maxWidth < minCardWidth
+                        ? minCardWidth
+                        : constraints.maxWidth,
+                    child: buildHomeWidget(item.type, actions: actions),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
+}
+
+/// Home uses content height while preserving the editor's horizontal placement
+/// and reading order. Wallpaper/export retain the fixed grid.
+class _ContentGrid extends MultiChildRenderObjectWidget {
+  const _ContentGrid({required this.items, required super.children});
+  final List<LayoutItem> items;
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _ContentGridRender(items);
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _ContentGridRender renderObject,
+  ) {
+    renderObject.items = items;
+    renderObject.markNeedsLayout();
+  }
+}
+
+class _HomeParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _ContentGridRender extends RenderBox
+    with
+        ContainerRenderObjectMixin<
+          RenderBox,
+          ContainerBoxParentData<RenderBox>
+        >,
+        RenderBoxContainerDefaultsMixin<
+          RenderBox,
+          ContainerBoxParentData<RenderBox>
+        > {
+  _ContentGridRender(this.items);
+  List<LayoutItem> items;
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! ContainerBoxParentData<RenderBox>) {
+      child.parentData = _HomeParentData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    final width = constraints.maxWidth;
+    const gap = 12.0;
+    final pitch = (width + gap) / ScreenLayout.columns;
+    final bottoms = List<double>.filled(ScreenLayout.columns, 0);
+    var child = firstChild;
+    var index = 0;
+    var total = 0.0;
+    while (child != null && index < items.length) {
+      final item = items[index++];
+      final left = item.x.clamp(0, ScreenLayout.columns - 1);
+      final end = (left + item.w).clamp(left + 1, ScreenLayout.columns);
+      var top = 0.0;
+      for (var col = left; col < end; col++) {
+        if (bottoms[col] > top) top = bottoms[col];
+      }
+      child.layout(
+        BoxConstraints.tightFor(width: (end - left) * pitch - gap),
+        parentUsesSize: true,
+      );
+      final data = child.parentData! as ContainerBoxParentData<RenderBox>;
+      data.offset = Offset(left * pitch, top);
+      final bottom = top + child.size.height;
+      for (var col = left; col < end; col++) {
+        bottoms[col] = bottom + gap;
+      }
+      if (bottom > total) total = bottom;
+      child = data.nextSibling;
+    }
+    size = constraints.constrain(Size(width, total));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }
 
 class TodoWidget extends StatelessWidget {
@@ -170,9 +271,11 @@ class TodoWidget extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    tr(task.completed
-                        ? 'done'
-                        : task.dueLabel(app.today).toLowerCase()),
+                    tr(
+                      task.completed
+                          ? 'done'
+                          : task.dueLabel(app.today).toLowerCase(),
+                    ),
                     style: AppText.s(10, color: AppColors.muted),
                   ),
                 ],
@@ -423,7 +526,9 @@ class _MonthSnapshotWidgetState extends State<MonthSnapshotWidget> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CardHeader(
-            title: trf('{month} snapshot', {'month': monthNames[first.month - 1]}),
+            title: trf('{month} snapshot', {
+              'month': monthNames[first.month - 1],
+            }),
             action: widget.onSave == null ? null : 'Save image',
             onAction: widget.onSave == null ? null : _save,
           ),
@@ -440,7 +545,8 @@ class _MonthSnapshotWidgetState extends State<MonthSnapshotWidget> {
             ],
           ),
           const SizedBox(height: 9),
-          Text(tr('Display-only · tap snapshot to share your month'),
+          Text(
+            tr('Display-only · tap snapshot to share your month'),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: AppText.s(9, color: AppColors.muted),
@@ -507,10 +613,7 @@ class WeatherWidget extends StatelessWidget {
           const SizedBox(height: 6),
           Text(tr('Mostly sunny'), style: AppText.s(11)),
           const SizedBox(height: 3),
-          Text(
-            'H: 21°   L: 14°',
-            style: AppText.s(10, color: AppColors.muted),
-          ),
+          Text('H: 21°   L: 14°', style: AppText.s(10, color: AppColors.muted)),
         ],
       ),
     );

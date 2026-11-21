@@ -27,10 +27,10 @@ class EventDetailScreen extends StatelessWidget {
       final scope = await pickEventScope(
         context,
         title: 'Delete recurring event?',
-        message: trf(
-          '{title} repeats {repeat}. Choose what to update.',
-          {'title': event.title, 'repeat': event.repeatLabel},
-        ),
+        message: trf('{title} repeats {repeat}. Choose what to update.', {
+          'title': event.title,
+          'repeat': event.repeatLabel,
+        }),
         destructive: true,
       );
       if (scope == null || !context.mounted) return;
@@ -133,7 +133,9 @@ class EventDetailScreen extends StatelessWidget {
             FieldTile(
               icon: LucideIcons.bell,
               label: 'Reminder',
-              value: formatReminder(event.reminderMinutes),
+              value: event.reminderLeadTimes.isEmpty
+                  ? formatReminder(null)
+                  : event.reminderLeadTimes.map(formatReminder).join(', '),
             ),
             if (!event.isSystem)
               FieldTile(

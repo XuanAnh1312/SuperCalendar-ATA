@@ -100,6 +100,7 @@ class GridCell extends StatelessWidget {
     this.textSize,
     this.surface,
     this.minWidth = minCardWidth,
+    this.fillWidth = false,
     this.scale,
   });
 
@@ -125,6 +126,9 @@ class GridCell extends StatelessWidget {
   final Size size;
   final Widget child;
   final double minWidth;
+
+  /// Keep full cell width instead of shrinking tall content in both axes.
+  final bool fillWidth;
   final double? scale;
 
   /// Accent index chosen in Style; null keeps the widget's own color.
@@ -147,12 +151,13 @@ class GridCell extends StatelessWidget {
     );
     if (size != null) {
       tinted = MediaQuery(
-        data: MediaQuery.of(context).copyWith(
-          textScaler: TextScaler.linear(size / CardTint.baseTextSize),
-        ),
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(size / CardTint.baseTextSize)),
         child: tinted,
       );
     }
+    if (fillWidth) return SizedBox.fromSize(size: this.size, child: tinted);
     final factor = scale;
     if (factor != null) {
       return SizedBox.fromSize(
@@ -239,7 +244,11 @@ BoxDecoration? wallpaperDecoration(String key) {
     return BoxDecoration(color: AppColors.accentSurface(solid));
   }
   List<Color>? colors = switch (key) {
-    Wallpaper.quietGarden => [AppColors.green, AppColors.surface, AppColors.green],
+    Wallpaper.quietGarden => [
+      AppColors.green,
+      AppColors.surface,
+      AppColors.green,
+    ],
     Wallpaper.lavenderHaze => [
       AppColors.purple,
       AppColors.pink,

@@ -271,6 +271,22 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                           tr('Quick Note on your lock screen'),
                           style: AppText.s(15, weight: FontWeight.w600),
                         ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                tr('Quick Note in notifications'),
+                                style: AppText.s(12),
+                              ),
+                            ),
+                            AppSwitch(
+                              value: enabled && settings.quickNoteNotification,
+                              onChanged: (value) => unawaited(
+                                app.setQuickNoteNotification(value),
+                              ),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 8),
                         Text(
                           tr(
