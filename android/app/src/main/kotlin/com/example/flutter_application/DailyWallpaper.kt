@@ -85,8 +85,9 @@ object DailyWallpaper {
                         val height = call.argument<Number>("height")!!.toInt()
                         require(width in 1..8192 && height in 1..8192)
                         synchronized(lock) {
-                            val photo = layout.optString("backgroundPath", "")
-                            if (photo.isNotBlank() && !photo.startsWith("data:")) {
+                            // A built-in wallpaper has JSON null here. optString would return "null".
+                            val photo = layout.opt("backgroundPath") as? String
+                            if (!photo.isNullOrBlank() && !photo.startsWith("data:")) {
                                 // Keep the applied design's photo even if an
                                 // unapplied editor draft later replaces it.
                                 val source = File(photo)

@@ -36,7 +36,10 @@ class _DailyWallpaperSettingsState extends State<DailyWallpaperSettings>
   Future<void> _load() async {
     try {
       final status = await AutoWallpaperService.status();
-      if (mounted) setState(() => _status = status);
+      if (mounted) setState(() {
+        _status = status;
+        _error = null;
+      });
     } catch (_) {
       if (mounted)
         setState(() => _error = tr('Could not load daily wallpaper settings.'));
@@ -45,6 +48,8 @@ class _DailyWallpaperSettingsState extends State<DailyWallpaperSettings>
 
   Future<void> _change(bool enabled) async {
     if (_busy) return;
+    await _load();
+    if (!mounted) return;
     if (enabled && _status?.hasDesign != true) {
       setState(
         () => _error = tr(
