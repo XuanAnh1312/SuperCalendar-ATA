@@ -23,7 +23,7 @@ class NotificationTarget {
   final DateTime? occurrenceDate;
   final DateTime? occurrenceStart;
 
-  String encode() => jsonEncode({
+  String encode({DateTime? scheduledFor, DateTime? expiresAt}) => jsonEncode({
     'type': type,
     'id': id,
     if (reminderLead != null) 'reminderLead': reminderLead,
@@ -32,6 +32,9 @@ class NotificationTarget {
       'occurrenceDate': occurrenceDate!.toIso8601String(),
     if (occurrenceStart != null)
       'occurrenceStart': occurrenceStart!.toIso8601String(),
+    if (scheduledFor != null)
+      'scheduledFor': scheduledFor.millisecondsSinceEpoch,
+    if (expiresAt != null) 'expiresAt': expiresAt.millisecondsSinceEpoch,
   });
 
   static NotificationTarget? decode(String? payload) {

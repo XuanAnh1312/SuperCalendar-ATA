@@ -31,7 +31,7 @@ flutter build apk --release     # build APK release
 
 Ký bản release: tạo `android/key.properties` trỏ tới file keystore (cả hai không được commit). Thiếu file này thì bản release tự ký bằng debug key.
 
-Lần mở đầu tiên, ứng dụng hiện Onboarding (FR-01) và ghi dữ liệu mẫu (`core/services/seed_data.dart`). Thanh điều hướng có 5 tab: Home, Calendar, To-do, VIP, Settings (AC-01).
+Lần mở đầu tiên, ứng dụng hiện Onboarding (FR-01) với bộ lịch trống. Người dùng có thể chọn bật dữ liệu mẫu (`core/services/seed_data.dart`). Thanh điều hướng có 5 tab: Home, Calendar, To-do, VIP, Settings (AC-01).
 
 Test nằm trong `test/`, dùng `MemoryDocumentStore` và service giả, không cần thiết bị. Tên mỗi test ghi mã FR/AC mà nó kiểm tra.
 

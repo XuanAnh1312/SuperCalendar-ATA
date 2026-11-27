@@ -2,22 +2,22 @@ import 'package:flutter/foundation.dart';
 
 import 'package:flutter_application/app/theme/app_theme_data.dart';
 import 'package:flutter_application/core/data/document_store.dart';
+import 'package:flutter_application/core/data/persistent_writes.dart';
 import 'package:flutter_application/core/data/repository.dart';
 import 'package:flutter_application/features/vip/domain/template.dart';
 
 /// Themes, store templates and the purchase history, all kept locally.
-class TemplateRepository extends ChangeNotifier {
+class TemplateRepository extends ChangeNotifier with PersistentWrites {
   TemplateRepository(this.store, {DateTime Function()? clock})
     : _clock = clock ?? DateTime.now;
 
+  @override
   final DocumentStore store;
   final DateTime Function() _clock;
 
   final List<Template> templates = [];
   final List<Purchase> purchases = [];
   final List<AppThemeData> customThemes = [];
-
-  Future<void> _pending = Future.value();
 
   Future<void> load() async {
     await flush();
@@ -39,10 +39,8 @@ class TemplateRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> flush() => _pending;
-
   void _put(String collection, String id, Map<String, dynamic> data) {
-    _pending = _pending.then((_) => store.put(collection, id, data));
+    putDocument(collection, id, data);
   }
 
   // ---- Themes -------------------------------------------------------------

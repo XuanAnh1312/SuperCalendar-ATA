@@ -45,9 +45,19 @@ abstract class DocumentStore {
   Future<void> close();
 }
 
+/// Consistent reads and an atomic, non-overwriting restore for planner data.
+abstract interface class PlannerBackupStore implements DocumentStore {
+  Future<Map<String, List<Map<String, dynamic>>>> readPlannerSnapshot(
+    List<String> collections,
+  );
+  Future<int> importMissingDocuments(
+    Map<String, List<Map<String, dynamic>>> collections,
+  );
+}
+
 /// In-memory store used by tests. Documents are kept JSON-encoded so a model
 /// that cannot be serialized fails here the same way it would on disk.
-class MemoryDocumentStore implements DocumentStore {
+class MemoryDocumentStore implements PlannerBackupStore {
   final Map<String, Map<String, String>> _data = {};
 
   @override
@@ -74,4 +84,39 @@ class MemoryDocumentStore implements DocumentStore {
 
   @override
   Future<void> close() async {}
+
+  @override
+  Future<Map<String, List<Map<String, dynamic>>>> readPlannerSnapshot(
+    List<String> collections,
+  ) async => {
+    for (final name in collections)
+      name: [
+        for (final raw in _data[name]?.values ?? const <String>[])
+          jsonDecode(raw) as Map<String, dynamic>,
+      ],
+  };
+
+  @override
+  Future<int> importMissingDocuments(
+    Map<String, List<Map<String, dynamic>>> collections,
+  ) async {
+    final encoded = {
+      for (final entry in collections.entries)
+        entry.key: {
+          for (final document in entry.value)
+            document['id'] as String: jsonEncode(document),
+        },
+    };
+    var count = 0;
+    for (final entry in encoded.entries) {
+      final target = _data[entry.key] ??= {};
+      for (final document in entry.value.entries) {
+        if (!target.containsKey(document.key)) {
+          target[document.key] = document.value;
+          count++;
+        }
+      }
+    }
+    return count;
+  }
 }

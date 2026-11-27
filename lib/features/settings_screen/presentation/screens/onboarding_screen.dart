@@ -23,6 +23,8 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final _name = TextEditingController();
   bool _reminders = true;
+  bool _demo = false;
+  bool _starting = false;
 
   @override
   void dispose() {
@@ -31,16 +33,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _start() async {
+    if (_starting) return;
     final name = _name.text.trim();
     if (name.isEmpty) {
       showAppSnack(context, 'Tell us your name first');
       return;
     }
     final app = AppScope.read(context);
-    app.finishOnboarding(name);
-    // AC-05: a refusal is fine; the app works without notifications.
-    if (_reminders) await app.enableNotifications();
-    widget.onDone();
+    setState(() => _starting = true);
+    try {
+      app.finishOnboarding(name, useDemoData: _demo);
+      if (app.hasWriteFailures) await app.retryWrites();
+      await app.flush();
+      if (!mounted) return;
+      if (_reminders) await app.enableNotifications();
+      if (mounted) widget.onDone();
+    } catch (_) {
+      if (mounted)
+        showAppSnack(context, 'Could not save changes. Please try again.');
+    } finally {
+      if (mounted) setState(() => _starting = false);
+    }
   }
 
   @override
@@ -100,6 +113,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             const SizedBox(height: 12),
             SettingsGroup(
               children: [
+                SettingsRow(
+                  icon: LucideIcons.calendarDays,
+                  color: AppColors.blue,
+                  title: 'Start with sample data',
+                  trailing: AppSwitch(
+                    value: _demo,
+                    onChanged: (value) => setState(() => _demo = value),
+                  ),
+                  onTap: () => setState(() => _demo = !_demo),
+                ),
                 SettingsRow(
                   icon: LucideIcons.bell,
                   color: AppColors.purple,

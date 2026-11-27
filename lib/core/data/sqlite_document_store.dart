@@ -15,7 +15,7 @@ import 'package:flutter_application/core/data/database_factory_native.dart'
 ///   v1 – initial tables: users, settings, events, tasks, notes, habits,
 ///         themes, templates, purchases, layouts
 ///   v2 – added: habit_occurrences, goals, event_exceptions
-class SqliteDocumentStore implements DocumentStore {
+class SqliteDocumentStore implements PlannerBackupStore {
   SqliteDocumentStore._(this._db);
 
   static const _fileName = 'supercalendar.db';
@@ -90,11 +90,10 @@ class SqliteDocumentStore implements DocumentStore {
 
   @override
   Future<void> put(String collection, String id, Map<String, dynamic> data) {
-    return _db.insert(
-      collection,
-      {'id': id, 'data': jsonEncode(data)},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    return _db.insert(collection, {
+      'id': id,
+      'data': jsonEncode(data),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   @override
@@ -104,4 +103,43 @@ class SqliteDocumentStore implements DocumentStore {
 
   @override
   Future<void> close() => _db.close();
+
+  @override
+  Future<Map<String, List<Map<String, dynamic>>>> readPlannerSnapshot(
+    List<String> collections,
+  ) => _db.transaction((transaction) async {
+    return {
+      for (final name in collections)
+        name: [
+          for (final row in await transaction.query(name, orderBy: 'id'))
+            jsonDecode(row['data']! as String) as Map<String, dynamic>,
+        ],
+    };
+  });
+
+  @override
+  Future<int> importMissingDocuments(
+    Map<String, List<Map<String, dynamic>>> collections,
+  ) => _db.transaction((transaction) async {
+    var count = 0;
+    for (final entry in collections.entries) {
+      for (final document in entry.value) {
+        final id = document['id'] as String;
+        final existing = await transaction.query(
+          entry.key,
+          columns: ['id'],
+          where: 'id = ?',
+          whereArgs: [id],
+          limit: 1,
+        );
+        if (existing.isNotEmpty) continue;
+        await transaction.insert(entry.key, {
+          'id': id,
+          'data': jsonEncode(document),
+        });
+        count++;
+      }
+    }
+    return count;
+  });
 }

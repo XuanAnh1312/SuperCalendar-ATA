@@ -34,7 +34,11 @@ class EventDetailScreen extends StatelessWidget {
         destructive: true,
       );
       if (scope == null || !context.mounted) return;
-      events.deleteScope(series, scope, occurrenceDate: event.date);
+      events.deleteScope(
+        series,
+        scope,
+        occurrenceDate: event.originalOccurrenceDate ?? event.date,
+      );
       Navigator.of(context).pop();
       showAppSnack(context, 'Event deleted');
       return;

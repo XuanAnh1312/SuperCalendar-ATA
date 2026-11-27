@@ -15,17 +15,21 @@ import 'package:flutter_application/features/dashboard/presentation/widgets/widg
 import 'package:flutter_application/core/utils/strings.dart';
 
 /// Labels `M 5 … S 11` for the week containing [today].
-List<String> weekLabels(DateTime today) {
-  final monday = today.subtract(Duration(days: today.weekday - 1));
+List<String> weekLabels(DateTime today, {DateTime? weekStart}) {
+  final monday = weekStart ?? today.subtract(Duration(days: today.weekday - 1));
   return [
     for (var i = 0; i < 7; i++)
-      '${weekdayLetters[i]} ${monday.add(Duration(days: i)).day}',
+      '${weekdayLetters[(monday.weekday - 1 + i) % 7]} ${DateTime(monday.year, monday.month, monday.day + i).day}',
   ];
 }
 
 /// `Oct 5–11`
-String weekRangeLabel(DateTime today, {bool longMonth = false}) {
-  final monday = today.subtract(Duration(days: today.weekday - 1));
+String weekRangeLabel(
+  DateTime today, {
+  bool longMonth = false,
+  DateTime? weekStart,
+}) {
+  final monday = weekStart ?? today.subtract(Duration(days: today.weekday - 1));
   final sunday = monday.add(const Duration(days: 6));
   final month = longMonth
       ? monthNames[monday.month - 1]
@@ -40,16 +44,6 @@ String weekRangeLabel(DateTime today, {bool longMonth = false}) {
   }
   return '$month ${monday.day}–$end';
 }
-
-List<Color> get weekDotColors => [
-  AppColors.pink,
-  AppColors.blue,
-  AppColors.green,
-  AppColors.yellow,
-  AppColors.purple,
-  AppColors.border,
-  AppColors.border,
-];
 
 /// Callbacks of the dashboard widgets; all optional so the same widgets can
 /// be shown as a non-interactive preview.
@@ -228,7 +222,13 @@ class TodoWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
-    final tasks = app.tasks.dashboard(app.today);
+    final tasks = app.tasks.dashboard(
+      app.today,
+      hideCompleted: app.settings.hideCompletedTasks,
+    );
+    final remaining = app.tasks.items
+        .where((task) => !task.completed && !tasks.contains(task))
+        .length;
     return AppCard(
       color: CardTint.fill(context, null),
       borderColor: CardTint.border(context),
@@ -280,6 +280,11 @@ class TodoWidget extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          if (remaining > 0)
+            TextButton(
+              onPressed: onEdit,
+              child: Text(trf('{n} more to-dos', {'n': remaining})),
             ),
         ],
       ),
@@ -364,6 +369,14 @@ class WeekWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
+    final start = app.weekStartOf(app.today);
+    final colors = List.generate(7, (i) {
+      final day = DateTime(start.year, start.month, start.day + i);
+      final event = app.visibleCalendarEventsOn(day).firstOrNull;
+      return event == null
+          ? AppColors.border
+          : AppColors.accentSurface(event.colorIndex);
+    });
     return AppCard(
       color: CardTint.fill(context, null),
       borderColor: CardTint.border(context),
@@ -373,14 +386,14 @@ class WeekWidget extends StatelessWidget {
         children: [
           CardHeader(
             title: 'This week',
-            action: weekRangeLabel(app.today),
+            action: weekRangeLabel(app.today, weekStart: start),
             onAction: onOpen,
           ),
           const SizedBox(height: 9),
           WeekDots(
-            labels: weekLabels(app.today),
-            colors: weekDotColors,
-            activeIndex: app.today.weekday - 1,
+            labels: weekLabels(app.today, weekStart: start),
+            colors: colors,
+            activeIndex: (app.today.weekday - start.weekday) % 7,
           ),
         ],
       ),
@@ -526,9 +539,7 @@ class _MonthSnapshotWidgetState extends State<MonthSnapshotWidget> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CardHeader(
-            title: trf('{month} snapshot', {
-              'month': monthNames[first.month - 1],
-            }),
+            title: 'Next 14 days',
             action: widget.onSave == null ? null : 'Save image',
             onAction: widget.onSave == null ? null : _save,
           ),
@@ -558,7 +569,7 @@ class _MonthSnapshotWidgetState extends State<MonthSnapshotWidget> {
 
   Widget _snapshotDay(AppState app, DateTime day) {
     final isToday = sameDay(day, app.today);
-    final events = app.events.on(day);
+    final events = app.visibleCalendarEventsOn(day);
     var dot = Colors.transparent;
     if (events.isNotEmpty) {
       dot = events.first.colorIndex == 2

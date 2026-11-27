@@ -1,5 +1,9 @@
 import 'dart:typed_data';
 
+import 'package:flutter_application/core/services/auto_wallpaper_service.dart';
+import 'package:flutter_application/core/services/wallpaper_export.dart';
+import 'package:flutter_application/features/dashboard/domain/screen_layout.dart';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -18,12 +22,18 @@ class WallpaperExportScreen extends StatefulWidget {
     required this.image,
     required this.wallpaperName,
     required this.lockScreen,
+    this.layout,
+    this.dimensions,
+    this.contentRevision,
   });
 
   /// PNG of the wallpaper and widgets, without system overlays.
   final Uint8List image;
   final String wallpaperName;
   final bool lockScreen;
+  final ScreenLayout? layout;
+  final WallpaperDimensions? dimensions;
+  final int? contentRevision;
 
   @override
   State<WallpaperExportScreen> createState() => _WallpaperExportScreenState();
@@ -65,6 +75,18 @@ class _WallpaperExportScreenState extends State<WallpaperExportScreen> {
       _busy = false;
       _applied = ok;
     });
+    if (ok &&
+        widget.lockScreen &&
+        widget.layout != null &&
+        widget.dimensions != null) {
+      await offerDailyWallpaper(
+        context,
+        layout: widget.layout!,
+        dimensions: widget.dimensions!,
+        contentRevision: widget.contentRevision,
+      );
+    }
+    if (!mounted) return;
     showAppSnack(context, ok ? 'Wallpaper set' : 'Could not set the wallpaper');
   }
 

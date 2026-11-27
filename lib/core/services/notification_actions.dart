@@ -1,4 +1,5 @@
 import 'package:flutter_application/core/data/document_store.dart';
+import 'package:flutter_application/features/calendar/domain/calendar_visibility.dart';
 import 'package:flutter_application/core/services/notification_service.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/core/utils/strings.dart';
@@ -32,6 +33,28 @@ Future<bool> handleNotificationAction({
   final account = UserRepository(store, clock: now);
   await account.load();
   AppStrings.vi = account.settings.language == AppStrings.vietnamese;
+  // Quick capture only needs the note and settings. Avoid refreshing every
+  // reminder from the background callback when a note is saved.
+  if (actionId == NotificationActions.saveNote) {
+    if (input == null || input.trim().isEmpty) return false;
+    final notes = NoteRepository(store, clock: now);
+    try {
+      await notes.load();
+      if (!notes.captureQuick(
+        input,
+        append: account.settings.quickNoteAppend,
+      )) {
+        return false;
+      }
+      await notes.flush();
+      await notifications.showQuickNoteNotification(
+        account.settings.lockScreenHideDetails ? '' : notes.quickText,
+      );
+      return true;
+    } finally {
+      notes.dispose();
+    }
+  }
   final tasks = TaskRepository(store, clock: now);
   await tasks.load();
   var changed = false;
@@ -58,36 +81,25 @@ Future<bool> handleNotificationAction({
             reminderMinutes: account.settings.taskReminderMinutes ?? 0,
           ) !=
           null;
-    case NotificationActions.saveNote:
-      // AC-39: Save Quick Note content from the notification's RemoteInput.
-      if (input != null && input.trim().isNotEmpty) {
-        final notes = NoteRepository(store, clock: now);
-        await notes.load();
-        changed = notes.captureQuick(
-          input,
-          append: account.settings.quickNoteAppend,
-        );
-        if (!changed) break;
-        await notes.flush();
-        await notifications.showQuickNoteNotification(notes.quickText);
-      }
     case NotificationActions.skip:
       if (target?.type != NotificationTarget.habit) break;
-      if (target?.occurrenceDate != null &&
-          !sameDay(target!.occurrenceDate!, now())) {
-        break;
-      }
+      final day = target?.occurrenceDate ?? now();
       final occurrences = HabitOccurrenceRepository(store);
       await occurrences.load();
       final habits = HabitRepository(store, occurrences: occurrences);
       await habits.load();
       final habit = habits.byId(target!.id);
       if (habit != null &&
-          habits.occurrences(now()).contains(habit) &&
-          !habits.isDone(habit, now())) {
-        habits.skip(habit, now());
+          habitOccursOn(
+            habit,
+            day,
+            ReminderContext(
+              settings: account.settings,
+              habitOccurrences: occurrences.items,
+            ),
+          )) {
+        habits.skip(habit, day);
         await occurrences.flush();
-        await notifications.cancel(NotificationTarget.habit, habit.id);
         changed = true;
       }
     case NotificationActions.snooze:
@@ -113,30 +125,33 @@ Future<bool> handleNotificationAction({
             event.endTime.isAfter(now()) &&
             (target.occurrenceStart == null ||
                 target.occurrenceStart!.isAtSameMomentAs(event.startTime))) {
-          await notifications.snoozeEvent(event, snoozeDelay);
+          await notifications.snoozeEvent(
+            event,
+            snoozeDelay,
+            reminderLead: target.reminderLead,
+          );
         }
       } else if (target.type == NotificationTarget.habit) {
-        if (target.occurrenceDate != null &&
-            !sameDay(target.occurrenceDate!, now())) {
-          break;
-        }
+        final day = target.occurrenceDate ?? now();
+        if (dateOnly(day).isBefore(dateOnly(now()))) break;
         final occurrences = HabitOccurrenceRepository(store);
         await occurrences.load();
         final habits = HabitRepository(store, occurrences: occurrences);
         await habits.load();
         final habit = habits.byId(target.id);
         if (habit != null &&
-            habits.occurrences(now()).contains(habit) &&
-            !habits.isDone(habit, now()) &&
-            !habits.isSkipped(habit, now())) {
+            habits.occurrences(day).contains(habit) &&
+            !habits.isDone(habit, day) &&
+            !habits.isSkipped(habit, day)) {
           final context = ReminderContext(
             settings: account.settings,
             habitOccurrences: occurrences.items,
           );
-          if (habitOccursOn(habit, now(), context)) {
+          if (habitOccursOn(habit, day, context)) {
             await notifications.snoozeHabit(
-              effectiveHabit(habit, now(), context),
+              effectiveHabit(habit, day, context),
               snoozeDelay,
+              occurrenceDay: day,
             );
           }
         }
@@ -196,7 +211,7 @@ Future<void> _refreshNotifications(
     final today = dateOnly(now());
     await notifications.showLockScreen(
       LockScreenContent(
-        events: events.on(today),
+        events: visibleEventsOn(events.on(today), account.settings),
         tasks: tasks.pending(today),
         day: today,
         hideDetails: account.settings.lockScreenHideDetails,

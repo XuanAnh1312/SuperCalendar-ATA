@@ -1,3 +1,4 @@
+import 'package:flutter_application/core/data/repository.dart';
 import 'package:flutter_application/features/calendar/domain/event.dart';
 import 'package:flutter_application/features/calendar/domain/habit.dart';
 import 'package:flutter_application/features/settings_screen/domain/app_settings.dart';
@@ -54,8 +55,23 @@ class ReminderPlanEntry {
   final Task? task;
   final CalendarEvent? event;
   final Habit? habit;
-  String get sourceKey => '${target.type}:${target.id}';
+  String get reminderKey => reminderKeyFor(target);
 }
+
+/// Alarm and Snooze share the same identity for one occurrence and lead time.
+String reminderKeyFor(NotificationTarget target) {
+  final day = target.occurrenceDate;
+  final lead = target.reminderLead;
+  return [
+    target.type,
+    target.id,
+    if (day != null && target.type != NotificationTarget.task) dayKey(day),
+    if (lead != null) 'lead:$lead',
+  ].join(':');
+}
+
+const reminderPlanningDays = 14;
+const _reminderFallbackDays = 366;
 
 DateTime? taskReminderTime(Task task, DateTime now) {
   final due = task.dueAt;
@@ -93,7 +109,7 @@ CalendarEvent? eventReminderOccurrence(
     return best;
   }
   final from = event.startTime.isAfter(now) ? event.startTime : now;
-  for (var i = 0; i <= 366; i++) {
+  for (var i = 0; i <= _reminderFallbackDays; i++) {
     final day = DateTime(from.year, from.month, from.day + i);
     consider(event.resolvedOccurrenceOn(day));
   }
@@ -190,62 +206,125 @@ List<ReminderPlanEntry> buildReminderPlan({
   }
   if (context.enabled(NotificationTarget.event)) {
     for (final event in events) {
-      for (final lead in {
-        ...event.reminderLeadTimes,
-        for (final override
-            in event.overrideResolver?.call() ?? <CalendarEvent>[])
-          ...override.reminderLeadTimes,
-      }) {
-        final next = eventReminderOccurrence(event, now, lead: lead);
-        if (next == null) continue;
-        result.add(
-          ReminderPlanEntry(
-            at: next.startTime.subtract(Duration(minutes: lead)),
-            event: next,
-            expiresAt: next.endTime,
-            target: NotificationTarget(
-              NotificationTarget.event,
-              event.id,
-              reminderLead: next.reminderOffsets == null ? null : lead,
-              occurrenceDate: next.originalOccurrenceDate ?? next.startTime,
-              occurrenceStart: next.startTime,
+      final seen = <String>{};
+      final plannedLeads = <int>{};
+      void addOccurrence(CalendarEvent? occurrence, {int? onlyLead}) {
+        if (occurrence == null) return;
+        for (final lead in occurrence.reminderLeadTimes) {
+          if (onlyLead != null && lead != onlyLead) continue;
+          final at = occurrence.startTime.subtract(Duration(minutes: lead));
+          if (!at.isAfter(now)) continue;
+          final target = NotificationTarget(
+            NotificationTarget.event,
+            event.id,
+            reminderLead: occurrence.reminderOffsets == null ? null : lead,
+            occurrenceDate:
+                occurrence.originalOccurrenceDate ??
+                dateOnly(occurrence.startTime),
+            occurrenceStart: occurrence.startTime,
+          );
+          plannedLeads.add(lead);
+          if (!seen.add(reminderKeyFor(target))) continue;
+          result.add(
+            ReminderPlanEntry(
+              at: at,
+              event: occurrence,
+              expiresAt: occurrence.endTime,
+              target: target,
             ),
+          );
+        }
+      }
+
+      final overrides = event.overrideResolver?.call().toList() ?? [];
+      for (final occurrence in overrides) {
+        addOccurrence(occurrence);
+      }
+      if (!event.isRecurring) {
+        addOccurrence(event.resolvedOccurrenceOn(event.startTime));
+        continue;
+      }
+      final first = event.startTime.isAfter(now) ? event.startTime : now;
+      for (var offset = 0; offset < reminderPlanningDays; offset++) {
+        addOccurrence(
+          event.resolvedOccurrenceOn(
+            DateTime(first.year, first.month, first.day + offset),
           ),
+        );
+      }
+      // Preserve the next notification for sparse recurrence rules, too.
+      for (final lead in event.reminderLeadTimes.where(
+        (lead) => !plannedLeads.contains(lead),
+      )) {
+        addOccurrence(
+          eventReminderOccurrence(event, now, lead: lead),
+          onlyLead: lead,
         );
       }
     }
   }
   if (context.enabled(NotificationTarget.habit)) {
+    final today = dateOnly(now);
+    final windowEnd = DateTime(
+      today.year,
+      today.month,
+      today.day + reminderPlanningDays,
+    );
     for (final habit in habits) {
-      final day = DateTime(now.year, now.month, now.day);
-      if (!habitOccursOn(habit, day, context)) continue;
-      final effective = effectiveHabit(habit, day, context);
-      if (effective.time == null) continue;
-      final start = DateTime(day.year, day.month, day.day, 0, effective.time!);
-      final at = start.subtract(Duration(minutes: effective.reminderMinutes!));
-      if (!at.isAfter(now) ||
-          at.isBefore(
-            DateTime(
-              habit.startDate.year,
-              habit.startDate.month,
-              habit.startDate.day,
-            ),
-          )) {
+      if (habit.isArchived ||
+          (habit.time == null &&
+              !context.habitOccurrences.any(
+                (occurrence) =>
+                    occurrence.habitId == habit.id &&
+                    occurrence.overrideData?['time'] != null,
+              ))) {
         continue;
       }
-      result.add(
-        ReminderPlanEntry(
-          at: at,
-          habit: effective,
-          expiresAt: DateTime(day.year, day.month, day.day + 1),
-          target: NotificationTarget(
-            NotificationTarget.habit,
-            habit.id,
-            occurrenceDate: day,
-            occurrenceStart: start,
+      final startDay = dateOnly(habit.startDate);
+      final firstDay = startDay.isAfter(today) ? startDay : today;
+      final endDay = habit.endDate == null ? null : dateOnly(habit.endDate!);
+      final firstIndex = result.length;
+      for (
+        var offset = 0;
+        offset < reminderPlanningDays + _reminderFallbackDays;
+        offset++
+      ) {
+        final day = DateTime(
+          firstDay.year,
+          firstDay.month,
+          firstDay.day + offset,
+        );
+        if (endDay != null && day.isAfter(endDay)) break;
+        // If the rolling window is empty for this habit, keep its next alarm.
+        if (!day.isBefore(windowEnd) && result.length > firstIndex) break;
+        if (!habitOccursOn(habit, day, context)) continue;
+        final effective = effectiveHabit(habit, day, context);
+        if (effective.time == null) continue;
+        final start = DateTime(
+          day.year,
+          day.month,
+          day.day,
+          0,
+          effective.time!,
+        );
+        final at = start.subtract(
+          Duration(minutes: effective.reminderMinutes!),
+        );
+        if (!at.isAfter(now)) continue;
+        result.add(
+          ReminderPlanEntry(
+            at: at,
+            habit: effective,
+            expiresAt: DateTime(day.year, day.month, day.day + 1),
+            target: NotificationTarget(
+              NotificationTarget.habit,
+              habit.id,
+              occurrenceDate: day,
+              occurrenceStart: start,
+            ),
           ),
-        ),
-      );
+        );
+      }
     }
   }
   result.sort((a, b) => a.at.compareTo(b.at));

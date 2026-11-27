@@ -149,13 +149,25 @@ class TaskRepository extends Repository<Task> {
       .toList();
 
   /// Up to three tasks for the dashboard and lock screen: today's first.
-  List<Task> dashboard(DateTime day) {
-    final picked = dueOn(day);
-    for (final task in items) {
-      if (picked.length >= 3) break;
-      if (!picked.contains(task) && !task.completed) picked.add(task);
-    }
-    return picked.take(3).toList();
+  List<Task> dashboard(DateTime day, {bool hideCompleted = false}) {
+    final today = dateOnly(day);
+    final due = dueOn(today);
+    final remaining = items.where(
+      (task) => !task.completed && !due.contains(task),
+    );
+    return [
+      ...due.where((task) => !task.completed),
+      ...remaining.where(
+        (task) =>
+            task.dueDate != null && dateOnly(task.dueDate!).isBefore(today),
+      ),
+      ...remaining.where((task) => task.dueDate == null),
+      ...remaining.where(
+        (task) =>
+            task.dueDate != null && !dateOnly(task.dueDate!).isBefore(today),
+      ),
+      if (!hideCompleted) ...due.where((task) => task.completed),
+    ].take(3).toList();
   }
 
   /// Up to [limit] incomplete tasks for the lock screen notification:

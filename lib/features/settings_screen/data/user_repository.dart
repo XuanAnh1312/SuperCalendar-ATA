@@ -1,11 +1,12 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:flutter_application/core/data/document_store.dart';
+import 'package:flutter_application/core/data/persistent_writes.dart';
 import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/features/settings_screen/domain/user.dart';
 
 /// The single local user and the device settings.
-class UserRepository extends ChangeNotifier {
+class UserRepository extends ChangeNotifier with PersistentWrites {
   UserRepository(this.store, {DateTime Function()? clock})
     : _clock = clock ?? DateTime.now {
     user = _defaultUser();
@@ -13,13 +14,12 @@ class UserRepository extends ChangeNotifier {
 
   static const localUserId = 'local_user';
 
+  @override
   final DocumentStore store;
   final DateTime Function() _clock;
 
   late User user;
   AppSettings settings = AppSettings();
-
-  Future<void> _pending = Future.value();
 
   User _defaultUser() =>
       User(id: localUserId, name: 'Mia Chen', createdAt: _clock());
@@ -33,8 +33,6 @@ class UserRepository extends ChangeNotifier {
     _applyDateFormat();
     notifyListeners();
   }
-
-  Future<void> flush() => _pending;
 
   void setVip(bool value) {
     user.isVip = value;
@@ -68,9 +66,7 @@ class UserRepository extends ChangeNotifier {
     change(settings);
     _applyDateFormat();
     final data = settings.toJson();
-    _pending = _pending.then(
-      (_) => store.put(Collections.settings, AppSettings.id, data),
-    );
+    putDocument(Collections.settings, AppSettings.id, data);
     notifyListeners();
   }
 
@@ -80,9 +76,7 @@ class UserRepository extends ChangeNotifier {
   void _saveUser() {
     user.updatedAt = _clock();
     final data = user.toJson();
-    _pending = _pending.then(
-      (_) => store.put(Collections.users, user.id, data),
-    );
+    putDocument(Collections.users, user.id, data);
     notifyListeners();
   }
 }

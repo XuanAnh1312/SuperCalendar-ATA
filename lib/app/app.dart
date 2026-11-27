@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter_application/core/services/auto_wallpaper_service.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -11,6 +13,7 @@ import 'package:flutter_application/app/theme/app_theme.dart';
 import 'package:flutter_application/app/theme/app_theme_data.dart';
 import 'package:flutter_application/core/services/app_state.dart';
 import 'package:flutter_application/core/services/notification_service.dart';
+import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/features/calendar/presentation/screens/calendar_screen.dart';
 import 'package:flutter_application/features/calendar/presentation/screens/event_detail_screen.dart';
 import 'package:flutter_application/features/dashboard/presentation/screens/home_screen.dart';
@@ -43,6 +46,7 @@ class _SuperCalendarAppState extends State<SuperCalendarApp>
     WidgetsBinding.instance.addObserver(this);
     _app.themeRevision.addListener(_onThemeChanged);
     unawaited(_initNotifications());
+    unawaited(AutoWallpaperService.catchUp());
   }
 
   @override
@@ -55,7 +59,7 @@ class _SuperCalendarAppState extends State<SuperCalendarApp>
   Future<void> _initNotifications() async {
     await _app.notifications.init(
       onOpen: (target) => unawaited(_openTarget(target)),
-      onDataChanged: () => unawaited(_app.reloadFromDisk()),
+      onDataChanged: () => unawaited(_reloadPlanner()),
     );
     final launch = await _app.notifications.launchTarget();
     if (launch != null) {
@@ -67,7 +71,7 @@ class _SuperCalendarAppState extends State<SuperCalendarApp>
 
   /// Opens the screen a tapped notification points at.
   Future<void> _openTarget(NotificationTarget target) async {
-    await _app.reloadFromDisk();
+    await _reloadPlanner();
     if (!mounted) return;
     final navigator = rootNavigatorKey.currentState;
     if (navigator == null) {
@@ -96,8 +100,8 @@ class _SuperCalendarAppState extends State<SuperCalendarApp>
       case NotificationTarget.lockScreen:
         // The lock screen notification opens the next event of the day, or
         // the lock screen layout when nothing is left on the schedule.
-        final next = _app.events
-            .on(_app.today)
+        final next = _app
+            .visibleCalendarEventsOn(_app.today)
             .where((e) => e.endTime.isAfter(_app.now))
             .firstOrNull;
         page = next == null
@@ -109,12 +113,21 @@ class _SuperCalendarAppState extends State<SuperCalendarApp>
     navigator.push(MaterialPageRoute<void>(builder: (_) => destination));
   }
 
+  Future<void> _reloadPlanner() async {
+    try {
+      await _app.reloadFromDisk();
+    } catch (error) {
+      debugPrint('Could not reload planner: $error');
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
     // A notification action may have changed data while we were away.
-    unawaited(_app.reloadFromDisk());
+    unawaited(_reloadPlanner());
     unawaited(_app.refreshSystemCalendar());
+    unawaited(AutoWallpaperService.catchUp());
   }
 
   @override
@@ -178,7 +191,7 @@ class AppShell extends StatelessWidget {
         if (didPop) return;
         final navigator = tabNavigatorKeys[app.tab].currentState;
         if (navigator != null && navigator.canPop()) {
-          navigator.pop();
+          unawaited(navigator.maybePop());
         } else if (app.tab != AppTab.home) {
           app.setTab(AppTab.home);
         } else {
@@ -195,20 +208,47 @@ class AppShell extends StatelessWidget {
                   : Brightness.dark,
             ),
         child: Scaffold(
-          body: IndexedStack(
-            index: app.tab,
+          body: Column(
             children: [
-              for (var i = 0; i < _roots.length; i++)
-                Navigator(
-                  key: tabNavigatorKeys[i],
-                  onGenerateRoute: (_) =>
-                      MaterialPageRoute<void>(builder: (_) => _roots[i]),
+              if (app.hasWriteFailures)
+                MaterialBanner(
+                  content: Text(tr('Some changes could not be saved')),
+                  actions: [
+                    TextButton(
+                      onPressed: () async {
+                        try {
+                          await app.retryWrites();
+                        } catch (_) {
+                          if (context.mounted) {
+                            showAppSnack(
+                              context,
+                              'Could not save changes. Please try again.',
+                            );
+                          }
+                        }
+                      },
+                      child: Text(tr('Try again')),
+                    ),
+                  ],
                 ),
+              Expanded(
+                child: IndexedStack(
+                  index: app.tab,
+                  children: [
+                    for (var i = 0; i < _roots.length; i++)
+                      Navigator(
+                        key: tabNavigatorKeys[i],
+                        onGenerateRoute: (_) =>
+                            MaterialPageRoute<void>(builder: (_) => _roots[i]),
+                      ),
+                  ],
+                ),
+              ),
             ],
           ),
           bottomNavigationBar: _BottomNavigation(
             index: app.tab,
-            onTap: (i) => goToTab(context, i),
+            onTap: app.setTab,
           ),
         ),
       ),

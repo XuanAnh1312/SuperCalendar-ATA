@@ -118,7 +118,7 @@ class CalendarEvent {
   CalendarEvent? resolvedOccurrenceOn(DateTime day) =>
       occurrenceResolver != null
       ? occurrenceResolver!(day)
-      : isOn(day)
+      : startsOccurrenceOn(day)
       ? (isRecurring ? occurrenceOn(day) : this)
       : null;
 
@@ -162,10 +162,21 @@ class CalendarEvent {
   String get startLabel => formatMinutes(startMinutes);
   String get timeRange => '$startLabel–${formatMinutes(endMinutes)}';
 
-  /// True when this event (or one of its repeats) falls on [day].
-  bool isOn(DateTime day) => isRecurring
+  /// The anchor day of a scheduled occurrence, used for exceptions and alarms.
+  bool startsOccurrenceOn(DateTime day) => isRecurring
       ? rruleOccursOn(repeatRule!, startTime, day)
       : sameDay(startTime, day);
+
+  /// Whether this event's actual time range intersects the local day.
+  /// Midnight at the end belongs to the preceding day.
+  bool overlapsDay(DateTime day) {
+    final from = DateTime(day.year, day.month, day.day);
+    final to = DateTime(day.year, day.month, day.day + 1);
+    return startTime.isBefore(to) && endTime.isAfter(from);
+  }
+
+  bool isOn(DateTime day) =>
+      isRecurring ? startsOccurrenceOn(day) : overlapsDay(day);
 
   /// A copy of this event moved to [day], keeping its time of day. Used to
   /// show one repeat of a recurring event; it shares the series' [id].

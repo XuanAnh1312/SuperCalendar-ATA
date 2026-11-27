@@ -44,7 +44,6 @@ Future<void> _handleBackgroundResponse(NotificationResponse response) async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
   final notifications = LocalNotificationService();
-  await notifications.init();
   // The database connection is shared with the UI isolate's process, so it
   // is intentionally left open here.
   final store = await SqliteDocumentStore.open();
@@ -258,7 +257,7 @@ class LocalNotificationService implements NotificationService {
         channelDescription: 'Event and task reminders',
         importance: Importance.high,
         priority: Priority.high,
-        visibility: NotificationVisibility.public,
+        visibility: NotificationVisibility.private,
         category: AndroidNotificationCategory.reminder,
         actions: [
           if (task)
@@ -317,6 +316,7 @@ class LocalNotificationService implements NotificationService {
       context: context,
     );
     final snoozed = <String>{};
+    final existing = <PendingNotificationRequest>[];
     for (final pending in await _plugin.pendingNotificationRequests()) {
       final target = NotificationTarget.decode(pending.payload);
       if (target == null ||
@@ -327,9 +327,32 @@ class LocalNotificationService implements NotificationService {
           }.contains(target.type)) {
         continue;
       }
-      final key = '${target.type}:${target.id}';
+      final key = reminderKeyFor(target);
       if (target.snoozed && valid(target) && snoozed.add(key)) continue;
-      await _plugin.cancel(id: pending.id);
+      existing.add(pending);
+    }
+    // iOS keeps at most 64 pending local notifications; reserve two card IDs.
+    final desired = {
+      for (final entry
+          in plan
+              .where((entry) => !snoozed.contains(entry.reminderKey))
+              .take(_isIos ? 62 - snoozed.length.clamp(0, 62) : 400))
+        _reminderId(entry): entry,
+    };
+    for (final pending in existing) {
+      final entry = desired[pending.id];
+      if (entry != null &&
+          pending.payload ==
+              entry.target.encode(
+                scheduledFor: entry.at,
+                expiresAt: entry.expiresAt,
+              ) &&
+          pending.title == _reminderTitle(entry) &&
+          pending.body == _reminderBody(entry)) {
+        desired.remove(pending.id);
+      } else {
+        await _plugin.cancel(id: pending.id);
+      }
     }
     // Android does not expose the payload of an active notification. The tag
     // carries the same target so deleted/edited occurrences can be cancelled.
@@ -347,30 +370,33 @@ class LocalNotificationService implements NotificationService {
         await _plugin.cancel(id: active.id!, tag: active.tag);
       }
     }
-    // iOS keeps at most 64 pending local notifications; reserve two card IDs.
-    for (final entry
-        in _isIos ? plan.take(62 - snoozed.length.clamp(0, 62)) : plan) {
-      if (snoozed.contains(entry.sourceKey)) continue;
+    for (final entry in desired.values) {
       await _scheduleEntry(entry);
     }
   }
 
+  int _reminderId(ReminderPlanEntry entry) => reminderNotificationId(
+    '${entry.target.snoozed ? 'snooze:' : ''}${entry.reminderKey}',
+  );
+
+  String _reminderTitle(ReminderPlanEntry entry) => entry.task != null
+      ? tr('Task reminder')
+      : entry.event != null
+      ? tr('Upcoming event')
+      : tr('Habit reminder');
+
+  String _reminderBody(ReminderPlanEntry entry) => entry.task != null
+      ? _taskBody(entry.task!)
+      : entry.event != null
+      ? _eventBody(entry.event!)
+      : entry.habit!.title;
+
   Future<void> _scheduleEntry(ReminderPlanEntry entry) => _schedule(
-    id: reminderNotificationId(
-      '${entry.target.snoozed ? 'snooze:' : ''}${entry.sourceKey}${entry.target.reminderLead == null ? '' : ':lead:${entry.target.reminderLead}'}',
-    ),
+    id: _reminderId(entry),
     at: entry.at,
     expiresAt: entry.expiresAt,
-    title: entry.task != null
-        ? tr('Task reminder')
-        : entry.event != null
-        ? tr('Upcoming event')
-        : tr('Habit reminder'),
-    body: entry.task != null
-        ? _taskBody(entry.task!)
-        : entry.event != null
-        ? _eventBody(entry.event!)
-        : entry.habit!.title,
+    title: _reminderTitle(entry),
+    body: _reminderBody(entry),
     target: entry.target,
   );
 
@@ -396,7 +422,7 @@ class LocalNotificationService implements NotificationService {
         timeoutAfter: expiresAt?.difference(at).inMilliseconds,
       ),
       androidScheduleMode: mode,
-      payload: target.encode(),
+      payload: target.encode(scheduledFor: at, expiresAt: expiresAt),
     );
     try {
       await schedule(
@@ -452,11 +478,16 @@ class LocalNotificationService implements NotificationService {
   );
 
   @override
-  Future<void> snoozeEvent(CalendarEvent event, Duration delay) => _snooze(
+  Future<void> snoozeEvent(
+    CalendarEvent event,
+    Duration delay, {
+    int? reminderLead,
+  }) => _snooze(
     NotificationTarget(
       NotificationTarget.event,
       event.id,
       snoozed: true,
+      reminderLead: reminderLead,
       occurrenceDate: event.originalOccurrenceDate ?? dateOnly(event.startTime),
       occurrenceStart: event.startTime,
     ),
@@ -464,24 +495,25 @@ class LocalNotificationService implements NotificationService {
   );
 
   @override
-  Future<void> snoozeHabit(Habit habit, Duration delay) => _snooze(
-    NotificationTarget(
-      NotificationTarget.habit,
-      habit.id,
-      snoozed: true,
-      occurrenceDate: dateOnly(_clock()),
-      occurrenceStart: habit.time == null
-          ? null
-          : DateTime(
-              _clock().year,
-              _clock().month,
-              _clock().day,
-              0,
-              habit.time!,
-            ),
-    ),
-    delay,
-  );
+  Future<void> snoozeHabit(
+    Habit habit,
+    Duration delay, {
+    DateTime? occurrenceDay,
+  }) {
+    final day = dateOnly(occurrenceDay ?? _clock());
+    return _snooze(
+      NotificationTarget(
+        NotificationTarget.habit,
+        habit.id,
+        snoozed: true,
+        occurrenceDate: day,
+        occurrenceStart: habit.time == null
+            ? null
+            : DateTime(day.year, day.month, day.day, 0, habit.time!),
+      ),
+      delay,
+    );
+  }
 
   Future<void> _snooze(NotificationTarget target, Duration delay) async {
     await init();
@@ -505,7 +537,18 @@ class LocalNotificationService implements NotificationService {
     final habit = baseHabit == null
         ? null
         : effectiveHabit(baseHabit, day, data.context);
-    await cancel(target.type, target.id);
+    final key = reminderKeyFor(target);
+    await _plugin.cancel(id: reminderNotificationId(key));
+    for (final active in await _plugin.getActiveNotifications()) {
+      final displayed = NotificationTarget.decode(
+        _isIos ? active.payload : active.tag,
+      );
+      if (displayed != null &&
+          reminderKeyFor(displayed) == key &&
+          active.id != null) {
+        await _plugin.cancel(id: active.id!, tag: active.tag);
+      }
+    }
     await _scheduleEntry(
       ReminderPlanEntry(
         target: target,
@@ -634,7 +677,9 @@ class LocalNotificationService implements NotificationService {
         : NotificationTarget.habit;
     await cancel(type, task?.id ?? event?.id ?? habit!.id);
     if (plan.isEmpty) return null;
-    await _scheduleEntry(plan.first);
+    for (final entry in plan.take(_isIos ? 62 : 400)) {
+      await _scheduleEntry(entry);
+    }
     return plan.first.at;
   }
 
@@ -653,6 +698,12 @@ class LocalNotificationService implements NotificationService {
     await _plugin.cancel(
       id: reminderNotificationId('snooze:$sourceType:$sourceId'),
     );
+    for (final pending in await _plugin.pendingNotificationRequests()) {
+      final target = NotificationTarget.decode(pending.payload);
+      if (target?.type == sourceType && target?.id == sourceId) {
+        await _plugin.cancel(id: pending.id);
+      }
+    }
     for (final active in await _plugin.getActiveNotifications()) {
       final target = NotificationTarget.decode(
         _isIos ? active.payload : active.tag,
@@ -673,8 +724,18 @@ class LocalNotificationService implements NotificationService {
   /// and Save / Open app action buttons (FR-20.02, FR-20.03).
   @override
   Future<void> showQuickNoteNotification(String text) async {
-    if (!await _canShow(quickNote: true)) return;
-    final displayText = text.isEmpty ? tr('Tap to write a quick note') : text;
+    await init();
+    final account = UserRepository(await _openStore());
+    await account.load();
+    final settings = account.settings;
+    account.dispose();
+    if (!settings.notificationsEnabled ||
+        !settings.quickNoteNotification ||
+        !await hasPermission())
+      return;
+    final displayText = (settings.lockScreenHideDetails || text.isEmpty)
+        ? tr('Tap to write a quick note')
+        : text;
     return _plugin.show(
       id: _quickNoteId,
       title: 'SuperCalendar · Quick Note',

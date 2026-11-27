@@ -7,6 +7,7 @@ import 'package:flutter_application/app/theme/app_colors.dart';
 import 'package:flutter_application/app/theme/app_theme_data.dart';
 import 'package:flutter_application/core/data/document_store.dart';
 import 'package:flutter_application/core/data/repository.dart';
+import 'package:flutter_application/core/data/persistent_writes.dart';
 import 'package:flutter_application/core/services/notification_service.dart';
 import 'package:flutter_application/core/services/seed_data.dart';
 import 'package:flutter_application/core/services/system_calendar_service.dart';
@@ -15,6 +16,8 @@ import 'package:flutter_application/core/utils/strings.dart';
 import 'package:flutter_application/features/calendar/data/event_repository.dart';
 import 'package:flutter_application/features/calendar/data/goal_repository.dart';
 import 'package:flutter_application/features/calendar/data/habit_repository.dart';
+import 'package:flutter_application/features/calendar/domain/calendar_visibility.dart';
+import 'package:flutter_application/features/calendar/domain/event.dart';
 import 'package:flutter_application/features/calendar/domain/goal.dart';
 import 'package:flutter_application/features/dashboard/data/layout_repository.dart';
 import 'package:flutter_application/features/dashboard/domain/screen_layout.dart';
@@ -117,10 +120,10 @@ class AppState extends ChangeNotifier {
 
   // ---- Loading ------------------------------------------------------------
 
-  /// Reads everything from the device, writing the sample data on first run.
-  Future<void> load() async {
+  /// Reads local data. Test and demo hosts can opt into first-run sample data.
+  Future<void> load({bool seedDemoData = true}) async {
     await _loadRepositories();
-    if (!settings.seeded) {
+    if (seedDemoData && !settings.seeded) {
       seedSampleData(this);
       account.updateSettings((s) => s.seeded = true);
       await flush();
@@ -149,6 +152,7 @@ class AppState extends ChangeNotifier {
   Future<void> _reloadNotificationData() async {
     _reloading = true;
     try {
+      await flush();
       await account.load();
       await tasks.load();
       await notes.load();
@@ -160,6 +164,23 @@ class AppState extends ChangeNotifier {
       _reloading = false;
     }
     await syncNotifications();
+  }
+
+  Future<int> restorePlannerBackup(
+    PlannerBackupStore destination,
+    Map<String, List<Map<String, dynamic>>> data,
+  ) async {
+    await _reloadInFlight;
+    await flush();
+    _reloading = true;
+    try {
+      final count = await destination.importMissingDocuments(data);
+      await _loadRepositories();
+      return count;
+    } finally {
+      _reloading = false;
+      _queueSync();
+    }
   }
 
   Future<void> _loadRepositories() async {
@@ -175,21 +196,20 @@ class AppState extends ChangeNotifier {
     await notes.load();
   }
 
-  /// Completes when every queued write has reached the database.
-  Future<void> flush() async {
-    await Future.wait([
-      tasks.flush(),
-      events.flush(),
-      eventExceptions.flush(),
-      habits.flush(),
-      habitOccurrences.flush(),
-      goals.flush(),
-      notes.flush(),
-      account.flush(),
-      templates.flush(),
-      layouts.flush(),
-    ]);
-  }
+  bool get hasWriteFailures => _repositories.whereType<PersistentWrites>().any(
+    (repo) => repo.hasWriteFailures,
+  );
+
+  Future<void> retryWrites() => Future.wait(
+    _repositories.whereType<PersistentWrites>().map(
+      (repo) => repo.retryWrites(),
+    ),
+  );
+
+  /// Completes when every queued write has reached the device.
+  Future<void> flush() => Future.wait(
+    _repositories.whereType<PersistentWrites>().map((repo) => repo.flush()),
+  );
 
   void _onDataChanged() {
     notifyListeners();
@@ -208,9 +228,13 @@ class AppState extends ChangeNotifier {
   // ---- Onboarding (FR-01) -------------------------------------------------
 
   /// Saves the name typed on first run (AC-04) and marks onboarding done.
-  void finishOnboarding(String name) {
+  void finishOnboarding(String name, {bool useDemoData = false}) {
+    if (useDemoData && !settings.seeded) seedSampleData(this);
     account.rename(name);
-    account.updateSettings((s) => s.onboarded = true);
+    account.updateSettings((s) {
+      s.onboarded = true;
+      s.seeded = true;
+    });
   }
 
   // ---- Navigation ---------------------------------------------------------
@@ -479,8 +503,11 @@ class AppState extends ChangeNotifier {
   void setLockScreenHideDetails(bool value) =>
       account.updateSettings((s) => s.lockScreenHideDetails = value);
 
+  List<CalendarEvent> visibleCalendarEventsOn(DateTime day) =>
+      visibleEventsOn(events.on(day), settings);
+
   LockScreenContent get lockScreenContent => LockScreenContent(
-    events: events.on(today),
+    events: visibleCalendarEventsOn(today),
     tasks: tasks.pending(today),
     day: today,
     hideDetails: settings.lockScreenHideDetails,
@@ -591,6 +618,7 @@ class AppState extends ChangeNotifier {
 
   /// True once the user has allowed reading the device calendar.
   bool systemCalendarGranted = false;
+  int _systemCalendarRefreshId = 0;
 
   /// Asks for the calendar permission and loads the device's events. When the
   /// user refuses, the app simply keeps using its local events.
@@ -607,6 +635,7 @@ class AppState extends ChangeNotifier {
   }
 
   void disconnectSystemCalendar() {
+    _systemCalendarRefreshId++;
     account.updateSettings((s) => s.useSystemCalendar = false);
     events.setSystemEvents(const []);
   }
@@ -617,16 +646,25 @@ class AppState extends ChangeNotifier {
   /// Re-reads the device calendar around the selected day. Does nothing
   /// (and never prompts) unless the user has connected it.
   Future<void> refreshSystemCalendar() async {
-    if (!settings.useSystemCalendar) return;
-    systemCalendarGranted = await systemCalendar.hasPermission();
-    if (!systemCalendarGranted) {
+    if (!loaded || !settings.useSystemCalendar) return;
+    final refreshId = ++_systemCalendarRefreshId;
+    bool isCurrent() =>
+        loaded &&
+        settings.useSystemCalendar &&
+        refreshId == _systemCalendarRefreshId;
+
+    final granted = await systemCalendar.hasPermission();
+    if (!isCurrent()) return;
+    systemCalendarGranted = granted;
+    if (!granted) {
       events.setSystemEvents(const []);
       return;
     }
     final anchor = selectedDay;
     final from = DateTime(anchor.year, anchor.month - 1, 1);
     final to = DateTime(anchor.year, anchor.month + 2, 1);
-    events.setSystemEvents(await systemCalendar.events(from, to));
+    final refreshed = await systemCalendar.events(from, to);
+    if (isCurrent()) events.setSystemEvents(refreshed);
   }
 
   // ---- Convenience writes that span features ------------------------------

@@ -7,6 +7,7 @@ import 'package:flutter_application/app/theme/app_text.dart';
 import 'package:flutter_application/core/services/app_state.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/features/vip/domain/template.dart';
+import 'package:flutter_application/features/vip/presentation/screens/vip_screen.dart';
 import 'package:flutter_application/core/utils/strings.dart';
 
 /// Name of each [VipFeature] shown in the paywall sheet.
@@ -19,9 +20,8 @@ const vipFeatureNames = {
   VipFeature.premiumLayouts: 'VIP layouts',
 };
 
-/// Feature gate (BR-06): true when [AppState.canAccess] allows [feature]. A
-/// Free user gets a sheet explaining that it needs VIP, with a shortcut to
-/// the offer, and false.
+/// Feature gate (BR-06): true when [AppState.canAccess] allows [feature].
+/// Free users can open the offer and continue the same action after upgrading.
 Future<bool> requireVip(
   BuildContext context, {
   required VipFeature feature,
@@ -75,8 +75,23 @@ Future<bool> requireVip(
       ),
     ),
   );
-  if (seeOffer == true && context.mounted) goToTab(context, AppTab.vip);
-  return false;
+  if (seeOffer != true || !context.mounted) return false;
+  return offerVipUpgrade(context, feature: feature);
+}
+
+/// Opens the offer if needed and reports access when it closes.
+Future<bool> offerVipUpgrade(
+  BuildContext context, {
+  required VipFeature feature,
+}) async {
+  final app = AppScope.read(context);
+  if (!app.canAccess(feature)) {
+    await pushFullScreen<void>(
+      context,
+      const VipScreen(returnOnPurchase: true),
+    );
+  }
+  return context.mounted && app.canAccess(feature);
 }
 
 /// The test payment step. Nothing is charged: the buttons simply pick which

@@ -204,7 +204,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
           if (onToday)
             Text(
               tr('Today'),
-              style: AppText.s(12, weight: FontWeight.w600, color: AppColors.primary),
+              style: AppText.s(
+                12,
+                weight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
             ),
         ],
       ),
@@ -212,10 +216,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
       if (agenda.isEmpty)
         EmptyState(
           icon: LucideIcons.calendarPlus,
-          message: trf(
-            'No events on {date} · tap the date again to add one',
-            {'date': shortDate(selected)},
-          ),
+          message: trf('No events on {date} · tap the date again to add one', {
+            'date': shortDate(selected),
+          }),
         )
       else
         for (final event in agenda)
@@ -345,12 +348,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  weekRangeLabel(anchor, longMonth: true),
+                  weekRangeLabel(
+                    anchor,
+                    longMonth: true,
+                    weekStart: app.weekStartOf(anchor),
+                  ),
                   style: AppText.s(20),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  trf('Week {n} · {count} events', {'n': _isoWeek(monday), 'count': eventCount}),
+                  trf('Week {n} · {count} events', {
+                    'n': _isoWeek(monday),
+                    'count': eventCount,
+                  }),
                   style: AppText.s(10, color: AppColors.muted),
                 ),
               ],
@@ -554,8 +564,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final inGrid = events
         .where(
           (e) =>
-              e.endMinutes > _firstHour * 60 &&
-              e.startMinutes < _lastHour * 60,
+              e.endMinutes > _firstHour * 60 && e.startMinutes < _lastHour * 60,
         )
         .toList();
     final outside = events
@@ -866,12 +875,14 @@ class _AgendaRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      tr(isToday
-                          ? 'TODAY'
-                          : shortDate(event.date)
-                                .split(',')
-                                .first
-                                .toUpperCase()),
+                      tr(
+                        isToday
+                            ? 'TODAY'
+                            : shortDate(event.date)
+                                  .split(',')
+                                  .first
+                                  .toUpperCase(),
+                      ),
                       style: AppText.s(9.5, color: AppColors.muted),
                     ),
                     const SizedBox(height: 3),

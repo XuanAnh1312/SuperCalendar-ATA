@@ -359,6 +359,9 @@ void main() {
   testWidgets(
     'AUD-W03 wallpaper week contains events from the other six days',
     (tester) async {
+      for (final sample in app.events.items.toList()) {
+        app.events.delete(sample);
+      }
       app.events.add(
         CalendarEvent(
           id: 'audit-week-saturday',
@@ -378,8 +381,10 @@ void main() {
     tester,
   ) async {
     tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.display.size = const Size(1080, 2400);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
+    addTearDown(tester.view.display.resetSize);
     final oldService = WallpaperService.instance;
     final capture = _CaptureWallpaper();
     WallpaperService.instance = capture;

@@ -2,7 +2,7 @@
 
 Ngày ghi nhận: 21/11/2026.
 
-Trạng thái: **Chưa triển khai các mục dưới đây. Người dùng muốn lưu lại để ưu tiên xử lý vấn đề khác trước.** Không tự tick hoàn thành dựa trên số lượng test hiện có.
+Trạng thái: **Backlog chưa được nghiệm thu hoàn tất. Riêng tự cập nhật wallpaper Android đã có triển khai và bằng chứng thử nghiệm ở phần cập nhật bên dưới.** Các mục khác vẫn được lưu để xử lý sau. Không tự tick hoàn thành dựa trên số lượng test hiện có.
 
 ## Phạm vi và bằng chứng
 
@@ -40,9 +40,26 @@ Code: `lib/features/calendar/domain/event.dart`, `lib/features/calendar/data/eve
 - [ ] Không ngầm hứa ảnh PNG có thể tương tác hoặc tự cập nhật.
 - [ ] Test sửa/xóa lịch sau khi đặt wallpaper và chuyển sang tuần mới.
 
-Hiện trạng qua code: wallpaper là ảnh tĩnh; các lệnh đặt wallpaper nằm trong luồng xuất/đặt thủ công, chưa thấy cơ chế tự render và đặt lại khi dữ liệu đổi.
+Hiện trạng tại thời điểm audit ban đầu: wallpaper là ảnh tĩnh; các lệnh đặt wallpaper nằm trong luồng xuất/đặt thủ công. Triển khai hằng ngày mới được mô tả bên dưới; cập nhật ngay khi mọi dữ liệu đổi chưa nằm trong nghiệm thu này.
 
 Code: `edit_screen.dart`, `wallpaper_export_screen.dart`, `lib/core/services/wallpaper_service.dart`.
+
+### Cập nhật triển khai Android ngày 21/11/2026
+
+Đã triển khai tự cập nhật wallpaper hằng ngày, mặc định tắt và chỉ bật sau đồng ý. Sau khi đặt lock wallpaper thành công, app hỏi một lần; chọn Để sau không tự bật và không hỏi lại ở các lần đặt tiếp theo. Settings → Lock Screen có công tắc, Xem trước ngày mai và Cập nhật hình nền ngay. Thiết kế đã áp dụng được lưu riêng, không tự áp dụng bản nháp chưa đặt wallpaper.
+
+Dùng JobScheduler persisted, thời điểm sớm nhất là nửa đêm theo múi giờ thiết bị, điều kiện pin không thấp và retry giãn cách từ 30 phút. Có cập nhật bù khi mở app và tính lại lịch khi đổi giờ/múi giờ. Không xin Exact Alarm cho việc cập nhật wallpaper và không cam kết chạy chính xác 00:00. iOS chưa có tính năng tự động này.
+
+Bằng chứng máy ảo Android 13/API 33:
+
+- Engine nền tạo PNG 1080×2280 qua nút Preview tomorrow. Kiểm tra ảnh có ngày 22 được tô sáng và tiêu đề Sunday, November 22; không chỉ kiểm tra kích thước file.
+- Tự cập nhật vẫn tắt khi dùng preview; wallpaper thật không bị thay đổi trong bài thử.
+- Bật công tắc hiện hộp thoại đồng ý. Sau xác nhận, Android có job 8301 PERSISTED, batteryNotLow=true, thời gian chờ đến nửa đêm và backoff 30 phút.
+- Tắt công tắc: job 8301 và 8302 không còn tồn tại.
+- Đã khôi phục cấu hình fixture. So sánh nội dung SQLite trước/sau cho kết quả không thay đổi.
+- Lỗi crash Impeller khi engine không có surface đã được phát hiện trong thử native và sửa bằng ImageReader off-screen; ca preview đã chạy lại thành công.
+
+Còn phải nghiệm thu trên máy thật: cập nhật wallpaper thực tế qua nửa đêm, Doze/tiết kiệm pin, reboot trước giờ chạy, đổi múi giờ, ảnh cá nhân và nhiều hãng máy. Không tick các mục này chỉ vì preview hoặc unit test pass. Ảnh và dump thử nghiệm để riêng trong `.dart_tool/`; không đưa bản sao database/preferences vào Git.
 
 ## P2 — Schedule đầy chiều ngang nhưng ô thấp vẫn che nội dung
 
@@ -109,3 +126,30 @@ Bằng chứng cũ: `docs/ANDROID_ACCEPTANCE_2026-11-19.md` ghi ANR của Action
 - Test liên quan pass; analyze không có error/warning mới.
 - Các mục notification/wallpaper có kết quả trên thiết bị phù hợp: thiết bị/API, Expected/Actual, ảnh hoặc log.
 - Mục chưa chạy hoặc bị chặn phải ghi rõ, không tick hoàn thành.
+
+## Cập nhật triển khai 27/11/2026
+
+| Phạm vi | Thay đổi |
+| --- | --- |
+| Lưu dữ liệu | Lỗi ghi của một mục không chặn những mục tiếp theo. App hiển thị nút thử lưu lại. Trình sửa hình nền giữ ảnh cũ đến khi ghi xong thiết kế mới. |
+| Sao lưu | Settings → Data → Planner backup lưu JSON và khôi phục các mục còn thiếu. Sao lưu gồm lịch nội bộ, việc cần làm, ghi chú, thói quen, mục tiêu và ngoại lệ lặp. Cài đặt, tài khoản, giao dịch, ảnh nền và lịch đọc từ hệ thống nằm ngoài phạm vi bản sao. |
+| Lịch và nhắc | Sự kiện qua nửa đêm xuất hiện trên những ngày liên quan, dùng cùng ngày gốc khi sửa hoặc xóa một lần lặp. Kế hoạch nhắc lập trước 14 ngày trong hạn mức nền tảng, giữ các lịch tương đương và Snooze từng mốc 10 phút. Mở app hoặc đồng bộ lại làm mới kế hoạch. |
+| Màn hình khóa | Tôn trọng bộ lọc lịch; Hide details ẩn nội dung ghi chú và tiêu đề thói quen. Schedule giữ hàng tuần và danh sách hôm nay, báo số mục vượt chỗ. Android báo khi lịch đã đổi kể từ lần đặt wallpaper. Người dùng cần cập nhật ảnh đã đặt để áp dụng thay đổi quyền riêng tư. |
+| Home | Ưu tiên việc hôm nay, quá hạn, chưa có hạn; hiển thị số còn lại và tôn trọng ẩn việc đã hoàn thành. Tổng quan ghi đúng 14 ngày, màu tuần lấy từ sự kiện thật. Weather vẫn ghi rõ dữ liệu mẫu. |
+| Onboarding và đăng nhập | Cài mới mặc định bắt đầu với dữ liệu trống, có lựa chọn dữ liệu mẫu. Dữ liệu cũ được giữ. Khởi tạo Firebase diễn ra sau khi mở planner local. Settings ghi rõ dữ liệu lưu trên thiết bị. |
+| Quick Note | Lưu trực tiếp qua repository với ít thao tác nền hơn. Kết quả ổn định của RemoteInput khi tiến trình đã tắt cần được xác nhận riêng trên Android. |
+
+Google Authentication, đồng bộ planner và thanh toán VIP là ba phần độc lập. Bản này dùng Google Authentication nếu đã cấu hình, lưu planner trên thiết bị và giữ mô phỏng giao dịch VIP. Chưa triển khai Firestore sync, tài khoản VIP mua thật hoặc phân tách planner cục bộ khi đổi tài khoản.
+
+Kiểm thử trên workspace: 164 bài Flutter mặc định và 23 probe audit pass. Phân tích tĩnh không có lỗi hoặc cảnh báo. Script kiểm tra cấu hình iOS pass.
+
+APK release được ký và cài thành công trên Pixel 4 emulator, Android 13/API 33. Android ghi nhận đã hiển thị MainActivity. Hộp thoại “Process system isn't responding” vẫn che giao diện sau khi chọn Wait. Log của máy ảo có lỗi hệ thống từ trước lúc cài APK, vì vậy lượt thử này chưa nghiệm thu được Onboarding, RemoteInput hoặc các thao tác màn hình khóa. Cần ghi lại kết quả trên thiết bị khác trước khi đánh dấu các mục đó hoàn thành.
+
+Các ca nghiệm thu còn phụ thuộc Android thật gồm Quick Note RemoteInput và khởi động lạnh, nhắc sau reboot, Schedule với PIN, cùng wallpaper chạy qua nửa đêm. Thử bằng dữ liệu mẫu, ghi API, giờ dự kiến và giờ thực tế. Khi thử tiến trình đã dừng, đưa app về nền rồi dùng `adb shell am kill com.supercalendar.app`; Force stop là trạng thái hệ thống khác.
+
+### Nghiệm thu trên máy Android
+
+1. **Quick Note.** Cài APK, cấp quyền thông báo khi app hỏi. Trong Settings → Lock Screen, bật **Quick Note in notifications** và chọn Append hoặc Replace. Về Home, chạy lệnh dừng tiến trình ở trên nếu đang thử khởi động lạnh, khóa máy rồi mở thông báo Quick Note. Nhập một chuỗi dễ nhận biết, chọn gửi, sau đó chọn **Open app**. Xác nhận app vào trình soạn Quick Note và nội dung đã được lưu theo chế độ chọn.
+2. **Reminder sau reboot.** Tạo sự kiện cách giờ hiện tại đủ để có mốc nhắc trong vài phút tới. Kiểm tra Settings → Notifications đã bật nhắc sự kiện và Android Settings → Special app access → Alarms & reminders nếu máy có mục này. Khởi động lại trước mốc nhắc, mở khóa lần đầu bằng PIN rồi giữ ở Home. Ghi lại mốc đã đặt và giờ thiết bị thực sự nhận thông báo.
+3. **Schedule và quyền.** Bật **Show on lock screen**, khóa máy bằng PIN rồi chọn **Schedule** từ thông báo. Xác nhận Android yêu cầu mở khóa trước khi hiện lịch. Sau đó thu hồi quyền thông báo trong cài đặt Android, quay lại SuperCalendar và xác nhận Settings báo quyền đang tắt trong khi tạo việc hoặc ghi chú vẫn hoạt động.
+4. **Wallpaper qua ngày.** Trong Edit Your Screen, đặt hình nền có Schedule và đồng ý tự cập nhật hằng ngày. Dùng **Preview tomorrow** để xác nhận bố cục ngày kế tiếp. Để máy qua nửa đêm với pin đủ, sáng hôm sau kiểm tra ngày trên màn hình khóa và **Last wallpaper update**. Ghi lại thời điểm thực tế vì Android điều phối thời điểm chạy nền.

@@ -17,14 +17,17 @@ import 'package:flutter_application/core/utils/strings.dart';
 /// Template Studio; a Free user sees what VIP adds and can subscribe through
 /// the test payment.
 class VipScreen extends StatelessWidget {
-  const VipScreen({super.key});
+  const VipScreen({super.key, this.returnOnPurchase = false});
+
+  /// Pop the offer and let the gated action resume when the user upgrades.
+  final bool returnOnPurchase;
 
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
     return app.canAccess(VipFeature.themeBuilder)
         ? const _VipMembership()
-        : const _VipOffer();
+        : _VipOffer(returnOnPurchase: returnOnPurchase);
   }
 }
 
@@ -203,21 +206,27 @@ class _VipMembership extends StatelessWidget {
   }
 }
 
-/// Runs Subscribe → Test Payment → result. Only a success grants VIP.
-Future<void> subscribeToVip(BuildContext context) async {
-  final app = AppScope.read(context);
-  final result = await showMockPayment(
-    context,
-    product: 'SuperCalendar VIP',
-    priceLabel: '${AppState.vipPrice ~/ 1000},000đ / ${tr('month')}',
-  );
-  app.completeVipPayment(result);
-  if (!context.mounted) return;
-  showAppSnack(context, paymentMessage(result, 'VIP'));
-}
-
 class _VipOffer extends StatelessWidget {
-  const _VipOffer();
+  const _VipOffer({required this.returnOnPurchase});
+
+  final bool returnOnPurchase;
+
+  Future<void> _subscribe(BuildContext context) async {
+    final app = AppScope.read(context);
+    final result = await showMockPayment(
+      context,
+      product: 'SuperCalendar VIP',
+      priceLabel: '${AppState.vipPrice ~/ 1000},000đ / ${tr('month')}',
+    );
+    app.completeVipPayment(result);
+    if (!context.mounted) return;
+    showAppSnack(context, paymentMessage(result, 'VIP'));
+    if (returnOnPurchase &&
+        result == PaymentResult.success &&
+        ModalRoute.of(context)?.isCurrent == true) {
+      Navigator.of(context).pop();
+    }
+  }
 
   static const _free = [
     'Default theme and built-in themes',
@@ -252,11 +261,9 @@ class _VipOffer extends StatelessWidget {
             PageHeader(
               title: 'SuperCalendar VIP',
               subtitle: 'Make every screen feel like you',
-              leading: Icon(
-                LucideIcons.gem,
-                size: 20,
-                color: AppColors.primary,
-              ),
+              leading: returnOnPurchase
+                  ? BackButton(color: AppColors.primary)
+                  : Icon(LucideIcons.gem, size: 20, color: AppColors.primary),
             ),
             const SizedBox(height: 14),
             AppCard(
@@ -291,7 +298,7 @@ class _VipOffer extends StatelessWidget {
                   PrimaryButton(
                     label: 'Subscribe',
                     icon: LucideIcons.gem,
-                    onTap: () => subscribeToVip(context),
+                    onTap: () => _subscribe(context),
                   ),
                   const SizedBox(height: 8),
                   Center(

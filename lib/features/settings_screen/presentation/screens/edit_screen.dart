@@ -21,9 +21,10 @@ import 'package:flutter_application/core/utils/date_formatter.dart';
 import 'package:flutter_application/core/utils/strings.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
 import 'package:flutter_application/core/widgets/device_preview_frame.dart';
+import 'package:flutter_application/core/widgets/wallpaper_scene.dart';
+import 'package:flutter_application/core/services/auto_wallpaper_service.dart';
 import 'package:flutter_application/features/dashboard/domain/screen_layout.dart';
 import 'package:flutter_application/features/dashboard/presentation/widgets/widget_grid.dart';
-import 'package:flutter_application/features/lock_screen/presentation/screens/lock_screen.dart';
 import 'package:flutter_application/features/settings_screen/presentation/screens/appearance_screen.dart';
 import 'package:flutter_application/features/settings_screen/presentation/screens/layout_gallery_screen.dart';
 import 'package:flutter_application/features/settings_screen/presentation/screens/wallpaper_export_screen.dart';
@@ -72,6 +73,8 @@ class _EditScreenState extends State<EditScreen> {
   bool _overlay = true;
   bool _dirty = false;
   bool _closing = false;
+  bool _saving = false;
+  final _replacedPhotos = <String>{};
   bool _resizing = false;
   bool _busy = false;
   String? _selected;
@@ -406,21 +409,28 @@ class _EditScreenState extends State<EditScreen> {
 
   /// AC-08: the back arrow (or system back) saves both screens and leaves.
   Future<void> _saveAndClose() async {
-    if (_closing) return;
-    _closing = true;
-    if (_dirty) {
-      for (final draft in _drafts!.values) {
-        final old = _app.layouts.of(draft.id).backgroundPath;
-        _app.layouts.save(draft);
-        if (old != null && old != draft.backgroundPath) {
-          await _deleteQuietly(old);
+    if (_saving || _closing) return;
+    _saving = true;
+    try {
+      if (_dirty) {
+        for (final draft in _drafts!.values) {
+          final old = _app.layouts.of(draft.id).backgroundPath;
+          if (old != null && old != draft.backgroundPath)
+            _replacedPhotos.add(old);
+          _app.layouts.save(draft.copy());
         }
+        await _app.layouts.flush();
       }
-      // NFR-04: wait until the layout is on disk before leaving.
-      await _app.layouts.flush();
+    } catch (_) {
+      if (mounted)
+        showAppSnack(context, 'Could not save changes. Please try again.');
+      return;
+    } finally {
+      _saving = false;
     }
+    _closing = true;
     final kept = {for (final draft in _drafts!.values) draft.backgroundPath};
-    for (final path in _newImages) {
+    for (final path in {..._newImages, ..._replacedPhotos}) {
       if (!kept.contains(path)) await _deleteQuietly(path);
     }
     if (!mounted) return;
@@ -446,6 +456,9 @@ class _EditScreenState extends State<EditScreen> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
+      final revision = _lock && supportsDailyWallpaper
+          ? AutoWallpaperService.contentRevision(AppScope.read(context))
+          : null;
       final bytes = await _export();
       if (bytes == null) return;
       if (!await Gal.hasAccess()) await Gal.requestAccess();
@@ -461,6 +474,9 @@ class _EditScreenState extends State<EditScreen> {
           image: bytes,
           wallpaperName: _wallpaperName,
           lockScreen: _lock,
+          layout: _draft.copy(),
+          dimensions: _wallpaperDimensions,
+          contentRevision: revision,
         ),
       );
     } on GalException {
@@ -478,12 +494,24 @@ class _EditScreenState extends State<EditScreen> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
+      final revision = _lock && supportsDailyWallpaper
+          ? AutoWallpaperService.contentRevision(AppScope.read(context))
+          : null;
       final bytes = await _export();
       if (bytes == null) return;
       final ok = await WallpaperService.instance.setWallpaper(
         bytes,
         lockScreen: _lock,
       );
+      if (!mounted) return;
+      if (ok && _lock) {
+        await offerDailyWallpaper(
+          context,
+          layout: _draft.copy(),
+          dimensions: _wallpaperDimensions,
+          contentRevision: revision,
+        );
+      }
       if (!mounted) return;
       showAppSnack(
         context,
@@ -627,34 +655,11 @@ class _EditScreenState extends State<EditScreen> {
                   Positioned.fill(
                     child: RepaintBoundary(
                       key: _exportKey,
-                      child: LayoutBackground(
+                      child: WallpaperScene(
                         layout: draft,
-                        fallback: _lock
-                            ? lockScreenDecoration()
-                            : BoxDecoration(color: AppColors.background),
-                        child: Stack(
-                          children: [
-                            Positioned(
-                              left: _gridSide,
-                              right: _gridSide,
-                              top: gridTop,
-                              bottom: _gridSide,
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.topCenter,
-                                child: SizedBox(
-                                  width: _canvasWidth - 2 * _gridSide,
-                                  child: WidgetGrid(
-                                    key: _gridKey,
-                                    layout: draft,
-                                    minRows: draft.rows,
-                                    cellBuilder: _canvasItem,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                        dimensions: dimensions,
+                        gridKey: _gridKey,
+                        cellBuilder: _canvasItem,
                       ),
                     ),
                   ),

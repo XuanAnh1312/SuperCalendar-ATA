@@ -336,7 +336,11 @@ void main() {
         app.habitOccurrences.markDeleted(source.id, now);
       }
       await app.syncNotifications();
-      expect(notifications.scheduled, isEmpty, reason: status.name);
+      expect(
+        notifications.scheduled,
+        List.filled(reminderPlanningDays - 1, source.id),
+        reason: status.name,
+      );
     }
   });
 
@@ -549,6 +553,61 @@ void main() {
       return task;
     }
 
+    test(
+      'snoozing one event lead leaves other leads and later occurrences',
+      () async {
+        final event = CalendarEvent(
+          id: 'multi-lead',
+          title: 'Meeting',
+          repeatRule: 'FREQ=DAILY',
+          startTime: nativeNow.add(const Duration(hours: 2)),
+          endTime: nativeNow.add(const Duration(hours: 3)),
+          reminderOffsets: [30, 60],
+        );
+        app.events.add(event);
+        await app.flush();
+        Future<void> sync() =>
+            local.syncReminders(tasks: [], events: [event], now: nativeNow);
+        Set<String> keys() => pending.values
+            .map(
+              (entry) => reminderKeyFor(
+                NotificationTarget.decode(entry['payload'] as String)!,
+              ),
+            )
+            .toSet();
+        await sync();
+        final original = keys();
+        expect(original, hasLength(2 * reminderPlanningDays));
+
+        final notice = NotificationTarget(
+          NotificationTarget.event,
+          event.id,
+          reminderLead: 60,
+          occurrenceDate: nativeNow,
+          occurrenceStart: event.startTime,
+        );
+        await handleNotificationAction(
+          store: store,
+          notifications: local,
+          actionId: NotificationActions.snooze,
+          payload: notice.encode(),
+          clock: () => nativeNow,
+        );
+        calls.clear();
+        await sync();
+        expect(keys(), original);
+        expect(pending, hasLength(original.length));
+        expect(calls.where((call) => call.method == 'zonedSchedule'), isEmpty);
+        final snoozed = pending.values
+            .map(
+              (entry) => NotificationTarget.decode(entry['payload'] as String)!,
+            )
+            .where((target) => target.snoozed)
+            .single;
+        expect(reminderKeyFor(snoozed), reminderKeyFor(notice));
+      },
+    );
+
     test('REVIEW-04: Snooze replaces normal, survives sync once, completion cancels both', () async {
       final task = await scheduledTask();
       await local.snoozeTask(task, snoozeDelay);
@@ -615,11 +674,19 @@ void main() {
         );
         await app.flush();
         await local.syncReminders(tasks: [], events: [event], now: nativeNow);
-        expect(pending.keys, [reminderNotificationId('event:event')]);
+        final remaining = [
+          for (final reminder in pending.values)
+            NotificationTarget.decode(reminder['payload'] as String)!,
+        ];
+        expect(remaining, hasLength(reminderPlanningDays - 1));
         expect(
-          NotificationTarget.decode(pending.values.single['payload'] as String)!
-              .snoozed,
-          isFalse,
+          remaining.every(
+            (target) =>
+                target.id == event.id &&
+                !target.snoozed &&
+                target.occurrenceDate!.isAfter(nativeNow),
+          ),
+          isTrue,
         );
       },
     );

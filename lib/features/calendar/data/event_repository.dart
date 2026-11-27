@@ -253,7 +253,7 @@ class EventRepository extends Repository<CalendarEvent> {
 
   CalendarEvent _bindOccurrenceLookup(CalendarEvent event) {
     CalendarEvent? resolve(DateTime day) {
-      if (!event.isOn(day) ||
+      if (!event.startsOccurrenceOn(day) ||
           (_exceptions?.isDeleted(event.id, day) ?? false)) {
         return null;
       }
@@ -326,18 +326,36 @@ class EventRepository extends Repository<CalendarEvent> {
   /// When [exceptions] is attached, occurrences that have been individually
   /// deleted via [deleteScope] are filtered out.
   List<CalendarEvent> on(DateTime day) {
-    final exc = _exceptions;
-    final list = [
-      for (final e in items)
-        if (e.isOn(day) && (exc == null || !exc.isDeleted(e.id, day)))
-          if (!e.isRecurring)
-            e
-          else if (exc?.overrideFor(e.id, day) case final data?)
-            CalendarEvent.fromJson(data)
-          else
-            e.occurrenceOn(day),
-      ..._systemEvents.where((e) => e.isOn(day)),
-    ];
+    final list = <CalendarEvent>[];
+    for (final event in items) {
+      if (!event.isRecurring) {
+        if (event.overlapsDay(day) &&
+            !(_exceptions?.isDeleted(event.id, event.date) ?? false)) {
+          list.add(event);
+        }
+        continue;
+      }
+      final seen = <DateTime>{};
+      void include(CalendarEvent? occurrence) {
+        if (occurrence == null || !occurrence.overlapsDay(day)) return;
+        final anchor = occurrence.originalOccurrenceDate ?? occurrence.date;
+        if (seen.add(anchor)) list.add(occurrence);
+      }
+
+      final length = event.endTime.difference(event.startTime).inDays + 1;
+      // Look back far enough to include an occurrence that started yesterday
+      // (or earlier) and is still in progress.
+      for (var offset = 0; offset <= length; offset++) {
+        final anchor = DateTime(day.year, day.month, day.day - offset);
+        if (anchor.isBefore(event.date)) break;
+        include(event.resolvedOccurrenceOn(anchor));
+      }
+      for (final moved
+          in event.overrideResolver?.call() ?? const <CalendarEvent>[]) {
+        include(moved);
+      }
+    }
+    list.addAll(_systemEvents.where((event) => event.overlapsDay(day)));
     list.sort((a, b) => a.startTime.compareTo(b.startTime));
     return list;
   }

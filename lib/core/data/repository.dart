@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:flutter_application/core/data/document_store.dart';
+import 'package:flutter_application/core/data/persistent_writes.dart';
 
 int _idCounter = 0;
 
@@ -11,14 +12,13 @@ String newId(String prefix) =>
 /// Base of the feature repositories: an in-memory list mirrored to one
 /// collection of the [DocumentStore]. Reads are synchronous; writes update
 /// the list, notify listeners and are queued to the store.
-abstract class Repository<T> extends ChangeNotifier {
+abstract class Repository<T> extends ChangeNotifier with PersistentWrites {
   Repository(this.store, this.collection);
 
+  @override
   final DocumentStore store;
   final String collection;
   final List<T> items = [];
-
-  Future<void> _pending = Future.value();
 
   T decode(Map<String, dynamic> json);
   Map<String, dynamic> encode(T item);
@@ -39,20 +39,17 @@ abstract class Repository<T> extends ChangeNotifier {
   @protected
   void afterLoad() {}
 
-  /// Completes when every queued write has reached the store.
-  Future<void> flush() => _pending;
-
   @protected
   void persist(T item) {
     final id = idOf(item);
     final data = encode(item);
-    _pending = _pending.then((_) => store.put(collection, id, data));
+    putDocument(collection, id, data);
   }
 
   @protected
   void erase(T item) {
     final id = idOf(item);
-    _pending = _pending.then((_) => store.delete(collection, id));
+    deleteDocument(collection, id);
   }
 }
 

@@ -6,7 +6,7 @@ import 'package:flutter_application/features/auth/presentation/auth_controller.d
 class AuthScope extends InheritedNotifier<AuthController> {
   const AuthScope({
     super.key,
-    required AuthController controller,
+    required AuthController? controller,
     required super.child,
   }) : super(notifier: controller);
 
@@ -17,7 +17,7 @@ class AuthScope extends InheritedNotifier<AuthController> {
 /// Owns the controller for the lifetime of the application widget tree.
 class AuthSession extends StatefulWidget {
   const AuthSession({super.key, required this.controller, required this.child});
-  final AuthController controller;
+  final AuthController? controller;
   final Widget child;
 
   @override
@@ -27,7 +27,7 @@ class AuthSession extends StatefulWidget {
 class _AuthSessionState extends State<AuthSession> {
   @override
   void dispose() {
-    widget.controller.dispose();
+    widget.controller?.dispose();
     super.dispose();
   }
 
@@ -35,7 +35,7 @@ class _AuthSessionState extends State<AuthSession> {
   void didUpdateWidget(AuthSession oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller)
-      oldWidget.controller.dispose();
+      oldWidget.controller?.dispose();
   }
 
   @override

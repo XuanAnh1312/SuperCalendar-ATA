@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application/core/services/daily_wallpaper_renderer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 
@@ -28,22 +29,6 @@ Future<void> _boot() async {
   runApp(const StartupScreen());
   await DeviceFrameService.instance.initialize();
   try {
-    await initializeFirebase();
-  } catch (error, stackTrace) {
-    runApp(
-      StartupErrorScreen(
-        error: error,
-        stackTrace: stackTrace,
-        onRetry: _boot,
-        title: 'Could not connect to Firebase',
-        message:
-            'Firebase could not initialize. Please try again. '
-            'Your local data has not been changed.',
-      ),
-    );
-    return;
-  }
-  try {
     // One local database for the app, the lock screen and notifications.
     final state = AppState(
       store: await SqliteDocumentStore.open(),
@@ -52,20 +37,55 @@ Future<void> _boot() async {
           : LocalNotificationService(),
       systemCalendar: AndroidSystemCalendarService(),
     );
-    await state.load();
+    await state.load(seedDemoData: false);
     final app = SuperCalendarApp(state: state);
-    runApp(
-      Firebase.apps.isEmpty
-          ? app
-          : AuthSession(
-              controller: AuthController(FirebaseAuthRepository()),
-              child: app,
-            ),
-    );
+    runApp(_PlannerWithOptionalAuth(app: app));
   } catch (error, stackTrace) {
     debugPrint('SuperCalendar failed to start: $error\n$stackTrace');
     runApp(
       StartupErrorScreen(error: error, stackTrace: stackTrace, onRetry: _boot),
     );
+  }
+}
+
+/// Separate native background-engine entry point; retained in release AOT.
+@pragma('vm:entry-point')
+Future<void> dailyWallpaperMain() => runDailyWallpaperWorker();
+
+/// Keep the native planner available even if sign-in initialization is slow
+/// or fails on a device without the relevant services.
+class _PlannerWithOptionalAuth extends StatefulWidget {
+  const _PlannerWithOptionalAuth({required this.app});
+  final SuperCalendarApp app;
+
+  @override
+  State<_PlannerWithOptionalAuth> createState() =>
+      _PlannerWithOptionalAuthState();
+}
+
+class _PlannerWithOptionalAuthState extends State<_PlannerWithOptionalAuth> {
+  AuthController? _auth;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeAuth();
+  }
+
+  Future<void> _initializeAuth() async {
+    try {
+      await initializeFirebase();
+      if (mounted && Firebase.apps.isNotEmpty) {
+        setState(() => _auth = AuthController(FirebaseAuthRepository()));
+      }
+    } catch (error) {
+      debugPrint('Sign-in initialization failed: $error');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Keep the planner element in the same position as auth becomes available.
+    return AuthSession(controller: _auth, child: widget.app);
   }
 }

@@ -343,7 +343,14 @@ void main() {
       settings.taskReminders = true;
       await store.put(Collections.settings, AppSettings.id, settings.toJson());
       await local.syncReminders(tasks: [task], events: [event], now: now);
-      expect(calls.where((c) => c.method == 'zonedSchedule'), hasLength(1));
+      Iterable<NotificationTarget> scheduledTargets() => calls
+          .where((call) => call.method == 'zonedSchedule')
+          .map(
+            (call) => NotificationTarget.decode(
+              (call.arguments as Map)['payload'] as String?,
+            )!,
+          );
+      expect(scheduledTargets().single.type, NotificationTarget.task);
       final habit = Habit(
         id: 'habit',
         title: 'Read',
@@ -370,7 +377,10 @@ void main() {
         habits: [habit],
         now: now,
       );
-      expect(calls.where((c) => c.method == 'zonedSchedule'), hasLength(1));
+      expect(scheduledTargets(), hasLength(reminderPlanningDays));
+      expect(scheduledTargets().map((target) => target.type).toSet(), {
+        NotificationTarget.habit,
+      });
       habits.skip(habit, now);
       await occurrences.flush();
       calls.clear();
@@ -380,7 +390,12 @@ void main() {
         habits: [habit],
         now: now,
       );
-      expect(calls.where((c) => c.method == 'zonedSchedule'), isEmpty);
+      final afterSkip = scheduledTargets().toList();
+      expect(afterSkip, hasLength(reminderPlanningDays - 1));
+      expect(
+        afterSkip.every((target) => target.occurrenceDate!.isAfter(now)),
+        isTrue,
+      );
     },
   );
 }

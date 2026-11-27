@@ -12,6 +12,7 @@ import 'package:flutter_application/core/services/notification_service.dart';
 import 'package:flutter_application/features/todo/domain/task.dart';
 import 'package:flutter_application/features/settings_screen/domain/app_settings.dart';
 import 'package:flutter_application/features/settings_screen/presentation/screens/appearance_screen.dart';
+import 'package:flutter_application/features/settings_screen/presentation/screens/edit_screen.dart';
 import 'package:flutter_application/features/settings_screen/presentation/screens/notification_settings_screen.dart';
 import 'package:flutter_application/features/settings_screen/presentation/screens/settings_screen.dart';
 import 'package:flutter_application/features/vip/domain/purchase.dart';
@@ -119,6 +120,64 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
     expect(find.text('Custom typography is a VIP feature'), findsOneWidget);
+  });
+
+  testWidgets('upgrading for a font resumes the editor and opens the picker', (
+    tester,
+  ) async {
+    final app = await loadedApp();
+    app.finishOnboarding('Mia');
+    await pumpApp(tester, app);
+
+    Future<void> tapLabel(String label) async {
+      final target = find.text(label);
+      await tester.ensureVisible(target);
+      await tester.tap(target);
+      await tester.pumpAndSettle();
+    }
+
+    await tapLabel('Edit Your Screen');
+    final editor = tester.state(find.byType(EditScreen));
+    await tapLabel('Background');
+    await tapLabel('Home screen');
+    await tapLabel('Choose font');
+    await tapLabel('See VIP');
+    expect(app.tab, 0);
+    expect(find.byType(BackButton), findsOneWidget);
+    await tapLabel('Subscribe');
+    await tapLabel('Simulate successful payment');
+
+    expect(app.isVip, isTrue);
+    expect(find.byType(VipScreen), findsNothing);
+    expect(tester.state(find.byType(EditScreen)), same(editor));
+    await tapLabel('Inter · Bold');
+    expect(app.settings.typography, 'Inter · Bold');
+  });
+
+  testWidgets('failed or cancelled upgrades can return to the locked feature', (
+    tester,
+  ) async {
+    final app = await loadedApp();
+    await pumpScreen(tester, app, const AppearanceScreen());
+
+    await tester.ensureVisible(find.text('Font style'));
+    await tester.tap(find.text('Font style'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('See VIP'));
+    await tester.pumpAndSettle();
+    for (final outcome in ['Simulate failed payment', 'Cancel']) {
+      await tester.tap(find.text('Subscribe'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(outcome));
+      await tester.pumpAndSettle();
+      expect(app.isVip, isFalse);
+      expect(find.text('Subscribe'), findsOneWidget);
+    }
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.byType(AppearanceScreen), findsOneWidget);
+    expect(find.byType(VipScreen), findsNothing);
+    expect(app.settings.typography, isNull);
   });
 
   test('AC-29: switching to Dark repaints with the dark palette', () async {
@@ -256,7 +315,7 @@ void main() {
     final tops = [for (final r in rows) tester.getTopLeft(find.text(r)).dy];
     expect(tops, orderedEquals([...tops]..sort()));
     expect(find.text('Mia Chen · Free'), findsOneWidget);
-    expect(find.text('Synced across 3 devices'), findsOneWidget);
+    expect(find.text('Saved on this device'), findsOneWidget);
     expect(find.text('Template Store'), findsNothing);
     expect(find.text('Mobile Screen'), findsNothing);
   });
@@ -285,16 +344,19 @@ void main() {
     expect(app.user.name, 'An Nguyen');
   });
 
-  testWidgets('Settings 29: sync status shows the offline state', (
+  testWidgets('Settings 29: storage status describes local data', (
     tester,
   ) async {
     final app = await loadedApp();
     await pumpScreen(tester, app, const SettingsScreen());
-    await tester.tap(find.text('Synced across 3 devices'));
+    await tester.tap(find.text('Saved on this device'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
-    expect(find.text('Couldn’t sync yet'), findsOneWidget);
-    expect(find.text('Your local data remains saved'), findsOneWidget);
+    expect(find.text('Planner storage'), findsOneWidget);
+    expect(
+      find.textContaining('Your planner data stays on this device.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('VIP 25: a VIP sees the membership page, then the Studio', (
@@ -318,6 +380,11 @@ void main() {
     await pumpScreen(tester, app, const VipScreen());
     expect(find.text('Subscribe'), findsOneWidget);
     expect(find.text('Free & VIP, at a glance'), findsNothing);
+    await tester.tap(find.text('Subscribe'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Simulate successful payment'));
+    await tester.pumpAndSettle();
+    expect(find.text('You’re a VIP, Mia'), findsOneWidget);
   });
 
   test('Settings 28: reminder types persist; old data keeps them on', () async {

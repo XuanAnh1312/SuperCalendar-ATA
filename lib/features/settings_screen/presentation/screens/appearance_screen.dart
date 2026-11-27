@@ -7,6 +7,7 @@ import 'package:flutter_application/app/theme/app_text.dart';
 import 'package:flutter_application/app/theme/app_theme_data.dart';
 import 'package:flutter_application/core/services/app_state.dart';
 import 'package:flutter_application/core/widgets/app_widgets.dart';
+import 'package:flutter_application/features/vip/presentation/screens/template_studio_screen.dart';
 import 'package:flutter_application/features/vip/presentation/widgets/vip_gate.dart';
 import 'package:flutter_application/core/utils/strings.dart';
 
@@ -14,6 +15,15 @@ import 'package:flutter_application/core/utils/strings.dart';
 /// part of the VIP Theme Builder.
 class AppearanceScreen extends StatelessWidget {
   const AppearanceScreen({super.key});
+
+  Future<void> _openThemeBuilder(BuildContext context) async {
+    final allowed = await offerVipUpgrade(
+      context,
+      feature: VipFeature.themeBuilder,
+    );
+    if (!allowed || !context.mounted) return;
+    await pushInTab<void>(context, const TemplateStudioScreen());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -170,7 +180,7 @@ class AppearanceScreen extends StatelessWidget {
             const SizedBox(height: 14),
             Center(
               child: GestureDetector(
-                onTap: () => goToTab(context, AppTab.vip),
+                onTap: () => _openThemeBuilder(context),
                 child: Text(
                   tr(app.canAccess(VipFeature.themeBuilder)
                       ? 'Build your own theme in the Template Studio'

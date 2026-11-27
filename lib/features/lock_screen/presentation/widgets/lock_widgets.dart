@@ -95,14 +95,17 @@ class WallpaperCalendarCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
     final today = app.today;
-    final monday = today.subtract(Duration(days: today.weekday - 1));
-    final now = app.now.hour * 60 + app.now.minute;
-    final next = app.events
-        .on(today)
-        .where(
-          (e) =>
-              !e.isAllDay && e.startTime.hour * 60 + e.startTime.minute >= now,
-        )
+    final start = app.weekStartOf(today);
+    final days = [
+      for (var i = 0; i < 7; i++)
+        DateTime(start.year, start.month, start.day + i),
+    ];
+    final weeklyEvents = [
+      for (final day in days) app.visibleCalendarEventsOn(day),
+    ];
+    final highlighted = weeklyEvents
+        .expand((events) => events)
+        .where((event) => event.endTime.isAfter(app.now))
         .firstOrNull;
     Widget cells(List<Widget> children) => Row(
       children: [for (final c in children) Expanded(child: Center(child: c))],
@@ -125,15 +128,18 @@ class WallpaperCalendarCard extends StatelessWidget {
           ),
           const SizedBox(height: 9),
           cells([
-            for (final letter in weekdayLetters)
-              Text(letter, style: AppText.s(9, color: AppColors.muted)),
+            for (final day in days)
+              Text(
+                weekdayLetters[day.weekday - 1],
+                style: AppText.s(9, color: AppColors.muted),
+              ),
           ]),
           const SizedBox(height: 9),
           cells([
-            for (var i = 0; i < 7; i++)
+            for (final day in days)
               Text(
-                '${monday.add(Duration(days: i)).day}',
-                style: monday.add(Duration(days: i)) == today
+                '${day.day}',
+                style: sameDay(day, today)
                     ? AppText.s(
                         10,
                         weight: FontWeight.w700,
@@ -142,11 +148,28 @@ class WallpaperCalendarCard extends StatelessWidget {
                     : AppText.s(10),
               ),
           ]),
-          const SizedBox(height: 9),
+          const SizedBox(height: 5),
+          cells([
+            for (final events in weeklyEvents)
+              Container(
+                width: 4,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: events.isEmpty
+                      ? Colors.transparent
+                      : AppColors.accentSurface(events.first.colorIndex),
+                  shape: BoxShape.circle,
+                ),
+              ),
+          ]),
           Text(
-            next == null
-                ? tr('No more events today')
-                : '${formatClock(next.startTime.hour * 60 + next.startTime.minute)} · ${next.title}',
+            app.settings.lockScreenHideDetails
+                ? trf('{n} events today', {
+                    'n': app.visibleCalendarEventsOn(today).length,
+                  })
+                : highlighted == null
+                ? tr('No more events this week')
+                : '${dayMonth(highlighted.startTime)} · ${highlighted.startLabel} · ${highlighted.title}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: AppText.s(9, color: AppColors.muted),
@@ -206,7 +229,8 @@ class WallpaperNoteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = AppScope.of(context).notes.quickText;
+    final app = AppScope.of(context);
+    final text = app.settings.lockScreenHideDetails ? '' : app.notes.quickText;
     return _WallpaperCard(
       color: AppColors.pink.withValues(alpha: 0.93),
       onTap: onTap,
@@ -269,7 +293,7 @@ class WallpaperHabitCard extends StatelessWidget {
       }
       children.addAll([
         Text(
-          habit.title,
+          app.settings.lockScreenHideDetails ? tr('Habits') : habit.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: AppText.s(11, weight: FontWeight.w600),
@@ -392,226 +416,260 @@ class LockScheduleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
-    final events = app.events.on(app.today);
-    final start = app.today.subtract(
-      Duration(
-        days: app.settings.weekStart.name == 'sunday'
-            ? app.today.weekday % 7
-            : app.today.weekday - 1,
-      ),
-    );
+    final events = app.visibleCalendarEventsOn(app.today);
+    final start = app.weekStartOf(app.today);
     final tasks = app.tasks
-        .dashboard(app.today)
+        .dueOn(app.today)
         .where((t) => !t.completed)
         .toList();
-    final sections = <Widget>[
-      _LockCard(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (var i = 0; i < 7; i++)
-              Expanded(
-                child: Builder(
-                  builder: (context) {
-                    final day = start.add(Duration(days: i));
-                    final dayEvents = app.events.on(day);
-                    final today = sameDay(day, app.today);
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            weekdayLetters[day.weekday - 1],
-                            style: AppText.s(8, color: AppColors.muted),
-                          ),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: today
-                                  ? AppColors.primary
-                                  : Colors.transparent,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Text(
-                              '${day.day}',
-                              style: AppText.s(
-                                10,
-                                color: today
-                                    ? AppColors.surface
-                                    : AppColors.text,
-                                weight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          if (app.settings.lockScreenHideDetails)
-                            Text('${dayEvents.length}', style: AppText.s(8))
-                          else ...[
-                            for (final event in dayEvents.take(3))
-                              Container(
-                                width: double.infinity,
-                                margin: const EdgeInsets.only(top: 3),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 2,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.accentSurface(
-                                    event.colorIndex,
-                                  ),
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                                child: Text(
-                                  event.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AppText.s(7),
-                                ),
-                              ),
-                            if (dayEvents.length > 3)
-                              Text(
-                                '+${dayEvents.length - 3}',
-                                style: AppText.s(7),
-                              ),
-                          ],
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-          ],
-        ),
-      ),
-      _LockCard(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  LucideIcons.calendarDays,
-                  size: 15,
-                  color: AppColors.primary,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    longDate(app.today),
-                    style: AppText.s(12.5, weight: FontWeight.w700),
-                  ),
-                ),
-                SoftPill(
-                  label: 'Read only',
-                  icon: LucideIcons.lockKeyhole,
-                  color: AppColors.background,
-                  textColor: AppColors.muted,
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            // AC-38: Hide details shows counts only.
-            if (app.settings.lockScreenHideDetails)
-              Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Text(
-                  trf(
-                    events.length == 1 ? '{n} event today' : '{n} events today',
-                    {'n': events.length},
-                  ),
-                  style: AppText.s(11.5, weight: FontWeight.w600),
-                ),
-              )
-            else if (events.isEmpty)
-              const EmptyState(
-                compact: true,
-                icon: LucideIcons.calendarDays,
-                message: 'Nothing scheduled today',
-              ),
-            if (!app.settings.lockScreenHideDetails)
-              for (final event in events)
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: actions.onOpenEvent == null
-                      ? null
-                      : () => actions.onOpenEvent!(event),
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 47,
-                          child: Text(
-                            event.startLabel,
-                            style: AppText.s(9.5, color: AppColors.muted),
-                          ),
-                        ),
-                        Container(
-                          width: 4,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            color: AppColors.accentSurface(event.colorIndex),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                        const SizedBox(width: 9),
-                        Expanded(
-                          child: Text(
-                            event.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppText.s(11.5, weight: FontWeight.w600),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            if (!app.settings.lockScreenHideDetails)
-              for (final task in tasks.take(3))
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Row(
-                    children: [
-                      Icon(
-                        LucideIcons.circle,
-                        size: 12,
-                        color: AppColors.muted,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          task.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppText.s(11),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-          ],
-        ),
-      ),
-    ];
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (!constraints.hasBoundedHeight) {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [sections[0], const SizedBox(height: 6), sections[1]],
-          );
-        }
+        final height = constraints.hasBoundedHeight
+            ? constraints.maxHeight
+            : 420.0;
+        final scale = MediaQuery.textScalerOf(context).scale(10) / 10;
+        final weekHeight = (height - 6).clamp(0.0, double.infinity) * 0.42;
+        final detailsHeight =
+            (height - 6).clamp(0.0, double.infinity) - weekHeight;
+        final weekRows = ((weekHeight - 40 * scale - 14) / (9 * scale + 7))
+            .floor()
+            .clamp(0, 3);
+        final totalDetails = events.length + tasks.length;
+        final detailRows =
+            ((detailsHeight - 16 - 23 * scale) / (14 * scale + 6))
+                .floor()
+                .clamp(0, totalDetails);
+        final shown = totalDetails > detailRows
+            ? (detailRows - 1).clamp(0, detailRows)
+            : detailRows;
+        final shownEvents = events.take(shown).toList();
+        final shownTasks = tasks.take(shown - shownEvents.length);
+        final sections = <Widget>[
+          _LockCard(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = 0; i < 7; i++)
+                  Expanded(
+                    child: Builder(
+                      builder: (context) {
+                        final day = DateTime(
+                          start.year,
+                          start.month,
+                          start.day + i,
+                        );
+                        final dayEvents = app.visibleCalendarEventsOn(day);
+                        final today = sameDay(day, app.today);
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                weekdayLetters[day.weekday - 1],
+                                style: AppText.s(8, color: AppColors.muted),
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: today
+                                      ? AppColors.primary
+                                      : Colors.transparent,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Text(
+                                  '${day.day}',
+                                  style: AppText.s(
+                                    10,
+                                    color: today
+                                        ? AppColors.surface
+                                        : AppColors.text,
+                                    weight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              if (app.settings.lockScreenHideDetails)
+                                Text('${dayEvents.length}', style: AppText.s(8))
+                              else if (weekRows == 0 && dayEvents.isNotEmpty)
+                                Text('+${dayEvents.length}', style: AppText.s(7))
+                              else ...[
+                                for (final event in dayEvents.take(
+                                  dayEvents.length > weekRows && weekRows > 0
+                                      ? weekRows - 1
+                                      : weekRows,
+                                ))
+                                  Container(
+                                    width: double.infinity,
+                                    margin: const EdgeInsets.only(top: 3),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 2,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.accentSurface(
+                                        event.colorIndex,
+                                      ),
+                                      borderRadius: BorderRadius.circular(3),
+                                    ),
+                                    child: Text(
+                                      event.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppText.s(7),
+                                    ),
+                                  ),
+                                if (dayEvents.length > weekRows && weekRows > 0)
+                                  Text(
+                                    '+${dayEvents.length - weekRows + 1}',
+                                    style: AppText.s(7),
+                                  ),
+                              ],
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          _LockCard(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      LucideIcons.calendarDays,
+                      size: 15,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        longDate(app.today),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.s(12.5, weight: FontWeight.w700),
+                      ),
+                    ),
+                    if (!app.settings.lockScreenHideDetails &&
+                        totalDetails > shown)
+                      Text(
+                        '+${totalDetails - shown}',
+                        style: AppText.s(9, color: AppColors.muted),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                // AC-38: Hide details shows counts only.
+                if (app.settings.lockScreenHideDetails)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text(
+                      trf(
+                        events.length == 1
+                            ? '{n} event today'
+                            : '{n} events today',
+                        {'n': events.length},
+                      ),
+                      style: AppText.s(11.5, weight: FontWeight.w600),
+                    ),
+                  )
+                else if (totalDetails == 0 && detailsHeight >= 42)
+                  Text(
+                    tr('Nothing scheduled today'),
+                    style: AppText.s(9, color: AppColors.muted),
+                  ),
+                if (!app.settings.lockScreenHideDetails)
+                  for (final event in shownEvents)
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: actions.onOpenEvent == null
+                          ? null
+                          : () => actions.onOpenEvent!(event),
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 47,
+                              child: Text(
+                                event.startLabel,
+                                style: AppText.s(9.5, color: AppColors.muted),
+                              ),
+                            ),
+                            Container(
+                              width: 4,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: AppColors.accentSurface(
+                                  event.colorIndex,
+                                ),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            const SizedBox(width: 9),
+                            Expanded(
+                              child: Text(
+                                event.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppText.s(11.5, weight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                if (!app.settings.lockScreenHideDetails)
+                  for (final task in shownTasks)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(
+                        children: [
+                          Icon(
+                            LucideIcons.circle,
+                            size: 12,
+                            color: AppColors.muted,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              task.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppText.s(11),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+              ],
+            ),
+          ),
+        ];
+        Widget boundedCard(double available, Widget child) => SizedBox(
+          height: available,
+          child: ClipRect(
+            child: OverflowBox(
+              alignment: Alignment.topCenter,
+              minHeight: 0,
+              maxHeight: double.infinity,
+              child: child,
+            ),
+          ),
+        );
         return Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(flex: 2, child: SingleChildScrollView(child: sections[0])),
-            const SizedBox(height: 6),
-            Expanded(flex: 3, child: SingleChildScrollView(child: sections[1])),
+            boundedCard(weekHeight, sections[0]),
+            SizedBox(height: height >= 6 ? 6 : height),
+            boundedCard(detailsHeight, sections[1]),
           ],
         );
       },

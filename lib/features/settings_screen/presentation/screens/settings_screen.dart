@@ -11,6 +11,7 @@ import 'package:flutter_application/features/settings_screen/presentation/screen
 import 'package:flutter_application/features/settings_screen/presentation/screens/calendar_settings_screen.dart';
 import 'package:flutter_application/features/settings_screen/presentation/screens/notification_settings_screen.dart';
 import 'package:flutter_application/features/settings_screen/presentation/screens/profile_screen.dart';
+import 'package:flutter_application/features/settings_screen/presentation/screens/planner_backup_screen.dart';
 import 'package:flutter_application/features/settings_screen/presentation/screens/sync_status_screen.dart';
 import 'package:flutter_application/features/todo/domain/task.dart';
 import 'package:flutter_application/core/utils/strings.dart';
@@ -176,13 +177,13 @@ class SettingsScreen extends StatelessWidget {
                   child: Row(
                     children: [
                       Icon(
-                        LucideIcons.cloudCheck,
+                        LucideIcons.database,
                         size: 15,
                         color: AppColors.greenStrong,
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        tr('Synced across 3 devices'),
+                        tr('Saved on this device'),
                         style: AppText.s(12, color: AppColors.greenStrong),
                       ),
                     ],
@@ -309,10 +310,8 @@ class SettingsScreen extends StatelessWidget {
                     icon: LucideIcons.database,
                     title: 'Data',
                     value: 'On this device',
-                    onTap: () => showAppSnack(
-                      context,
-                      'Everything is stored on this device · no account needed',
-                    ),
+                    onTap: () =>
+                        pushInTab(context, const PlannerBackupScreen()),
                   ),
                   _SettingsTile(
                     icon: LucideIcons.shieldCheck,

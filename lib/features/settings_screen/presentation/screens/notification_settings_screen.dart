@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter_application/core/widgets/daily_wallpaper_settings.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -455,8 +457,7 @@ class LockScreenSettingsScreen extends StatelessWidget {
                         icon: LucideIcons.eyeOff,
                         color: AppColors.pink,
                         title: 'Hide details',
-                        subtitle:
-                            'Lock screen shows only how many events and to-dos',
+                        subtitle: 'Hide personal details in previews and notifications. Update any wallpaper you already applied.',
                         trailing: AppSwitch(
                           value: settings.lockScreenHideDetails,
                           onChanged: app.setLockScreenHideDetails,
@@ -514,6 +515,7 @@ class LockScreenSettingsScreen extends StatelessWidget {
                     ),
                     style: AppText.s(10, color: AppColors.muted, height: 1.45),
                   ),
+                  const DailyWallpaperSettings(),
                   const SizedBox(height: 16),
                   Text(tr('TRY IT'), style: AppText.label()),
                   const SizedBox(height: 8),

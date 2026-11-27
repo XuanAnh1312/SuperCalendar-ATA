@@ -120,8 +120,7 @@ const viStrings = <String, String>{
   'A little room between': 'Còn chỗ trống xen giữa',
   'No events scheduled': 'Không có sự kiện',
   'A little open space': 'Một khoảng trống nhỏ',
-  'There are no events on {date}. Keep it open, or make time for something that matters.':
-      'Không có sự kiện ngày {date}. Cứ để trống, hoặc dành thời gian cho việc quan trọng.',
+  'There are no events on {date}. Keep it open, or make time for something that matters.': 'Không có sự kiện ngày {date}. Cứ để trống, hoặc dành thời gian cho việc quan trọng.',
   'Back to today · {date}': 'Về hôm nay · {date}',
 
   // ── Event ────────────────────────────────────────────────────────────────
@@ -369,8 +368,7 @@ const viStrings = <String, String>{
       'Sự kiện từ các lịch này hiện trong SuperCalendar. Chúng chỉ để xem.',
   'SHOW THESE CALENDARS': 'HIỆN CÁC LỊCH NÀY',
   'No calendars found on this phone': 'Không tìm thấy lịch nào trên điện thoại',
-  'Calendar access is off, so SuperCalendar cannot read events from this phone. Local events still work.':
-      'Quyền lịch đang tắt nên SuperCalendar không đọc được sự kiện trên điện thoại. Sự kiện trong ứng dụng vẫn dùng bình thường.',
+  'Calendar access is off, so SuperCalendar cannot read events from this phone. Local events still work.': 'Quyền lịch đang tắt nên SuperCalendar không đọc được sự kiện trên điện thoại. Sự kiện trong ứng dụng vẫn dùng bình thường.',
   'Open Android settings': 'Mở cài đặt Android',
 
   // Notification settings
@@ -476,26 +474,32 @@ const viStrings = <String, String>{
   'Soft greens': 'Xanh dịu',
   'Solid colors': 'Màu trơn',
   'Keep things simple': 'Giữ mọi thứ đơn giản',
-  'Your widgets stay in place when you change the background.': 'Widget vẫn giữ nguyên chỗ khi bạn đổi nền.',
+  'Your widgets stay in place when you change the background.':
+      'Widget vẫn giữ nguyên chỗ khi bạn đổi nền.',
   'Use {name}': 'Dùng {name}',
   'Selected': 'Đã chọn',
   'Your wallpaper is ready': 'Hình nền đã sẵn sàng',
   'Clean export': 'Bản xuất sạch',
   'Image saved': 'Đã lưu ảnh',
-  'Your clean wallpaper is saved to Photos.': 'Hình nền đã được lưu vào thư viện ảnh.',
+  'Your clean wallpaper is saved to Photos.':
+      'Hình nền đã được lưu vào thư viện ảnh.',
   'Wallpaper artwork + widgets only': 'Chỉ gồm hình nền và widget',
   'Saved, not applied': 'Đã lưu, chưa áp dụng',
   'It is now your wallpaper.': 'Ảnh này giờ là hình nền của bạn.',
-  'Choose Set Wallpaper to apply it. Your current wallpaper hasn’t changed.': 'Chọn Đặt làm hình nền để áp dụng. Hình nền hiện tại chưa thay đổi.',
+  'Choose Set Wallpaper to apply it. Your current wallpaper hasn’t changed.':
+      'Chọn Đặt làm hình nền để áp dụng. Hình nền hiện tại chưa thay đổi.',
   'Back to studio': 'Quay lại xưởng',
   'Draft saved': 'Đã lưu nháp',
   'Live Overlay · Preview only': 'Lớp xem trước · Chỉ để xem',
-  'Clock, battery, Wi-Fi and notifications won’t export.': 'Đồng hồ, pin, Wi-Fi và thông báo sẽ không được xuất.',
-  'Drag to move · Pull corners to resize · Fit': 'Kéo để di chuyển · Kéo góc để đổi cỡ · Vừa khung',
+  'Clock, battery, Wi-Fi and notifications won’t export.':
+      'Đồng hồ, pin, Wi-Fi và thông báo sẽ không được xuất.',
+  'Drag to move · Pull corners to resize · Fit':
+      'Kéo để di chuyển · Kéo góc để đổi cỡ · Vừa khung',
   'Tap a widget to edit it': 'Chạm một widget để chỉnh',
   'Mini note': 'Ghi chú nhỏ',
   'Mini notes': 'Ghi chú nhỏ',
-  'Exports wallpaper + widgets only. No system overlays.': 'Chỉ xuất hình nền và widget. Không có lớp hệ thống.',
+  'Exports wallpaper + widgets only. No system overlays.':
+      'Chỉ xuất hình nền và widget. Không có lớp hệ thống.',
   'Home screen': 'Màn hình chính',
   'Messages · now': 'Tin nhắn · bây giờ',
   'Alex · Here’s to a fresh start ☀': 'Alex · Chúc một khởi đầu mới ☀',
@@ -516,7 +520,8 @@ const viStrings = <String, String>{
   'Focused Work': 'Làm việc tập trung',
   'Daily Reset': 'Làm mới mỗi ngày',
   'Find your calm': 'Tìm sự bình yên',
-  '3 free layouts · More ways to make it yours': '3 bố cục miễn phí · Thêm cách để tuỳ biến',
+  '3 free layouts · More ways to make it yours':
+      '3 bố cục miễn phí · Thêm cách để tuỳ biến',
   'VIP template': 'Mẫu VIP',
   'Current layout': 'Bố cục hiện tại',
   'Free layout': 'Bố cục miễn phí',
@@ -528,8 +533,10 @@ const viStrings = <String, String>{
   'Design review': 'Duyệt thiết kế',
   'Your VIP is active': 'VIP của bạn đang hoạt động',
   'More with VIP': 'Thêm với VIP',
-  'Lock badges identify VIP styles. They’re included in your membership.': 'Biểu tượng khoá đánh dấu kiểu VIP. Chúng có sẵn trong gói của bạn.',
-  'Lock badges identify VIP styles. Tap one to see what VIP adds.': 'Biểu tượng khoá đánh dấu kiểu VIP. Chạm để xem VIP có thêm gì.',
+  'Lock badges identify VIP styles. They’re included in your membership.':
+      'Biểu tượng khoá đánh dấu kiểu VIP. Chúng có sẵn trong gói của bạn.',
+  'Lock badges identify VIP styles. Tap one to see what VIP adds.':
+      'Biểu tượng khoá đánh dấu kiểu VIP. Chạm để xem VIP có thêm gì.',
   'VIP layouts': 'Bố cục VIP',
   'Text size': 'Cỡ chữ',
   'Surface': 'Bề mặt',
@@ -540,7 +547,8 @@ const viStrings = <String, String>{
   'Outline': 'Viền',
   'Rounded corners · 16 px · Quiet border': 'Bo góc · 16 px · Viền nhẹ',
   'Rounded corners · 16 px · No border': 'Bo góc · 16 px · Không viền',
-  'Rounded corners · 16 px · Clear fill, fine border': 'Bo góc · 16 px · Nền trong, viền mảnh',
+  'Rounded corners · 16 px · Clear fill, fine border':
+      'Bo góc · 16 px · Nền trong, viền mảnh',
   'NARROW': 'HẸP',
   'WIDE': 'RỘNG',
   'FULL WIDTH': 'TOÀN CHIỀU RỘNG',
@@ -616,7 +624,8 @@ const viStrings = <String, String>{
       'tư thông báo của thiết bị.',
   'Open Android notification settings': 'Mở cài đặt thông báo Android',
   'Allow notifications': 'Cho phép thông báo',
-  'Schedule, quick tasks and Quick Note': 'Lịch trình, việc nhanh và Quick Note',
+  'Schedule, quick tasks and Quick Note':
+      'Lịch trình, việc nhanh và Quick Note',
   'Time format': 'Định dạng giờ',
   'Date format': 'Định dạng ngày',
   'Day/Month': 'Ngày/Tháng',
@@ -768,21 +777,18 @@ const viStrings = <String, String>{
   // ── Startup: loading / error states (UI-11) ─────────────────────────────
   'Opening SuperCalendar…': 'Đang mở SuperCalendar…',
   'Could not open your data': 'Không thể mở dữ liệu của bạn',
-  'SuperCalendar could not open its local database. Your existing data has not been changed.':
-      'SuperCalendar không thể mở cơ sở dữ liệu trên máy. Dữ liệu hiện có của bạn không bị thay đổi.',
+  'SuperCalendar could not open its local database. Your existing data has not been changed.': 'SuperCalendar không thể mở cơ sở dữ liệu trên máy. Dữ liệu hiện có của bạn không bị thay đổi.',
   'Try again': 'Thử lại',
   'Technical details': 'Chi tiết kỹ thuật',
   // Firebase account (Google sign-in).
   'Could not load this photo. Please try another image.':
       'Không thể tải ảnh này. Vui lòng thử ảnh khác.',
-  'Google sign-in is handled by Firebase Authentication. Planner data stays on this device and is not synced to your Google account. VIP purchases are still simulated.':
-      'Đăng nhập Google được xử lý qua Firebase Authentication. Dữ liệu lịch vẫn được lưu trên thiết bị và chưa đồng bộ với tài khoản Google. Các giao dịch VIP vẫn là mô phỏng.',
+  'Google sign-in is handled by Firebase Authentication. Planner data stays on this device and is not synced to your Google account. VIP purchases are still simulated.': 'Đăng nhập Google được xử lý qua Firebase Authentication. Dữ liệu lịch vẫn được lưu trên thiết bị và chưa đồng bộ với tài khoản Google. Các giao dịch VIP vẫn là mô phỏng.',
   'Google account': 'Tài khoản Google',
   'Continue with Google': 'Tiếp tục với Google',
   'Signed in': 'Đã đăng nhập',
   'Sign out': 'Đăng xuất',
-  'Your planner data stays on this device. Cloud sync is not available yet.':
-      'Dữ liệu lịch vẫn được lưu trên thiết bị này. Chưa hỗ trợ đồng bộ đám mây.',
+  'Your planner data stays on this device. Cloud sync is not available yet.': 'Dữ liệu lịch vẫn được lưu trên thiết bị này. Chưa hỗ trợ đồng bộ đám mây.',
   'Sign-in was cancelled.': 'Đã hủy đăng nhập.',
   'Allow pop-ups in your browser, then try again.':
       'Hãy cho phép cửa sổ bật lên trong trình duyệt rồi thử lại.',
@@ -794,8 +800,10 @@ const viStrings = <String, String>{
       'Hãy kiểm tra kết nối mạng rồi thử lại.',
   'This email already uses another sign-in method.':
       'Email này đang sử dụng phương thức đăng nhập khác.',
-  'Could not sign in. Please try again.': 'Không thể đăng nhập. Vui lòng thử lại.',
-  'Could not sign out. Please try again.': 'Không thể đăng xuất. Vui lòng thử lại.',
+  'Could not sign in. Please try again.':
+      'Không thể đăng nhập. Vui lòng thử lại.',
+  'Could not sign out. Please try again.':
+      'Không thể đăng xuất. Vui lòng thử lại.',
   'Could not restore your sign-in session. Please try again.':
       'Không thể khôi phục phiên đăng nhập. Vui lòng thử lại.',
   'Google did not return a sign-in token.':
@@ -804,14 +812,60 @@ const viStrings = <String, String>{
       'Không thể đăng nhập Google. Hãy kiểm tra cấu hình đăng nhập Android.',
   'Something went wrong. Please try again.': 'Đã xảy ra lỗi. Vui lòng thử lại.',
   'Could not connect to Firebase': 'Không thể kết nối Firebase',
-  'Firebase could not initialize. Please try again. Your local data has not been changed.':
-      'Không thể khởi tạo Firebase. Vui lòng thử lại. Dữ liệu trên máy của bạn chưa bị thay đổi.',
+  'Firebase could not initialize. Please try again. Your local data has not been changed.': 'Không thể khởi tạo Firebase. Vui lòng thử lại. Dữ liệu trên máy của bạn chưa bị thay đổi.',
   'No subtasks yet · tap + Add': 'Chưa có công việc con · chạm + Thêm',
   'Save for Lock Screen': 'Lưu ảnh màn hình khóa',
   'Apply wallpaper on iPhone': 'Đặt hình nền trên iPhone',
   'How to apply': 'Cách đặt hình nền',
   'Open Settings → Wallpaper → Add New Wallpaper → Photos, then select the image you saved.':
       'Mở Cài đặt → Hình nền → Thêm hình nền mới → Ảnh, rồi chọn ảnh vừa lưu.',
-  'Could not sign in with Google. Check the sign-in configuration for this device.':
-      'Không thể đăng nhập Google. Hãy kiểm tra cấu hình đăng nhập của thiết bị này.',
+  'Could not sign in with Google. Check the sign-in configuration for this device.': 'Không thể đăng nhập Google. Hãy kiểm tra cấu hình đăng nhập của thiết bị này.',
+  // Daily lock screen wallpaper (opt-in, Android).
+  "Automatically update your lock screen?":
+      "Tự cập nhật lịch trên màn hình khóa?",
+  "Update the lock screen after midnight using your chosen design. Background work may use extra battery and Android may delay updates. You can turn this off anytime. This does not update the Home wallpaper.": "Cập nhật màn hình khóa sau nửa đêm theo thiết kế bạn đã chọn. Tác vụ nền có thể dùng thêm pin và Android có thể trì hoãn cập nhật. Bạn có thể tắt bất cứ lúc nào. Tính năng không thay đổi hình nền màn hình chính.",
+  "Enable auto-update": "Bật tự cập nhật",
+  "Daily lock screen wallpaper": "Tự cập nhật hình nền hằng ngày",
+  "Could not configure daily wallpaper. Try again in Lock Screen settings.": "Chưa thể thiết lập tự cập nhật hình nền. Hãy thử lại trong cài đặt Màn hình khóa.",
+  "Could not load daily wallpaper settings.":
+      "Không thể tải cài đặt tự cập nhật hình nền.",
+  "Set a lock screen wallpaper in Edit Your Screen first.":
+      "Hãy đặt hình nền màn hình khóa trong Chỉnh sửa màn hình trước.",
+  "Wallpaper update queued. Android may delay background work.":
+      "Đã lên lịch cập nhật hình nền. Android có thể trì hoãn tác vụ nền.",
+  "Could not queue wallpaper update.": "Không thể lên lịch cập nhật hình nền.",
+  "Update wallpaper now": "Cập nhật hình nền ngay",
+  "Last wallpaper update": "Lần cập nhật hình nền gần nhất",
+  "The last wallpaper update failed. Your current wallpaper was kept.": "Lần cập nhật hình nền gần nhất chưa thành công. Hình nền hiện tại được giữ nguyên.",
+  'You changed the wallpaper outside SuperCalendar. Auto-update was turned off.':
+      'Bạn đã đổi hình nền bên ngoài SuperCalendar. Tự cập nhật đã được tắt.',
+  "Tomorrow's lock screen preview": 'Xem trước màn hình khóa ngày mai',
+  'Preview tomorrow': 'Xem trước ngày mai',
+  'Could not create the preview. Please try again.':
+      'Chưa thể tạo ảnh xem trước. Vui lòng thử lại.',
+  'Some changes could not be saved': 'Một số thay đổi chưa được lưu',
+  'Could not save changes. Please try again.':
+      'Chưa lưu được thay đổi. Vui lòng thử lại.',
+  'End date': 'Ngày kết thúc',
+  'Start with sample data': 'Bắt đầu với dữ liệu mẫu',
+  'Saved on this device': 'Đã lưu trên thiết bị này',
+  'Planner storage': 'Lưu trữ dữ liệu lịch',
+  'Next 14 days': '14 ngày tới',
+  'No more events this week': 'Không còn sự kiện trong tuần này',
+  'Your upcoming events at a glance': 'Tổng quan sự kiện sắp tới',
+  '{n} more to-dos': 'Còn {n} việc khác',
+  'Hide personal details in previews and notifications. Update any wallpaper you already applied.': 'Ẩn chi tiết cá nhân trong bản xem trước và thông báo. Hãy cập nhật lại hình nền đã đặt.',
+  'Planner backup': 'Sao lưu dữ liệu lịch',
+  'Planner backup saved': 'Đã lưu bản sao dữ liệu lịch',
+  'Planner backup download started': 'Đã bắt đầu tải bản sao dữ liệu lịch',
+  'Could not complete the planner backup operation':
+      'Không thể hoàn tất thao tác sao lưu hoặc khôi phục',
+  'Restore planner backup?': 'Khôi phục dữ liệu lịch?',
+  'Existing items will be kept. The backup only adds missing items.': 'Dữ liệu đang có sẽ được giữ lại. Bản sao chỉ bổ sung những mục còn thiếu.',
+  'Restore backup': 'Khôi phục bản sao',
+  '{n} planner items restored': 'Đã khôi phục {n} mục',
+  'Back up your events, tasks, notes, habits and goals as a file. Keep the file somewhere private.': 'Sao lưu sự kiện, công việc, ghi chú, thói quen và mục tiêu thành một tệp. Hãy cất tệp ở nơi riêng tư.',
+  'Save backup file': 'Lưu tệp sao lưu',
+  'Planner data has changed since you applied the lock screen wallpaper.':
+      'Dữ liệu lịch đã thay đổi kể từ khi bạn đặt hình nền màn hình khóa.',
 };

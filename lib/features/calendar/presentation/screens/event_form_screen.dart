@@ -177,7 +177,10 @@ class _EventFormScreenState extends State<EventFormScreen> {
 
   DateTime? _date;
   late int _start = widget.event?.startMinutes ?? 14 * 60;
-  late int _end = widget.event?.endMinutes ?? 15 * 60;
+  late int _end = widget.event == null
+      ? 15 * 60
+      : widget.event!.endTime.hour * 60 + widget.event!.endTime.minute;
+  int _endDayOffset = 0;
   bool _durationFromSettings = false;
   late int _color = widget.event?.colorIndex ?? 0;
   late String _category = widget.event?.category ?? 'Work';
@@ -205,6 +208,18 @@ class _EventFormScreenState extends State<EventFormScreen> {
     final app = AppScope.read(context);
     final event = widget.event;
     _date = event?.date ?? widget.initialDate ?? app.today;
+    if (event != null) {
+      _endDayOffset =
+          DateTime.utc(
+                event.endTime.year,
+                event.endTime.month,
+                event.endTime.day,
+              )
+              .difference(
+                DateTime.utc(event.date.year, event.date.month, event.date.day),
+              )
+              .inDays;
+    }
     _reminder = event == null
         ? app.settings.defaultReminderMinutes
         : event.reminderMinutes;
@@ -243,9 +258,9 @@ class _EventFormScreenState extends State<EventFormScreen> {
       initialTime: TimeOfDay(hour: _start ~/ 60, minute: _start % 60),
     );
     if (start == null || !mounted) return;
-    final duration = _end - _start;
+    final duration = (_end + _endDayOffset * 1440 - _start).clamp(5, 1440);
     final newStart = start.hour * 60 + start.minute;
-    final suggestedEnd = (newStart + duration).clamp(newStart + 5, 24 * 60 - 1);
+    final suggestedEnd = (newStart + duration) % 1440;
     final end = await showTimePicker(
       context: context,
       helpText: tr('End time'),
@@ -361,7 +376,26 @@ class _EventFormScreenState extends State<EventFormScreen> {
       : _repeatRule(_repeat);
 
   /// AC-14: an event must end after it starts.
-  bool get _timeValid => _end > _start;
+  bool get _timeValid => _endDayOffset > 0 || _end > _start;
+
+  Future<void> _pickEndDate() async {
+    final date = _date!;
+    final endDate = DateTime(date.year, date.month, date.day + _endDayOffset);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: endDate,
+      firstDate: date,
+      lastDate: DateTime(2035, 12, 31),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _endDayOffset = DateTime.utc(
+        picked.year,
+        picked.month,
+        picked.day,
+      ).difference(DateTime.utc(date.year, date.month, date.day)).inDays;
+    });
+  }
 
   Future<void> _save() async {
     final title = _title.text.trim();
@@ -385,7 +419,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
     final end = DateTime(
       date.year,
       date.month,
-      date.day,
+      date.day + _endDayOffset,
       _end ~/ 60,
       _end % 60,
     );
@@ -410,7 +444,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
     if (series != null && series.isRecurring) {
       final scope = await pickEventScope(context, title: 'Save changes to');
       if (scope == null || !mounted) return;
-      final occurrence = existing!.date;
+      final occurrence = existing!.originalOccurrenceDate ?? existing.date;
       switch (scope) {
         case DeleteScope.one:
           // The edited repeat becomes a standalone event.
@@ -546,6 +580,14 @@ class _EventFormScreenState extends State<EventFormScreen> {
                   ),
                 ),
               ],
+            ),
+            FieldTile(
+              icon: LucideIcons.calendar,
+              label: 'End date',
+              value: dayMonth(
+                DateTime(_date!.year, _date!.month, _date!.day + _endDayOffset),
+              ),
+              onTap: _pickEndDate,
             ),
             if (!_timeValid)
               Padding(

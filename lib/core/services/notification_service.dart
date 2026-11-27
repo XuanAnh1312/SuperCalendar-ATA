@@ -85,9 +85,17 @@ abstract class NotificationService {
   Future<void> snoozeTask(Task task, Duration delay);
 
   /// Shows the reminder for [event] again after [delay].
-  Future<void> snoozeEvent(CalendarEvent event, Duration delay);
+  Future<void> snoozeEvent(
+    CalendarEvent event,
+    Duration delay, {
+    int? reminderLead,
+  });
 
-  Future<void> snoozeHabit(Habit habit, Duration delay);
+  Future<void> snoozeHabit(
+    Habit habit,
+    Duration delay, {
+    DateTime? occurrenceDay,
+  });
 
   // ── Lock screen ────────────────────────────────────────────────────────────
 
@@ -127,14 +135,20 @@ class NoopNotificationService
   final Map<String, Duration> snoozeDelays = {};
 
   @override
-  Future<void> snoozeHabit(Habit habit, Duration delay) async {
+  Future<void> snoozeHabit(
+    Habit habit,
+    Duration delay, {
+    DateTime? occurrenceDay,
+  }) async {
     snoozed.add(habit.id);
     snoozeDelays[habit.id] = delay;
-    pendingSnoozes['habit:${habit.id}'] = NotificationTarget(
+    final target = NotificationTarget(
       NotificationTarget.habit,
       habit.id,
       snoozed: true,
+      occurrenceDate: occurrenceDay,
     );
+    pendingSnoozes[reminderKeyFor(target)] = target;
   }
 
   // Quick Note notification tracking
@@ -159,16 +173,22 @@ class NoopNotificationService
   }
 
   @override
-  Future<void> snoozeEvent(CalendarEvent event, Duration delay) async {
+  Future<void> snoozeEvent(
+    CalendarEvent event,
+    Duration delay, {
+    int? reminderLead,
+  }) async {
     snoozed.add(event.id);
     snoozeDelays[event.id] = delay;
-    pendingSnoozes['event:${event.id}'] = NotificationTarget(
+    final target = NotificationTarget(
       NotificationTarget.event,
       event.id,
       snoozed: true,
-      occurrenceDate: event.originalOccurrenceDate,
+      reminderLead: reminderLead,
+      occurrenceDate: event.originalOccurrenceDate ?? event.startTime,
       occurrenceStart: event.startTime,
     );
+    pendingSnoozes[reminderKeyFor(target)] = target;
   }
 
   @override
@@ -210,7 +230,10 @@ class NoopNotificationService
     );
     scheduled = [
       for (final entry in plan)
-        if (!pendingSnoozes.containsKey(entry.sourceKey)) entry.target.id,
+        if (!pendingSnoozes.values.any(
+          (target) => reminderKeyFor(target) == entry.reminderKey,
+        ))
+          entry.target.id,
       for (final target in pendingSnoozes.values) target.id,
     ];
   }
@@ -236,7 +259,9 @@ class NoopNotificationService
   @override
   Future<void> cancel(String sourceType, String sourceId) async {
     scheduled.removeWhere((id) => id == sourceId);
-    pendingSnoozes.remove("$sourceType:$sourceId");
+    pendingSnoozes.removeWhere(
+      (_, target) => target.type == sourceType && target.id == sourceId,
+    );
   }
 
   @override

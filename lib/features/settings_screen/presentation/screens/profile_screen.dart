@@ -172,8 +172,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onTap: _editEmail,
                   ),
                   const SizedBox(height: 12),
-                  // Prototype mock: there is no cloud sync (README §10); the
-                  // design's device card is shown as-is.
                   AppCard(
                     padding: const EdgeInsets.all(16),
                     shadow: false,
@@ -184,12 +182,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           children: [
                             Expanded(
                               child: Text(
-                                tr('Connected devices'),
+                                tr('Planner storage'),
                                 style: AppText.s(15, weight: FontWeight.w600),
                               ),
                             ),
                             Text(
-                              tr('3 devices'),
+                              tr('On this device'),
                               style: AppText.s(
                                 12,
                                 weight: FontWeight.w600,
@@ -201,8 +199,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(height: 8),
                         Text(
                           tr(
-                            'Your calendar, tasks and notes are synced across '
-                            'your connected devices.',
+                            'Your calendar, tasks and notes are saved on this device.',
                           ),
                           style: AppText.s(
                             12.5,
