@@ -45,6 +45,7 @@ class FirebaseAuthRepository implements AuthRepository {
         );
       }
     } on firebase.FirebaseAuthException catch (error) {
+      debugPrint('[Google sign-in] Firebase Auth: ${error.code}');
       throw AuthFailure(switch (error.code) {
         'popup-closed-by-user' ||
         'cancelled-popup-request' => 'Sign-in was cancelled.',
@@ -60,11 +61,15 @@ class FirebaseAuthRepository implements AuthRepository {
         _ => 'Could not sign in. Please try again.',
       });
     } on GoogleSignInException catch (error) {
-      throw AuthFailure(
-        error.code == GoogleSignInExceptionCode.canceled
-            ? 'Sign-in was cancelled.'
-            : 'Could not sign in with Google. Check the sign-in configuration for this device.',
-      );
+      debugPrint('[Google sign-in] Google SDK: ${error.code.name}');
+      throw AuthFailure(switch (error.code) {
+        GoogleSignInExceptionCode.canceled
+            when defaultTargetPlatform == TargetPlatform.android =>
+          'Google sign-in did not complete. Please try again.',
+        GoogleSignInExceptionCode.canceled => 'Sign-in was cancelled.',
+        _ =>
+          'Could not sign in with Google. Check the sign-in configuration for this device.',
+      });
     }
   }
 

@@ -158,9 +158,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     showAppSnack(context, 'Changes saved');
   }
 
-  Future<void> _delete() async {
+  void _delete() {
     final tasks = AppScope.read(context).tasks;
-    final task = tasks.delete(widget.task);
+    final current = tasks.byId(widget.task.id);
+    if (current == null) return;
+    final task = tasks.delete(current);
     if (task == null) return;
     Navigator.of(context).pop();
     showUndoSnack(context, 'Task deleted', onUndo: () => tasks.restore(task));
@@ -176,22 +178,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
           children: [
-            TopBar(
-              title: 'Task details',
-              trailing: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _delete,
-                child: const SizedBox(
-                  width: 38,
-                  height: 38,
-                  child: Icon(
-                    LucideIcons.trash2,
-                    size: 18,
-                    color: AppColors.danger,
-                  ),
-                ),
-              ),
-            ),
+            const TopBar(title: 'Task details'),
             const SizedBox(height: 10),
             AppCard(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
@@ -430,6 +417,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               label: 'Save changes',
               icon: LucideIcons.check,
               onTap: _save,
+            ),
+            const SizedBox(height: 6),
+            TextButton.icon(
+              onPressed: _delete,
+              style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+              icon: const Icon(LucideIcons.trash2, size: 16),
+              label: Text(tr('Delete task')),
             ),
           ],
         ),
