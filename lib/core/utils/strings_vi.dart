@@ -823,7 +823,7 @@ const viStrings = <String, String>{
   // Daily lock screen wallpaper (opt-in, Android).
   "Automatically update your lock screen?":
       "Tự cập nhật lịch trên màn hình khóa?",
-  "Update the lock screen after midnight using your chosen design. Background work may use extra battery and Android may delay updates. You can turn this off anytime. This does not update the Home wallpaper.": "Cập nhật màn hình khóa sau nửa đêm theo thiết kế bạn đã chọn. Tác vụ nền có thể dùng thêm pin và Android có thể trì hoãn cập nhật. Bạn có thể tắt bất cứ lúc nào. Tính năng không thay đổi hình nền màn hình chính.",
+  "Refresh the lock screen wallpaper after midnight and when planner data changes. Background updates may use extra battery and Android may delay them. You can turn this off anytime.": "Tự cập nhật hình nền màn hình khóa sau nửa đêm và khi dữ liệu lịch thay đổi. Tác vụ nền có thể dùng thêm pin và Android có thể trì hoãn cập nhật. Bạn có thể tắt bất cứ lúc nào.",
   "Enable auto-update": "Bật tự cập nhật",
   "Daily lock screen wallpaper": "Tự cập nhật hình nền hằng ngày",
   "Could not configure daily wallpaper. Try again in Lock Screen settings.": "Chưa thể thiết lập tự cập nhật hình nền. Hãy thử lại trong cài đặt Màn hình khóa.",

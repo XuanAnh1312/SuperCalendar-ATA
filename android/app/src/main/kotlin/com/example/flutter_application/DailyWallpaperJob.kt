@@ -3,6 +3,7 @@ package com.example.flutter_application
 import android.app.WallpaperManager
 import android.app.job.JobService
 import android.app.job.JobParameters
+import android.content.SharedPreferences
 import android.graphics.BitmapFactory
 import android.graphics.Rect
 import android.graphics.PixelFormat
@@ -30,14 +31,17 @@ class DailyWallpaperJob : JobService() {
         if (parameters != null) { jobFinished(params, true); return true }
         val p = DailyWallpaper.prefs(this)
         val preview = params.extras.getBoolean("preview",false)
+        val force = params.extras.getBoolean("force", false)
         if (!preview && !p.getBoolean("enabled", false)) return false
         if (preview && !p.contains("layout")) return false
-        if (!preview && !params.extras.getBoolean("force", false) && p.getString("updatedDay", null) == DailyWallpaper.today()) {
+        if (!preview && !force && !DailyWallpaper.needsRefresh(p)) {
             DailyWallpaper.schedule(this, jobId = if(params.jobId == DailyWallpaper.FIRST_JOB) DailyWallpaper.SECOND_JOB else DailyWallpaper.FIRST_JOB)
             return false
         }
         parameters = params
         generation = p.getString("generation", null)
+        val renderGeneration = generation
+        val contentRequestId = p.getLong("contentRequestId", 0)
         main.postDelayed(timeout, 120_000)
         try {
             val loader = FlutterInjector.instance().flutterLoader()
@@ -71,8 +75,8 @@ class DailyWallpaperJob : JobService() {
                 when(call.method) {
                     "configuration" -> {
                         val config = DailyWallpaper.prefs(this)
-                        if ((!preview && !config.getBoolean("enabled", false)) || config.getString("generation", null) != generation) result.success(null)
-                        else result.success(mapOf("layout" to config.getString("layout", null), "width" to config.getInt("width",1080), "height" to config.getInt("height",2400), "generation" to generation, "renderDay" to if(preview) java.time.LocalDate.now().plusDays(1).toString() else DailyWallpaper.today()))
+                        if ((!preview && !config.getBoolean("enabled", false)) || config.getString("generation", null) != renderGeneration) result.success(null)
+                        else result.success(mapOf("layout" to config.getString("layout", null), "width" to config.getInt("width",1080), "height" to config.getInt("height",2400), "generation" to renderGeneration, "renderDay" to if(preview) java.time.LocalDate.now().plusDays(1).toString() else DailyWallpaper.today()))
                     }
                     "complete" -> {
                         val bytes = call.argument<ByteArray>("bytes")
@@ -83,44 +87,28 @@ class DailyWallpaperJob : JobService() {
                             var ok = false
                             try {
                                 synchronized(DailyWallpaper.lock) {
-                                    if (preview) {
-                                        check(parameters != null && expected == generation && DailyWallpaper.prefs(this).getString("generation",null) == generation && bytes != null)
-                                        java.io.File(filesDir,"daily-wallpaper-preview.png").writeBytes(bytes)
-                                        DailyWallpaper.prefs(this).edit().putBoolean("previewReady",true).commit()
-                                        ok = true
-                                    } else {
                                     val current = DailyWallpaper.prefs(this)
-                                    if (renderedDay == DailyWallpaper.today() && parameters != null && current.getBoolean("enabled", false) && expected == generation && current.getString("generation", null) == generation) {
-                                        if (!params.extras.getBoolean("force", false) && current.getString("updatedDay",null) == DailyWallpaper.today()) {
+                                    if (parameters === params && expected == renderGeneration &&
+                                        current.getString("generation", null) == renderGeneration) {
+                                        if (preview) {
+                                            check(bytes != null)
+                                            java.io.File(filesDir, "daily-wallpaper-preview.png").writeBytes(bytes)
+                                            current.edit().putBoolean("previewReady", true).commit()
                                             ok = true
-                                        } else {
-                                        val manager = WallpaperManager.getInstance(this)
-                                        val previous = current.getInt("wallpaperId", -1)
-                                        val actual = manager.getWallpaperId(WallpaperManager.FLAG_LOCK)
-                                        // Do not overwrite a wallpaper the user changed elsewhere.
-                                        if (previous > 0 && actual != previous) {
-                                            current.edit().putBoolean("enabled",false).putString("error","wallpaper_changed").commit()
-                                            DailyWallpaper.cancel(this)
-                                        } else {
-                                            val bitmap = bytes?.let { BitmapFactory.decodeByteArray(it,0,it.size) } ?: error("Invalid PNG")
-                                            try {
-                                                val id = manager.setBitmap(bitmap,Rect(0,0,bitmap.width,bitmap.height),true,WallpaperManager.FLAG_LOCK)
-                                                check(id != 0)
-                                                current.edit().putInt("wallpaperId",id).putString("updatedDay",DailyWallpaper.today())
-                                                    .putInt("contentRevision",contentRevision)
-                                                    .putLong("updatedAt",System.currentTimeMillis()).remove("error").commit()
-                                                ok = true
-                                            } finally { bitmap.recycle() }
+                                        } else if (renderedDay == DailyWallpaper.today() && current.getBoolean("enabled", false)) {
+                                            val alreadyApplied = current.getString("updatedDay", null) == renderedDay &&
+                                                current.getInt("contentRevision", -1) == contentRevision
+                                            ok = if (!force && alreadyApplied) true else applyWallpaper(bytes, current, renderedDay, contentRevision)
+                                            // Edits arriving during rendering still have a pending request.
+                                            if (ok) current.edit().putLong("handledContentRequestId", contentRequestId).commit()
                                         }
-                                        }
-                                    }
                                     }
                                 }
                             } catch(e: Exception) { android.util.Log.w("DailyWallpaper", "Background wallpaper update failed", e) }
-                            main.post { result.success(null); finish(ok) }
+                            main.post { result.success(null); if (parameters === params) finish(ok) }
                         }
                     }
-                    "failed" -> { result.success(null); finish(false) }
+                    "failed" -> { result.success(null); if (parameters === params) finish(false) }
                     else -> result.notImplemented()
                 }
             }
@@ -128,6 +116,28 @@ class DailyWallpaperJob : JobService() {
             return true
         } catch(e: Exception) { android.util.Log.w("DailyWallpaper","Could not start renderer",e); finish(false); return true }
     }
+
+    private fun applyWallpaper(bytes: ByteArray?, current: SharedPreferences, day: String, revision: Int): Boolean {
+        val manager = WallpaperManager.getInstance(this)
+        val previous = current.getInt("wallpaperId", -1)
+        val actual = manager.getWallpaperId(WallpaperManager.FLAG_LOCK)
+        if (previous > 0 && actual != previous) {
+            current.edit().putBoolean("enabled", false).putString("error", "wallpaper_changed").commit()
+            DailyWallpaper.cancel(this)
+            return false
+        }
+        val bitmap = bytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size) } ?: error("Invalid PNG")
+        try {
+            val bounds = Rect(0, 0, bitmap.width, bitmap.height)
+            val id = manager.setBitmap(bitmap, bounds, true, WallpaperManager.FLAG_LOCK)
+            check(id != 0)
+            current.edit().putInt("wallpaperId", id).putString("updatedDay", day)
+                .putInt("contentRevision", revision).putLong("updatedAt", System.currentTimeMillis())
+                .remove("error").commit()
+            return true
+        } finally { bitmap.recycle() }
+    }
+
     private fun finish(ok: Boolean) {
         val params = parameters ?: return
         parameters = null
@@ -143,7 +153,11 @@ class DailyWallpaperJob : JobService() {
         // Retry failures through Android's backoff, not a busy loop. Successful
         // work schedules the other ID, so finishing this job cannot remove it.
         jobFinished(params, !ok && p.getBoolean("enabled",false))
-        if (ok) DailyWallpaper.schedule(this,jobId=if(params.jobId == DailyWallpaper.FIRST_JOB) DailyWallpaper.SECOND_JOB else DailyWallpaper.FIRST_JOB)
+        if (ok) DailyWallpaper.schedule(
+            this,
+            immediate = DailyWallpaper.needsRefresh(p),
+            jobId = if (params.jobId == DailyWallpaper.FIRST_JOB) DailyWallpaper.SECOND_JOB else DailyWallpaper.FIRST_JOB,
+        )
     }
     override fun onStopJob(params: JobParameters): Boolean {
         if (parameters?.jobId != params.jobId) return false

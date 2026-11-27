@@ -39,21 +39,68 @@ class SuperCalendarApp extends StatefulWidget {
 class _SuperCalendarAppState extends State<SuperCalendarApp>
     with WidgetsBindingObserver {
   AppState get _app => widget.state;
+  Timer? _wallpaperRefresh;
+  int? _wallpaperRevision;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _app.themeRevision.addListener(_onThemeChanged);
+    if (supportsDailyWallpaper) _app.addListener(_queueWallpaperRefresh);
     unawaited(_initNotifications());
-    unawaited(AutoWallpaperService.catchUp());
+    unawaited(_syncWallpaper(catchUp: true));
+  }
+
+  @override
+  void didUpdateWidget(SuperCalendarApp oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.state == _app) return;
+    oldWidget.state.themeRevision.removeListener(_onThemeChanged);
+    _app.themeRevision.addListener(_onThemeChanged);
+    if (!supportsDailyWallpaper) return;
+    oldWidget.state.removeListener(_queueWallpaperRefresh);
+    _app.addListener(_queueWallpaperRefresh);
+    _wallpaperRefresh?.cancel();
+    _wallpaperRevision = null;
+    unawaited(_syncWallpaper(catchUp: true));
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _app.themeRevision.removeListener(_onThemeChanged);
+    _app.removeListener(_queueWallpaperRefresh);
+    _wallpaperRefresh?.cancel();
     super.dispose();
+  }
+
+  void _queueWallpaperRefresh() {
+    _wallpaperRefresh?.cancel();
+    _wallpaperRefresh = Timer(const Duration(milliseconds: 400), () {
+      unawaited(_syncWallpaper());
+    });
+  }
+
+  Future<void> _syncWallpaper({bool catchUp = false}) async {
+    if (!mounted || !supportsDailyWallpaper) return;
+    final app = _app;
+    final revision = AutoWallpaperService.contentRevision(app);
+    if (!catchUp && revision == _wallpaperRevision) return;
+    try {
+      // The Android worker reads its own snapshot from the local database.
+      await app.flush();
+    } catch (error) {
+      debugPrint('Could not save planner data for wallpaper: $error');
+      return;
+    }
+    if (!mounted || app != _app) return;
+    if (revision != AutoWallpaperService.contentRevision(app)) {
+      _queueWallpaperRefresh();
+      return;
+    }
+    _wallpaperRevision = revision;
+    await AutoWallpaperService.catchUp(contentRevision: revision);
   }
 
   Future<void> _initNotifications() async {
@@ -125,9 +172,8 @@ class _SuperCalendarAppState extends State<SuperCalendarApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
     // A notification action may have changed data while we were away.
-    unawaited(_reloadPlanner());
+    unawaited(_reloadPlanner().then((_) => _syncWallpaper(catchUp: true)));
     unawaited(_app.refreshSystemCalendar());
-    unawaited(AutoWallpaperService.catchUp());
   }
 
   @override

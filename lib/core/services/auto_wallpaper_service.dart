@@ -12,7 +12,7 @@ import 'package:flutter_application/features/dashboard/domain/screen_layout.dart
 bool get supportsDailyWallpaper =>
     !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 const dailyWallpaperExplanation =
-    'Update the lock screen after midnight using your chosen design. Background work may use extra battery and Android may delay updates. You can turn this off anytime. This does not update the Home wallpaper.';
+    'Refresh the lock screen wallpaper after midnight and when planner data changes. Background updates may use extra battery and Android may delay them. You can turn this off anytime.';
 
 class DailyWallpaperStatus {
   const DailyWallpaperStatus({
@@ -107,10 +107,12 @@ class AutoWallpaperService {
   }
 
   static Future<void> updateNow() => channel.invokeMethod<void>('updateNow');
-  static Future<void> catchUp() async {
+  static Future<void> catchUp({required int contentRevision}) async {
     if (!supportsDailyWallpaper) return;
     try {
-      await channel.invokeMethod<void>('catchUp');
+      await channel.invokeMethod<void>('catchUp', {
+        'contentRevision': contentRevision,
+      });
     } on PlatformException catch (error) {
       debugPrint('Daily wallpaper: $error');
     } on MissingPluginException {

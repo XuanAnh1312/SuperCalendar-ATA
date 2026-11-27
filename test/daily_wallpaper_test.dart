@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_application/app/app.dart';
 import 'package:flutter_application/core/data/document_store.dart';
 import 'package:flutter_application/core/services/app_state.dart';
 import 'package:flutter_application/core/services/auto_wallpaper_service.dart';
@@ -130,6 +131,49 @@ void main() {
     );
     expect(calls, isEmpty);
   });
+
+  testWidgets(
+    'saved tasks and Quick Note request a same-day wallpaper refresh',
+    (tester) async {
+      final store = MemoryDocumentStore();
+      final app = AppState(
+        store: store,
+        clock: () => DateTime(2026, 11, 21, 10),
+      );
+      await app.load(seedDemoData: false);
+      addTearDown(app.dispose);
+      await tester.pumpWidget(SuperCalendarApp(state: app));
+      await tester.pump();
+      calls.clear();
+
+      app.notes.add(title: 'Private draft', content: 'Regular note');
+      await tester.pump(const Duration(seconds: 1));
+      expect(calls, isEmpty);
+
+      final task = app.quickAddTask('Pick up the package')!;
+      expect(calls, isEmpty);
+      await tester.pump(const Duration(seconds: 1));
+
+      expect((await store.readAll(Collections.tasks)).single, task.toJson());
+      expect(calls.map((call) => call.method), ['catchUp']);
+      expect(calls.single.arguments, {
+        'contentRevision': AutoWallpaperService.contentRevision(app),
+      });
+      calls.clear();
+
+      app.notes.setQuick('Bring the receipt');
+      await tester.pump(const Duration(seconds: 1));
+      expect(
+        (await store.readAll(Collections.notes)).last['content'],
+        'Bring the receipt',
+      );
+      expect(calls.map((call) => call.method), ['catchUp']);
+      expect(calls.single.arguments, {
+        'contentRevision': AutoWallpaperService.contentRevision(app),
+      });
+    },
+  );
+
   testWidgets(
     'headless renderer uses the same saved design with new-day data',
     (tester) async {
