@@ -407,20 +407,25 @@ class _EditScreenState extends State<EditScreen> {
 
   // ---- Save / export -----------------------------------------------------------
 
+  Future<void> _saveDrafts() async {
+    if (!_dirty) return;
+    for (final draft in _drafts!.values) {
+      final old = _app.layouts.of(draft.id).backgroundPath;
+      if (old != null && old != draft.backgroundPath) {
+        _replacedPhotos.add(old);
+      }
+      _app.layouts.save(draft.copy());
+    }
+    await _app.layouts.flush();
+    if (mounted) setState(() => _dirty = false);
+  }
+
   /// AC-08: the back arrow (or system back) saves both screens and leaves.
   Future<void> _saveAndClose() async {
     if (_saving || _closing) return;
     _saving = true;
     try {
-      if (_dirty) {
-        for (final draft in _drafts!.values) {
-          final old = _app.layouts.of(draft.id).backgroundPath;
-          if (old != null && old != draft.backgroundPath)
-            _replacedPhotos.add(old);
-          _app.layouts.save(draft.copy());
-        }
-        await _app.layouts.flush();
-      }
+      await _saveDrafts();
     } catch (_) {
       if (mounted)
         showAppSnack(context, 'Could not save changes. Please try again.');
@@ -461,6 +466,7 @@ class _EditScreenState extends State<EditScreen> {
           : null;
       final bytes = await _export();
       if (bytes == null) return;
+      await _saveDrafts();
       if (!await Gal.hasAccess()) await Gal.requestAccess();
       await Gal.putImageBytes(
         bytes,
@@ -499,6 +505,7 @@ class _EditScreenState extends State<EditScreen> {
           : null;
       final bytes = await _export();
       if (bytes == null) return;
+      await _saveDrafts();
       final ok = await WallpaperService.instance.setWallpaper(
         bytes,
         lockScreen: _lock,

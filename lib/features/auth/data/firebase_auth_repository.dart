@@ -29,10 +29,14 @@ class FirebaseAuthRepository implements AuthRepository {
   @override
   Future<void> signInWithGoogle() async {
     try {
-      if (kIsWeb) {
+      if (kIsWeb || defaultTargetPlatform == TargetPlatform.android) {
         final provider = firebase.GoogleAuthProvider()
           ..setCustomParameters({'prompt': 'select_account'});
-        await _auth.signInWithPopup(provider);
+        if (kIsWeb) {
+          await _auth.signInWithPopup(provider);
+        } else {
+          await _auth.signInWithProvider(provider);
+        }
       } else {
         await (_googleInitialization ??= GoogleSignIn.instance.initialize());
         final account = await GoogleSignIn.instance.authenticate();
@@ -48,7 +52,8 @@ class FirebaseAuthRepository implements AuthRepository {
       debugPrint('[Google sign-in] Firebase Auth: ${error.code}');
       throw AuthFailure(switch (error.code) {
         'popup-closed-by-user' ||
-        'cancelled-popup-request' => 'Sign-in was cancelled.',
+        'cancelled-popup-request' ||
+        'web-context-canceled' => 'Sign-in was cancelled.',
         'popup-blocked' => 'Allow pop-ups in your browser, then try again.',
         'unauthorized-domain' =>
           'This app address is not authorized for Google sign-in.',
@@ -63,12 +68,8 @@ class FirebaseAuthRepository implements AuthRepository {
     } on GoogleSignInException catch (error) {
       debugPrint('[Google sign-in] Google SDK: ${error.code.name}');
       throw AuthFailure(switch (error.code) {
-        GoogleSignInExceptionCode.canceled
-            when defaultTargetPlatform == TargetPlatform.android =>
-          'Google sign-in did not complete. Please try again.',
         GoogleSignInExceptionCode.canceled => 'Sign-in was cancelled.',
-        _ =>
-          'Could not sign in with Google. Check the sign-in configuration for this device.',
+        _ => 'Could not sign in with Google. Check the sign-in configuration for this device.',
       });
     }
   }

@@ -791,8 +791,6 @@ const viStrings = <String, String>{
   'Sign out': 'Đăng xuất',
   'Your planner data stays on this device. Cloud sync is not available yet.': 'Dữ liệu lịch vẫn được lưu trên thiết bị này. Chưa hỗ trợ đồng bộ đám mây.',
   'Sign-in was cancelled.': 'Đã hủy đăng nhập.',
-  'Google sign-in did not complete. Please try again.':
-      'Đăng nhập Google chưa hoàn tất. Vui lòng thử lại.',
   'Allow pop-ups in your browser, then try again.':
       'Hãy cho phép cửa sổ bật lên trong trình duyệt rồi thử lại.',
   'This app address is not authorized for Google sign-in.':
