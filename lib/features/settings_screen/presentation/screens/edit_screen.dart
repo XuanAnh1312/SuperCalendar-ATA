@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/rendering.dart';
 import 'package:gal/gal.dart';
 import 'package:image_picker/image_picker.dart';
@@ -78,18 +79,159 @@ class _EditScreenState extends State<EditScreen> {
   bool _resizing = false;
   bool _busy = false;
   String? _selected;
+  // ---- Live move / resize (FR-04, NFR-03) -----------------------------------
+  //
+  // While a finger is down the widget follows it pixel by pixel in an overlay;
+  // only that overlay rebuilds. The grid cell is applied once, when the finger
+  // lifts, as one Undo step.
+
+  /// The widget being moved or resized; null when no gesture is running.
+  final _live = ValueNotifier<_LiveEdit?>(null);
+
+  /// Ties the overlay (selection, handles, live card) to a canvas cell. Every
+  /// cell keeps its own link so selecting one does not rebuild its gestures.
+  final _links = <String, LayerLink>{};
+  final _canvasKey = GlobalKey();
+
   LayoutItem? _gestureItem;
   Offset? _gestureOrigin;
-  bool _gestureRemembered = false;
+  Offset? _gestureLast;
+  Offset? _downPosition;
+  int _gesturePointers = 0;
+  int _fingersDown = 0;
+
+  /// Grid width over design width, as last given to the canvas cells.
+  double _cellScale = 1;
+
+  /// Screen pixels per grid pixel, measured when a finger touches the
+  /// canvas; sizes the handles for the real screen (NFR-08).
+  double _previewScale = 1;
+
+  /// A finger on a widget or handle stops the page from scrolling at once,
+  /// so a vertical drag moves the widget instead of the page.
+  void _fingerDown(PointerDownEvent event) {
+    _downPosition = event.position;
+    final box = _gridBox;
+    if (box != null) {
+      final scale =
+          (box.localToGlobal(const Offset(100, 0)) -
+                  box.localToGlobal(Offset.zero))
+              .distance /
+          100;
+      if (scale > 0) _previewScale = scale;
+    }
+    if (_fingersDown++ == 0) setState(() => _resizing = true);
+  }
+
+  void _fingerUp(PointerEvent _) {
+    if (_fingersDown == 0) return;
+    if (--_fingersDown == 0) setState(() => _resizing = false);
+  }
+
+  _Grid _metrics(RenderBox box) => _metricsFor(box.size.width);
+
+  _Grid _metricsFor(double width) {
+    return (
+      pitch: gridPitch(width),
+      row: gridRowPitch(width),
+      gap: gridGap(width),
+    );
+  }
+
+  Rect _cellRect(LayoutItem item, _Grid m) =>
+      _cellAt(item.x, item.y, item.w, item.h, m);
+
+  Rect _cellAt(int x, int y, int w, int h, _Grid m) => Rect.fromLTWH(
+    x * m.pitch,
+    y * m.row,
+    w * m.pitch - m.gap,
+    h * m.row - m.gap,
+  );
+
+  /// The grid cell nearest to [rect] (grid pixels) and whether it is free.
+  _LiveEdit _snap(String type, Rect rect, _Grid m) {
+    var x = (rect.left / m.pitch).round();
+    var y = (rect.top / m.row).round();
+    final w = (((rect.right + m.gap) / m.pitch).round() - x).clamp(
+      ScreenLayout.minWidth,
+      ScreenLayout.columns,
+    );
+    final h = (((rect.bottom + m.gap) / m.row).round() - y).clamp(
+      ScreenLayout.minHeight,
+      _draft.rows,
+    );
+    x = x.clamp(0, ScreenLayout.columns - w);
+    y = y.clamp(0, _draft.rows - h);
+    return _LiveEdit(
+      type,
+      rect,
+      x,
+      y,
+      w,
+      h,
+      fits: _draft.isFree(x, y, w, h, ignore: _draft.item(type)),
+    );
+  }
+
+  void _beginLive(String type, Offset globalOrigin) {
+    final box = _gridBox;
+    if (box == null) return;
+    final item = _draft.item(type).copy();
+    _gestureItem = item;
+    _gestureOrigin = box.globalToLocal(globalOrigin);
+    _gestureLast = globalOrigin;
+    final m = _metrics(box);
+    _live.value = _snap(type, _cellRect(item, m), m);
+    if (_selected != type) setState(() => _selected = type);
+  }
+
+  void _endLive() {
+    _live.value = null;
+    _gestureItem = null;
+    _gestureOrigin = null;
+    _gestureLast = null;
+    _gesturePointers = 0;
+  }
+
+  /// Applies the snapped cell. A blocked move goes to the nearest free spot
+  /// (AC-09); a blocked resize keeps the old size.
+  void _commit(LayoutItem original, _LiveEdit live, {required bool move}) {
+    if (live.x == original.x &&
+        live.y == original.y &&
+        live.w == original.w &&
+        live.h == original.h) {
+      setState(() {});
+      return;
+    }
+    if (live.fits) {
+      _edit((draft) => draft.resize(live.type, live.x, live.y, live.w, live.h));
+    } else if (move &&
+        live.w == original.w &&
+        live.h == original.h &&
+        // Nearest free spot being where it started means nothing changes.
+        _draft.nearestFree(
+              live.w,
+              live.h,
+              live.x,
+              live.y,
+              ignore: _draft.item(live.type),
+            ) !=
+            (original.x, original.y)) {
+      _place(live.type, live.x, live.y);
+    } else {
+      setState(() {});
+    }
+  }
 
   void _transformStart(String type, ScaleStartDetails details) {
-    _gestureItem = _draft.item(type).copy();
-    _gestureOrigin = _gridBox?.globalToLocal(details.focalPoint);
-    _gestureRemembered = false;
-    setState(() {
-      _selected = type;
-      _resizing = true;
-    });
+    // One finger: measure from where it touched down, not from where the
+    // gesture was recognized, so the widget does not trail the finger.
+    final origin = details.pointerCount == 1
+        ? _downPosition ?? details.focalPoint
+        : details.focalPoint;
+    _gesturePointers = details.pointerCount;
+    _beginLive(type, origin);
+    if (details.pointerCount == 1) _gestureLast = details.focalPoint;
   }
 
   void _transformUpdate(String type, ScaleUpdateDetails details) {
@@ -97,37 +239,46 @@ class _EditScreenState extends State<EditScreen> {
     final original = _gestureItem;
     final origin = _gestureOrigin;
     if (box == null || original == null || origin == null) return;
+    _gestureLast = details.focalPoint;
+    _gesturePointers = math.max(_gesturePointers, details.pointerCount);
+    final m = _metrics(box);
+    final start = _cellRect(original, m);
     final delta = box.globalToLocal(details.focalPoint) - origin;
-    final w = (original.w * details.scale).round().clamp(
-      ScreenLayout.minWidth,
-      ScreenLayout.columns,
+    final width = (start.width * details.scale).clamp(
+      ScreenLayout.minWidth * m.pitch - m.gap,
+      ScreenLayout.columns * m.pitch - m.gap,
     );
-    final h = (original.h * details.scale).round().clamp(
-      ScreenLayout.minHeight,
-      _draft.rows,
+    final height = (start.height * details.scale).clamp(
+      ScreenLayout.minHeight * m.row - m.gap,
+      _draft.rows * m.row - m.gap,
     );
-    final x =
-        (original.x +
-                delta.dx / gridPitch(box.size.width) -
-                (w - original.w) / 2)
-            .round();
-    final y =
-        (original.y +
-                delta.dy / gridRowPitch(box.size.width) -
-                (h - original.h) / 2)
-            .round();
-    final current = _draft.item(type);
-    if (current.x == x && current.y == y && current.w == w && current.h == h)
+    _live.value = _snap(
+      type,
+      Rect.fromCenter(
+        center: start.center + delta,
+        width: width,
+        height: height,
+      ),
+      m,
+    );
+  }
+
+  void _transformEnd(String type) {
+    final live = _live.value;
+    final original = _gestureItem;
+    final last = _gestureLast;
+    final singleFinger = _gesturePointers <= 1;
+    _endLive();
+    if (live == null || original == null) return;
+    final canvas = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
+    if (singleFinger &&
+        last != null &&
+        canvas != null &&
+        !(Offset.zero & canvas.size).contains(canvas.globalToLocal(last))) {
+      _remove(type); // Dragged off the screen: removed, with Undo (BR-13).
       return;
-    if (!_draft.isFree(x, y, w, h, ignore: current)) return;
-    if (!_gestureRemembered) {
-      _remember();
-      _gestureRemembered = true;
     }
-    setState(() {
-      _draft.resize(type, x, y, w, h);
-      _dirty = true;
-    });
+    _commit(original, live, move: true);
   }
 
   late AppState _app;
@@ -161,6 +312,12 @@ class _EditScreenState extends State<EditScreen> {
   /// Size as the design shows it ("3 × 2"): about a third of a row wide.
   String _sizeLabel(LayoutItem item) =>
       '${(item.w / 2.4).round().clamp(1, 5)} × ${(item.h / 2).round()}';
+
+  @override
+  void dispose() {
+    _live.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -255,37 +412,46 @@ class _EditScreenState extends State<EditScreen> {
     );
   }
 
-  /// Moves the [corner] of a widget to the grid line nearest the finger.
-  void _resizeTo(String type, Alignment corner, Offset global) {
+  /// Moves the [side] (a corner or an edge) of a widget with the finger; the
+  /// size snaps to the grid when the finger lifts.
+  void _resizeTo(String type, Alignment side, Offset global) {
     final box = _gridBox;
-    if (box == null) return;
-    final local = box.globalToLocal(global);
-    final lineX = (local.dx / gridPitch(box.size.width)).round();
-    final lineY = (local.dy / gridRowPitch(box.size.width)).round();
-    final item = _draft.item(type);
-    var left = item.x, top = item.y;
-    var right = item.x + item.w, bottom = item.y + item.h;
-    if (corner.x < 0) {
-      left = math.min(lineX, right - ScreenLayout.minWidth);
-    } else {
-      right = math.max(lineX, left + ScreenLayout.minWidth);
+    final original = _gestureItem;
+    final origin = _gestureOrigin;
+    if (box == null || original == null || origin == null) return;
+    final m = _metrics(box);
+    final start = _cellRect(original, m);
+    final delta = box.globalToLocal(global) - origin;
+    final minW = ScreenLayout.minWidth * m.pitch - m.gap;
+    final minH = ScreenLayout.minHeight * m.row - m.gap;
+    final maxRight = box.size.width;
+    final maxBottom = _draft.rows * m.row - m.gap;
+    var (left, top, right, bottom) = (
+      start.left,
+      start.top,
+      start.right,
+      start.bottom,
+    );
+    if (side.x < 0) {
+      left = (start.left + delta.dx).clamp(0, right - minW).toDouble();
+    } else if (side.x > 0) {
+      right = (start.right + delta.dx).clamp(left + minW, maxRight).toDouble();
     }
-    if (corner.y < 0) {
-      top = math.min(lineY, bottom - ScreenLayout.minHeight);
-    } else {
-      bottom = math.max(lineY, top + ScreenLayout.minHeight);
+    if (side.y < 0) {
+      top = (start.top + delta.dy).clamp(0, bottom - minH).toDouble();
+    } else if (side.y > 0) {
+      bottom = (start.bottom + delta.dy)
+          .clamp(top + minH, math.max(top + minH, maxBottom))
+          .toDouble();
     }
-    if (left == item.x &&
-        top == item.y &&
-        right - left == item.w &&
-        bottom - top == item.h) {
-      return;
-    }
-    setState(() {
-      if (_draft.resize(type, left, top, right - left, bottom - top)) {
-        _dirty = true;
-      }
-    });
+    _live.value = _snap(type, Rect.fromLTRB(left, top, right, bottom), m);
+  }
+
+  void _resizeEnd() {
+    final live = _live.value;
+    final original = _gestureItem;
+    _endLive();
+    if (live != null && original != null) _commit(original, live, move: false);
   }
 
   Future<void> _openStyle() async {
@@ -557,27 +723,43 @@ class _EditScreenState extends State<EditScreen> {
                 ),
               ),
               Expanded(
-                child: ListView(
-                  // A corner being pulled must not scroll the page.
-                  physics: _resizing
-                      ? const NeverScrollableScrollPhysics()
-                      : null,
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                  children: [
-                    if (_lock) ...[
-                      _overlayControl(),
+                // Scrolling the page ends the selection, so its frame and
+                // handles never stay behind over other content.
+                child: NotificationListener<ScrollStartNotification>(
+                  onNotification: (notification) {
+                    if (notification.dragDetails != null &&
+                        _selected != null &&
+                        _live.value == null) {
+                      setState(() => _selected = null);
+                    }
+                    return false;
+                  },
+                  child: ListView(
+                    // A corner being pulled must not scroll the page.
+                    physics: _resizing
+                        ? const NeverScrollableScrollPhysics()
+                        : null,
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                    children: [
+                      if (_lock) ...[
+                        _overlayControl(),
+                        const SizedBox(height: 12),
+                      ],
+                      _canvas(draft),
+                      const SizedBox(height: 10),
+                      Text(
+                        tr('Drag to move · Pull corners to resize · Fit'),
+                        textAlign: TextAlign.center,
+                        style: AppText.s(
+                          12,
+                          color: AppColors.muted,
+                          height: 1.4,
+                        ),
+                      ),
                       const SizedBox(height: 12),
+                      _dock(app, draft),
                     ],
-                    _canvas(draft),
-                    const SizedBox(height: 10),
-                    Text(
-                      tr('Drag to move · Pull corners to resize · Fit'),
-                      textAlign: TextAlign.center,
-                      style: AppText.s(12, color: AppColors.muted, height: 1.4),
-                    ),
-                    const SizedBox(height: 12),
-                    _dock(app, draft),
-                  ],
+                  ),
                 ),
               ),
               StudioActions(
@@ -637,12 +819,13 @@ class _EditScreenState extends State<EditScreen> {
     final gridTop = _lock
         ? canvasHeight * _lockGridTop / _referenceCanvasHeight
         : _homeGridTop;
-    return DevicePreviewFrame(
+    final frame = DevicePreviewFrame(
       device: DeviceFrameService.instance.frameFor(
         Size(dimensions.width.toDouble(), dimensions.height.toDouble()),
       ),
       screenSize: Size(_canvasWidth, canvasHeight),
       child: SizedBox(
+        key: _canvasKey,
         width: _canvasWidth,
         height: canvasHeight,
         child: DragTarget<String>(
@@ -697,13 +880,23 @@ class _EditScreenState extends State<EditScreen> {
         ),
       ),
     );
+    // The selection layer lives inside the scrolling page, so the list clips
+    // it; the device bezel around the screen leaves room for whole handles.
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        frame,
+        Positioned.fill(child: _selectionOverlay(context)),
+      ],
+    );
   }
 
-  /// Drag directly or pinch to resize; long-press dragging and corner handles
-  /// remain available. Every accepted gesture is one Undo step.
+  /// Drag to move, pinch to resize, or pull a handle. The card itself never
+  /// rebuilds during the gesture; the overlay draws it under the finger.
   Widget _canvasItem(LayoutItem item, Size size, double scale) {
     final type = item.type;
     final selected = type == _selected;
+    _cellScale = scale;
     final card = widgetCell(
       type,
       lock: _lock,
@@ -713,69 +906,174 @@ class _EditScreenState extends State<EditScreen> {
       textSize: item.textSize,
       surface: item.surface,
     );
-    return LongPressDraggable<String>(
-      data: type,
-      dragAnchorStrategy: pointerDragAnchorStrategy,
-      feedback: _DragFeedback(child: card),
-      childWhenDragging: Opacity(opacity: 0.3, child: card),
-      onDragStarted: () => setState(() => _selected = type),
-      onDraggableCanceled: (_, _) => _remove(type),
-      child: Semantics(
-        button: true,
-        selected: selected,
-        label: studioName(type),
+    final cell = Semantics(
+      key: ValueKey('canvas_$type'),
+      button: true,
+      selected: selected,
+      label: studioName(type),
+      child: Listener(
+        onPointerDown: _fingerDown,
+        onPointerUp: _fingerUp,
+        onPointerCancel: _fingerUp,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () => setState(() => _selected = selected ? null : type),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onScaleStart: (details) => _transformStart(type, details),
-                onScaleUpdate: (details) => _transformUpdate(type, details),
-                onScaleEnd: (_) => setState(() {
-                  _resizing = false;
-                  _gestureItem = null;
-                }),
-                child: IgnorePointer(child: card),
-              ),
-              if (selected) ...[
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: AppColors.primary,
-                          width: 1.5,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                  ),
-                ),
-                for (final corner in const [
-                  Alignment.topLeft,
-                  Alignment.topRight,
-                  Alignment.bottomLeft,
-                  Alignment.bottomRight,
-                ])
-                  Positioned(
-                    left: corner.x < 0 ? -14 : null,
-                    right: corner.x > 0 ? -14 : null,
-                    top: corner.y < 0 ? -14 : null,
-                    bottom: corner.y > 0 ? -14 : null,
-                    child: _ResizeHandle(
-                      onStart: _remember,
-                      onUpdate: (global) => _resizeTo(type, corner, global),
-                      onHold: (down) => setState(() => _resizing = down),
-                    ),
-                  ),
-              ],
-            ],
+          onScaleStart: (details) => _transformStart(type, details),
+          onScaleUpdate: (details) => _transformUpdate(type, details),
+          onScaleEnd: (_) => _transformEnd(type),
+          child: RepaintBoundary(
+            child: ValueListenableBuilder<_LiveEdit?>(
+              valueListenable: _live,
+              builder: (context, live, child) =>
+                  Opacity(opacity: live?.type == type ? 0.3 : 1, child: child),
+              child: IgnorePointer(child: card),
+            ),
           ),
         ),
       ),
+    );
+    return CompositedTransformTarget(
+      link: _links.putIfAbsent(type, LayerLink.new),
+      child: cell,
+    );
+  }
+
+  /// Selection frame, handles and the live card of the selected widget,
+  /// drawn above the canvas so handles are fully touchable and the card being
+  /// moved stays on top of the others.
+  Widget _selectionOverlay(BuildContext context) {
+    return ValueListenableBuilder<_LiveEdit?>(
+      valueListenable: _live,
+      builder: (context, live, _) {
+        final type = live?.type ?? _selected;
+        if (type == null || !_draft.shows(type)) {
+          return const SizedBox.shrink();
+        }
+        // Read from the cells, not the render tree: this builds while the
+        // canvas itself may be rebuilding.
+        final gridWidth = _cellScale * gridDesignWidth;
+        final m = _metricsFor(gridWidth);
+        final item = _draft.item(type);
+        final cell = _cellRect(item, m);
+        final rect = live?.rect ?? cell;
+        // NFR-08: about 48 dp on the real screen, whatever the preview scale.
+        final handle = (48 / _previewScale).clamp(28.0, 80.0);
+        final pad = handle;
+        Rect shift(Rect r) => r.shift(Offset(pad, pad));
+        Widget at(Rect r, Widget child, {Key? key}) =>
+            Positioned.fromRect(key: key, rect: shift(r), child: child);
+        // Corners sit mostly outside the widget, leaving its middle free for
+        // dragging.
+        Rect handleAt(Offset point, Alignment side) => Rect.fromCenter(
+          center: point + Offset(side.x, side.y) * handle / 4,
+          width: handle,
+          height: handle,
+        );
+        final children = <Widget>[
+          if (live != null) ...[
+            at(
+              _cellAt(live.x, live.y, live.w, live.h, m),
+              IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: (live.fits ? AppColors.primary : AppColors.danger)
+                        .withValues(alpha: 0.12),
+                    border: Border.all(
+                      color: live.fits ? AppColors.primary : AppColors.danger,
+                      width: 1.5,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ),
+            at(
+              rect,
+              IgnorePointer(
+                child: Opacity(
+                  opacity: 0.92,
+                  child: widgetCell(
+                    type,
+                    lock: _lock,
+                    size: rect.size,
+                    scale: _cellScale,
+                    color: item.color,
+                    textSize: item.textSize,
+                    surface: item.surface,
+                  ),
+                ),
+              ),
+            ),
+          ],
+          at(
+            rect,
+            IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.primary, width: 1.5),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ),
+          if (live == null || _gesturePointers == 0) ...[
+            for (final corner in const [
+              Alignment.topLeft,
+              Alignment.topRight,
+              Alignment.bottomLeft,
+              Alignment.bottomRight,
+            ])
+              at(
+                handleAt(corner.withinRect(rect), corner),
+                key: ValueKey(corner),
+                _ResizeHandle(
+                  onStart: (global) => _beginLive(type, global),
+                  onUpdate: (global) => _resizeTo(type, corner, global),
+                  onEnd: _resizeEnd,
+                  onDown: _fingerDown,
+                  onUp: _fingerUp,
+                ),
+              ),
+            for (final edge in const [
+              Alignment.topCenter,
+              Alignment.bottomCenter,
+              Alignment.centerLeft,
+              Alignment.centerRight,
+            ])
+              // Edges only where they leave room between the corners.
+              if ((edge.x == 0 ? rect.width : rect.height) >= handle * 2.6)
+                at(
+                  handleAt(edge.withinRect(rect), edge),
+                  key: ValueKey(edge),
+                  _EdgeHandle(
+                    vertical: edge.x != 0,
+                    onStart: (global) => _beginLive(type, global),
+                    onUpdate: (global) => _resizeTo(type, edge, global),
+                    onEnd: _resizeEnd,
+                    onDown: _fingerDown,
+                    onUp: _fingerUp,
+                  ),
+                ),
+          ],
+        ];
+        return OverflowBox(
+          alignment: Alignment.topLeft,
+          minWidth: 0,
+          minHeight: 0,
+          maxWidth: double.infinity,
+          maxHeight: double.infinity,
+          child: CompositedTransformFollower(
+            link: _links.putIfAbsent(type, LayerLink.new),
+            showWhenUnlinked: false,
+            offset: -cell.topLeft - Offset(pad, pad),
+            child: SizedBox(
+              width: gridWidth + 2 * pad,
+              height: _draft.rows * m.row - m.gap + 2 * pad,
+              child: Stack(clipBehavior: Clip.none, children: children),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1089,43 +1387,144 @@ class _DragFeedback extends StatelessWidget {
   }
 }
 
+/// Grid spacing in pixels: column pitch, row pitch and gap.
+typedef _Grid = ({double pitch, double row, double gap});
+
+/// A widget under the finger: where it is drawn ([rect], grid pixels) and
+/// the grid cell it will snap to when released.
+class _LiveEdit {
+  const _LiveEdit(
+    this.type,
+    this.rect,
+    this.x,
+    this.y,
+    this.w,
+    this.h, {
+    required this.fits,
+  });
+
+  final String type;
+  final Rect rect;
+  final int x, y, w, h;
+
+  /// False when the cell is taken or off the grid.
+  final bool fits;
+}
+
+/// Shared touch handling of the resize handles. Starts from where the finger
+/// touched down, so the edge does not jump by the drag slop.
+class _HandleGestures extends StatelessWidget {
+  const _HandleGestures({
+    required this.onStart,
+    required this.onUpdate,
+    required this.onEnd,
+    required this.onDown,
+    required this.onUp,
+    required this.child,
+  });
+
+  final ValueChanged<Offset> onStart;
+  final ValueChanged<Offset> onUpdate;
+  final VoidCallback onEnd;
+
+  /// Finger down / up, so the page does not scroll while a handle is held.
+  final ValueChanged<PointerDownEvent> onDown;
+  final ValueChanged<PointerEvent> onUp;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: onDown,
+      onPointerUp: onUp,
+      onPointerCancel: onUp,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        dragStartBehavior: DragStartBehavior.down,
+        onPanStart: (details) => onStart(details.globalPosition),
+        onPanUpdate: (details) => onUpdate(details.globalPosition),
+        onPanEnd: (_) => onEnd(),
+        onPanCancel: onEnd,
+        child: child,
+      ),
+    );
+  }
+}
+
 /// One of the four corner squares of the selected widget.
 class _ResizeHandle extends StatelessWidget {
   const _ResizeHandle({
     required this.onStart,
     required this.onUpdate,
-    required this.onHold,
+    required this.onEnd,
+    required this.onDown,
+    required this.onUp,
   });
 
-  final VoidCallback onStart;
+  final ValueChanged<Offset> onStart;
   final ValueChanged<Offset> onUpdate;
-
-  /// True while the finger is down, so the page does not scroll.
-  final ValueChanged<bool> onHold;
+  final VoidCallback onEnd;
+  final ValueChanged<PointerDownEvent> onDown;
+  final ValueChanged<PointerEvent> onUp;
 
   @override
   Widget build(BuildContext context) {
-    return Listener(
-      onPointerDown: (_) => onHold(true),
-      onPointerUp: (_) => onHold(false),
-      onPointerCancel: (_) => onHold(false),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onPanStart: (_) => onStart(),
-        onPanUpdate: (details) => onUpdate(details.globalPosition),
-        child: SizedBox(
-          width: 28,
-          height: 28,
-          child: Center(
-            child: Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(2),
-                border: Border.all(color: AppColors.primary, width: 1.5),
-              ),
-            ),
+    return _HandleGestures(
+      onStart: onStart,
+      onUpdate: onUpdate,
+      onEnd: onEnd,
+      onDown: onDown,
+      onUp: onUp,
+      child: Center(
+        child: Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(3),
+            border: Border.all(color: AppColors.primary, width: 2),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A bar in the middle of an edge: resizes in one direction only.
+class _EdgeHandle extends StatelessWidget {
+  const _EdgeHandle({
+    required this.vertical,
+    required this.onStart,
+    required this.onUpdate,
+    required this.onEnd,
+    required this.onDown,
+    required this.onUp,
+  });
+
+  /// True for the left and right edges.
+  final bool vertical;
+  final ValueChanged<Offset> onStart;
+  final ValueChanged<Offset> onUpdate;
+  final VoidCallback onEnd;
+  final ValueChanged<PointerDownEvent> onDown;
+  final ValueChanged<PointerEvent> onUp;
+
+  @override
+  Widget build(BuildContext context) {
+    return _HandleGestures(
+      onStart: onStart,
+      onUpdate: onUpdate,
+      onEnd: onEnd,
+      onDown: onDown,
+      onUp: onUp,
+      child: Center(
+        child: Container(
+          width: vertical ? 6 : 22,
+          height: vertical ? 22 : 6,
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(3),
+            border: Border.all(color: AppColors.primary, width: 1.5),
           ),
         ),
       ),

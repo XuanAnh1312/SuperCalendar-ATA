@@ -428,22 +428,36 @@ class LockScheduleCard extends StatelessWidget {
             ? constraints.maxHeight
             : 420.0;
         final scale = MediaQuery.textScalerOf(context).scale(10) / 10;
-        final weekHeight = (height - 6).clamp(0.0, double.infinity) * 0.42;
-        final detailsHeight =
-            (height - 6).clamp(0.0, double.infinity) - weekHeight;
-        final weekRows = ((weekHeight - 40 * scale - 14) / (9 * scale + 7))
+        final usable = (height - 6).clamp(0.0, double.infinity);
+        final weekShare = usable * 0.42;
+        final weekRows = ((weekShare - 40 * scale - 14) / (9 * scale + 7))
             .floor()
             .clamp(0, 3);
+        // The week strip takes only what its rows need; the rest goes to the
+        // list, so the cards fill the cell instead of leaving a gap (FR-19).
+        final weekNeeds = 40 * scale + 14 + weekRows * (9 * scale + 7);
+        final weekHeight = weekNeeds < weekShare ? weekNeeds : weekShare;
+        final detailsHeight = usable - weekHeight;
         final totalDetails = events.length + tasks.length;
-        final detailRows =
-            ((detailsHeight - 16 - 23 * scale) / (14 * scale + 6))
-                .floor()
-                .clamp(0, totalDetails);
-        final shown = totalDetails > detailRows
-            ? (detailRows - 1).clamp(0, detailRows)
-            : detailRows;
-        final shownEvents = events.take(shown).toList();
-        final shownTasks = tasks.take(shown - shownEvents.length);
+        // Fill the list with as many rows as really fit: card padding, the
+        // date row and its gap first, then 28 px per event (24 px color bar)
+        // and one text line per task. "+N" sits in the date row.
+        var room = detailsHeight - 10 - 17 * scale - 4;
+        final shownEvents = <CalendarEvent>[];
+        for (final event in events) {
+          if (room < 28) break;
+          room -= 28;
+          shownEvents.add(event);
+        }
+        final shownTasks = <Task>[];
+        if (shownEvents.length == events.length) {
+          for (final task in tasks) {
+            if (room < 4 + 14 * scale) break;
+            room -= 4 + 14 * scale;
+            shownTasks.add(task);
+          }
+        }
+        final shown = shownEvents.length + shownTasks.length;
         final sections = <Widget>[
           _LockCard(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
@@ -493,7 +507,10 @@ class LockScheduleCard extends StatelessWidget {
                               if (app.settings.lockScreenHideDetails)
                                 Text('${dayEvents.length}', style: AppText.s(8))
                               else if (weekRows == 0 && dayEvents.isNotEmpty)
-                                Text('+${dayEvents.length}', style: AppText.s(7))
+                                Text(
+                                  '+${dayEvents.length}',
+                                  style: AppText.s(7),
+                                )
                               else ...[
                                 for (final event in dayEvents.take(
                                   dayEvents.length > weekRows && weekRows > 0
@@ -652,12 +669,13 @@ class LockScheduleCard extends StatelessWidget {
             ),
           ),
         ];
+        // At least as tall as its slot, so the card reaches the cell's edge.
         Widget boundedCard(double available, Widget child) => SizedBox(
           height: available,
           child: ClipRect(
             child: OverflowBox(
               alignment: Alignment.topCenter,
-              minHeight: 0,
+              minHeight: available,
               maxHeight: double.infinity,
               child: child,
             ),
