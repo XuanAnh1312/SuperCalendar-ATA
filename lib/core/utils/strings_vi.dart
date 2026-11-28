@@ -720,7 +720,7 @@ const viStrings = <String, String>{
   'Soft cards': 'Thẻ mềm',
   'Round 16': 'Bo 16',
   'NEW TEMPLATE': 'MẪU MỚI',
-  'CREATE MORE': 'TẠO THÊM',
+  'EDIT YOUR SCREEN': 'TUỲ CHỈNH MÀN HÌNH',
   'SAVE & APPLY': 'LƯU & ÁP DỤNG',
   'Save & apply': 'Lưu & áp dụng',
   'Save template': 'Lưu mẫu',

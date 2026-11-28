@@ -456,7 +456,12 @@ class QuickNoteWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
-    final text = app.notes.quickText;
+    final text = app.notes.quickText.trimRight();
+    // Append (FR-20.03) adds the newest line at the end; keep it visible.
+    final newline = text.lastIndexOf('\n');
+    final earlier = newline < 0 ? '' : text.substring(0, newline);
+    final latest = newline < 0 ? text : text.substring(newline + 1);
+    final style = AppText.s(11, height: 1.35);
     return AppCard(
       color: CardTint.fill(context, AppColors.yellow),
       borderColor: CardTint.border(context),
@@ -472,11 +477,18 @@ class QuickNoteWidget extends StatelessWidget {
           ),
           if (!compact) ...[
             const SizedBox(height: 7),
+            if (earlier.isNotEmpty)
+              Text(
+                tr(earlier),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: style,
+              ),
             Text(
-              tr(text.isEmpty ? 'Tap to write a note' : text),
+              tr(latest.isEmpty ? 'Tap to write a note' : latest),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: AppText.s(11, height: 1.35),
+              style: style,
             ),
           ],
           const SizedBox(height: 7),

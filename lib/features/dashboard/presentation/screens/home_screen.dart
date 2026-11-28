@@ -118,8 +118,8 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               OutlinedActionButton(
-                icon: LucideIcons.plus,
-                label: 'CREATE MORE',
+                icon: LucideIcons.pencil,
+                label: 'EDIT YOUR SCREEN',
                 onTap: () => _openEditor(context),
               ),
             ],

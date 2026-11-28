@@ -467,7 +467,7 @@ class PrimaryButton extends StatelessWidget {
   }
 }
 
-/// Surface button with a primary outline (`+ CREATE MORE`, `EDIT`).
+/// Surface button with a primary outline (`EDIT YOUR SCREEN`, `EDIT`).
 class OutlinedActionButton extends StatelessWidget {
   const OutlinedActionButton({
     super.key,

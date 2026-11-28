@@ -123,6 +123,28 @@ void main() {
     expect(moved.top - grown.bottom, closeTo(12, 0.01));
     expect(tester.takeException(), isNull);
   });
+  testWidgets('AC-39: Quick Note card keeps the newest appended line visible', (
+    tester,
+  ) async {
+    final app = AppState(store: MemoryDocumentStore());
+    await app.load();
+    addTearDown(app.dispose);
+    app.notes.setQuick(
+      'First line that is long enough to wrap across the small card\n'
+      'Second earlier line\nNewest line from notification',
+    );
+    await tester.pumpWidget(
+      AppScope(
+        state: app,
+        child: const MaterialApp(
+          home: Scaffold(body: SizedBox(width: 172, child: QuickNoteWidget())),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Newest line from notification'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('two fingers resize a canvas widget and Undo restores it', (
     tester,
   ) async {
