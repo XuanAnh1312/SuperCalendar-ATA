@@ -247,7 +247,7 @@ void main() {
     Finder weatherCard() => find
         .ancestor(
           of: find.text('Mostly sunny'),
-          matching: find.byType(LongPressDraggable<String>),
+          matching: find.byKey(const ValueKey('canvas_${WidgetType.weather}')),
         )
         .first;
     await tester.tap(weatherCard());
